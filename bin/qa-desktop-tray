@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [ -d "$ROOT/qadesk" ]; then
-    export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
-else
-    export PYTHONPATH="$ROOT/lib/qa-desktop${PYTHONPATH:+:$PYTHONPATH}"
-fi
-exec python3 -m qadesk.tray "$@"

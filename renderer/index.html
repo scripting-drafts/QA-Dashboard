@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;">
+  <title>QA Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div>
+          <h1>QA Dashboard</h1>
+          <p>Local operations</p>
+        </div>
+      </div>
+      <nav id="nav" aria-label="Dashboard sections">
+        <button data-view="overview" class="active">Overview</button>
+        <button data-view="sentinels">Sentinels</button>
+        <button data-view="malware">Malware Scan</button>
+        <button data-view="siem">SIEM</button>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="connection-dot" class="dot"></span>
+        <span id="sidebar-status">Ready</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h2 id="view-title">Overview</h2>
+          <p id="view-subtitle">All three QA tools in one local dashboard.</p>
+        </div>
+        <div class="top-actions">
+          <button id="refresh">Refresh</button>
+          <button id="settings">Settings</button>
+        </div>
+      </header>
+
+      <div id="toast" class="toast" hidden></div>
+
+      <section id="view-overview" class="view active">
+        <div class="card-grid">
+          <article class="card">
+            <span class="kicker">Monitoring</span>
+            <h3>Sentinels</h3>
+            <p id="overview-sentinels" class="muted">Not loaded yet.</p>
+            <button data-open="sentinels">Open Sentinels</button>
+          </article>
+          <article class="card">
+            <span class="kicker">Detection</span>
+            <h3>Malware Scan</h3>
+            <p id="overview-malware" class="muted">No scan in this session.</p>
+            <button data-open="malware">Open Malware Scan</button>
+          </article>
+          <article class="card">
+            <span class="kicker">Events</span>
+            <h3>SIEM</h3>
+            <p id="overview-siem" class="muted">Not connected yet.</p>
+            <button data-open="siem">Open SIEM</button>
+          </article>
+        </div>
+        <div class="panel">
+          <h3>Quick actions</h3>
+          <div class="toolbar">
+            <button data-action="sentinels-status">Refresh Sentinels</button>
+            <button data-action="siem-refresh">Refresh SIEM</button>
+            <button data-action="malware-focus">Scan a file</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-sentinels" class="view">
+        <div class="toolbar">
+          <button id="sen-refresh">Refresh status</button>
+          <button data-sen="cycle">Run cycle</button>
+          <button data-sen="findings">Findings</button>
+          <button data-sen="logs">Logs</button>
+          <button data-sen="evidence">Build evidence</button>
+          <button id="sen-cancel" class="danger" disabled>Stop</button>
+        </div>
+        <div id="sen-status" class="status-grid">
+          <p class="muted">Refresh to read sentinel status.</p>
+        </div>
+        <div class="panel">
+          <h3>Output</h3>
+          <pre id="sen-output" class="console"></pre>
+        </div>
+      </section>
+
+      <section id="view-malware" class="view">
+        <div class="panel">
+          <div class="path-row">
+            <input id="mal-path" type="text" placeholder="File or folder to scan">
+            <button id="mal-folder">Folder…</button>
+            <button id="mal-file">File…</button>
+          </div>
+          <div class="check-grid">
+            <label><input id="mal-all" type="checkbox" checked> Scan every regular file</label>
+            <label><input id="mal-deep" type="checkbox"> Deep scan middle of large files</label>
+            <label><input id="mal-quarantine" type="checkbox"> Quarantine infected files</label>
+            <label><input id="mal-steg" type="checkbox"> Enable LSB steganalysis</label>
+          </div>
+          <details class="details">
+            <summary>External engines</summary>
+            <div class="check-grid">
+              <label>ClamAV <input id="mal-clamav" type="text" placeholder="auto, clamdscan, or empty"></label>
+              <label>YARA <input id="mal-yara" type="text" placeholder="yara executable"></label>
+              <label>YARA rules <input id="mal-yara-rules" type="text" placeholder="rules file"></label>
+            </div>
+          </details>
+          <div class="toolbar">
+            <button id="mal-start">Start scan</button>
+            <button id="mal-stop" class="danger" disabled>Stop</button>
+            <button id="mal-list">Quarantine list</button>
+          </div>
+        </div>
+        <div class="summary-grid" id="mal-summary">
+          <div class="metric"><span>Scanned</span><strong data-mal="scanned">-</strong></div>
+          <div class="metric"><span>Clean</span><strong data-mal="clean">-</strong></div>
+          <div class="metric"><span>Suspicious</span><strong data-mal="suspicious">-</strong></div>
+          <div class="metric"><span>Infected</span><strong data-mal="infected">-</strong></div>
+          <div class="metric"><span>Errors</span><strong data-mal="errors">-</strong></div>
+          <div class="metric"><span>Partial</span><strong data-mal="partial">-</strong></div>
+          <div class="metric"><span>Seconds</span><strong data-mal="seconds">-</strong></div>
+        </div>
+        <div class="panel">
+          <h3>Findings</h3>
+          <div id="mal-findings" class="findings">
+            <p class="muted">No findings yet.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Raw output</h3>
+          <pre id="mal-output" class="console"></pre>
+        </div>
+      </section>
+
+      <section id="view-siem" class="view">
+        <div class="toolbar">
+          <button id="siem-refresh">Refresh</button>
+          <button id="siem-open">Open dashboard</button>
+        </div>
+        <div id="siem-status" class="status-grid">
+          <p class="muted">Connect to read SIEM state.</p>
+        </div>
+        <div class="panel">
+          <h3>Open alerts</h3>
+          <div id="siem-alerts" class="list"><p class="muted">No alerts loaded.</p></div>
+        </div>
+        <div class="panel">
+          <h3>Recent events</h3>
+          <div id="siem-events" class="list"><p class="muted">No events loaded.</p></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="settings-dialog">
+    <form method="dialog" id="settings-form">
+      <h2>Settings</h2>
+      <label>Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect"></label>
+      <label>Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
+      <label>Malware Scan command <input id="set-malware-bin" type="text" placeholder="auto-detect"></label>
+      <label>SIEM URL <input id="set-siem-url" type="text"></label>
+      <label>SIEM token file <input id="set-siem-token" type="text"></label>
+      <p id="settings-resolved" class="muted"></p>
+      <div class="dialog-actions">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button id="settings-save" value="default" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

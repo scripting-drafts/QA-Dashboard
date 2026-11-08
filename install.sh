@@ -2,39 +2,43 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX="${PREFIX:-$HOME/.local}"
-LIB="$PREFIX/lib/qa-desktop"
-BIN="$PREFIX/bin/qa-desktop"
-BIN_TRAY="$PREFIX/bin/qa-desktop-tray"
+LIB="$PREFIX/lib/qa-dashboard"
+BIN="$PREFIX/bin/qa-dashboard"
 APPS="$PREFIX/share/applications"
-DOC="$PREFIX/share/doc/qa-desktop"
+DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 
-if ! python3 - <<'PY' >/dev/null 2>&1
-import gi
-gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk  # noqa: F401
-PY
-then
-    echo "QA Desktop requires Python 3 and PyGObject with GTK 4." >&2
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+    echo "QA Dashboard requires Node.js and npm." >&2
     exit 1
 fi
 
+# Stop the previous Python tray/app and the previous Electron instance.
+ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk.tray" {print $1}' \
+    | xargs -r kill 2>/dev/null || true
+ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk" {print $1}' \
+    | xargs -r kill 2>/dev/null || true
+ps -eo pid=,args= | awk -v app="$LIB" 'index($0, app) && $0 ~ /electron/ && $0 !~ /awk/ {print $1}' \
+    | xargs -r kill 2>/dev/null || true
+sleep 1
+
 install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$DOC" "$AUTOSTART"
-# Remove icons from the previous custom-branding build.
-rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
-      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg"
-if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-    gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+rm -rf "$LIB/electron" "$LIB/renderer" "$LIB/assets" "$LIB/node_modules"
+cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$LIB/"
+install -m 0644 "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
+if [ -d "$ROOT/node_modules/electron" ]; then
+    cp -a "$ROOT/node_modules" "$LIB/"
+else
+    (cd "$LIB" && npm ci --no-audit --no-fund >/dev/null)
 fi
-rm -rf "$LIB/qadesk"
-cp -a "$ROOT/qadesk" "$LIB/"
-find "$LIB" -type d -name __pycache__ -prune -exec rm -rf {} +
-python3 -m compileall -q "$LIB/qadesk"
-install -m 0755 "$ROOT/bin/qa-desktop" "$BIN"
-install -m 0755 "$ROOT/bin/qa-desktop-tray" "$BIN_TRAY"
+install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
 install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" "$DOC/"
 
-# Per-app standalone launchers; no suite entry.
+# Remove the old GTK/Python launchers and menu entries.
+rm -f "$PREFIX/bin/qa-desktop" "$PREFIX/bin/qa-desktop-tray"
+rm -rf "$PREFIX/lib/qa-desktop" "$PREFIX/share/doc/qa-desktop"
+rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
+      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg"
 rm -f "$APPS/qa-desktop.desktop" "$APPS/qa-sentinels.desktop" \
       "$APPS/qa-malware-scan.desktop" "$APPS/qa-siem.desktop"
 
@@ -45,12 +49,12 @@ write_desktop() {
 Type=Application
 Name=$title
 Comment=$comment
-Exec="$BIN" --module $module
+Exec="$BIN" --module=$module
 Icon=$icon
 Terminal=false
 Categories=System;Security;Monitor;
 StartupNotify=true
-StartupWMClass=org.scriptingdrafts.QADesktop
+StartupWMClass=qa-dashboard
 EOF
     chmod 0644 "$APPS/$file.desktop"
 }
@@ -64,43 +68,35 @@ write_desktop qa-malware-scan "Malware Scan" \
 write_desktop qa-siem "QA SIEM" \
     "Local QA SIEM dashboard and alerts" "siem" "network-server"
 
-if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database "$APPS" >/dev/null 2>&1 || true
-fi
-
-cat > "$AUTOSTART/qa-desktop-tray.desktop" <<EOF
+rm -f "$AUTOSTART/qa-desktop-tray.desktop"
+cat > "$AUTOSTART/qa-dashboard-tray.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=QA Desktop tray
-Comment=Top-bar access to QA Desktop modules
-Exec="$BIN_TRAY"
-Icon=security-high
+Name=QA Dashboard tray
+Comment=Monochrome QA Dashboard access
+Exec="$BIN" --tray
+Icon=utilities-system-monitor
 Terminal=false
 NoDisplay=true
 Hidden=false
 X-GNOME-Autostart-enabled=true
 OnlyShowIn=GNOME;
 EOF
-chmod 0644 "$AUTOSTART/qa-desktop-tray.desktop"
+chmod 0644 "$AUTOSTART/qa-dashboard-tray.desktop"
 
-if command -v gnome-extensions >/dev/null 2>&1; then
-    gnome-extensions enable ubuntu-appindicators@ubuntu.com >/dev/null 2>&1 || true
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$APPS" >/dev/null 2>&1 || true
 fi
 
-# Restart any running tray so the new icon and menu are loaded.
-ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk.tray" {print $1}' \
-    | xargs -r kill 2>/dev/null || true
-sleep 1
 if command -v setsid >/dev/null 2>&1; then
-    setsid "$BIN_TRAY" >/dev/null 2>&1 &
+    setsid "$BIN" --tray >/dev/null 2>&1 &
 else
-    nohup "$BIN_TRAY" >/dev/null 2>&1 &
+    nohup "$BIN" --tray >/dev/null 2>&1 &
 fi
 
 cat <<EOF
-Installed QA Desktop tray access to $PREFIX
-  app launcher : $BIN
-  tray launcher: $BIN_TRAY
-  autostart    : $AUTOSTART/qa-desktop-tray.desktop
-  access       : top-bar tray icon (menu opens the three apps)
+Installed QA Dashboard to $PREFIX
+  launcher : $BIN
+  autostart: $AUTOSTART/qa-dashboard-tray.desktop
+  access   : monochrome top-bar tray icon (dashboard and three apps)
 EOF

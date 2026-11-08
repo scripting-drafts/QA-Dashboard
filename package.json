@@ -1,0 +1,14 @@
+{
+  "name": "qa-dashboard",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Electron dashboard for QA Sentinels, Malware Scan, and QA SIEM",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "electron": "^45.2.3"
+  }
+}

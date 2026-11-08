@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -d "$ROOT/electron" ]; then
+    APP_DIR="$ROOT"
+else
+    APP_DIR="$ROOT/lib/qa-dashboard"
+fi
+exec "$APP_DIR/node_modules/.bin/electron" "$APP_DIR" "$@"

@@ -1,54 +1,63 @@
 # Architecture
 
-QA Desktop is a GTK4 shell with a small module contract. It does not embed the
-engines or change their storage formats.
+QA Dashboard is an Electron application with a narrow IPC boundary. The three
+engines stay independent: the dashboard only invokes their CLI or local API.
 
-## Boundaries
+## Process boundaries
 
-| Module | Integration | Privilege |
-| --- | --- | --- |
-| Sentinels | Executes the existing `qa` CLI | Same user as the shell |
-| Malware Scan | Executes `malware-scan scan --json` and `list` | Same user as the shell |
-| SIEM | Calls the loopback HTTP API with a bearer token | Read-only file access to the token |
+| Layer | Responsibility |
+| --- | --- |
+| Main process (`electron/main.js`) | Window, monochrome tray icon, IPC, child processes, local SIEM HTTP |
+| Backend (`electron/backend.js`) | Config resolution, fixed argv builders, streaming, HTTP |
+| Preload (`electron/preload.js`) | Minimal `contextBridge` API; no Node in the renderer |
+| Renderer (`renderer/`) | Single dashboard with Overview, Sentinels, Malware Scan, SIEM |
 
-Commands are built as argument vectors and started with `subprocess.Popen`
-without a shell. Output is streamed on a worker thread and delivered to GTK
-through `GLib.idle_add`. A module can stop its child process group.
+The renderer has `nodeIntegration: false`, `contextIsolation: true`, and
+`sandbox: true`. It never receives the SIEM bearer token; HTTP requests are made
+in the main process.
 
-## Module contract
+## Sentinels
 
-Each module subclasses `qadesk.ui.base.ModulePage` and provides:
+The main process resolves `qa` and its repository root, then runs fixed actions:
+`status`, `cycle`, `findings`, `logs`, and `evidence`. Output streams to the
+renderer over `event` messages. Arbitrary commands are not exposed.
 
-- a stable `id`, `title`, `icon`, and description;
-- a GTK page built in its constructor;
-- `refresh()` for an explicit user refresh;
-- `shutdown()` to stop workers and child processes.
+## Malware Scan
 
-`qadesk.modules.MODULE_CLASSES` is the registry used by the shell. Each
-`--module` launcher creates a single-module window without the suite sidebar.
-The three per-app desktop entries are the standalone access points; the tray
-menu lists the same three modules, and there is no suite entry.
+The renderer sends scan options. The backend builds an argument vector with
+`--json`, `--fail-on none`, and a final `--` before the target. Child output is
+streamed line by line; the renderer parses JSONL findings and summaries. Process
+groups are terminated on Stop.
 
-## Tray integration
+## SIEM
 
-`qadesk.tray` exports a minimal StatusNotifierItem and DBusMenu on the session
-bus under the fixed name `org.scriptingdrafts.QADesktopTray`. It registers with
-`org.kde.StatusNotifierWatcher`, using the Ubuntu AppIndicators extension for
-the top-bar presentation. A friendly blue check glyph is used as the panel
-icon. `install.sh` installs the tray launcher, writes a `NoDisplay` autostart
-entry, enables the AppIndicators extension, and installs the three per-app
-launchers without a suite entry.
+`electron/backend.js` reads the token file and requests `/healthz`,
+`/api/v1/stats`, `/api/v1/alerts`, and `/api/v1/events`. Alert acknowledgement
+posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
+`shell.openExternal`.
+
+## Tray and launchers
+
+The tray uses a monochrome three-tile dashboard glyph. Its menu opens the
+unified dashboard or a specific module; it intentionally has no Quit item.
+Closing the window hides it to the tray. A single-instance lock focuses the
+existing dashboard.
+
+Per-app `.desktop` files call `qa-dashboard --module=sentinels`,
+`--module=malware`, or `--module=siem`. There is no separate QA Dashboard suite
+desktop entry; the tray is the unified entry point.
 
 ## Configuration
 
 `~/.config/qa-desktop/config.json` stores command overrides, repository roots,
-the SIEM URL, token-file path, and enabled modules. Defaults are discovered from
-environment variables, `PATH`, and the standard local install locations.
-Bearer tokens are never written to this configuration.
+the SIEM URL, and token-file path. It is written mode `0600`. Tokens are read at
+request time and are never written to this file or exposed to the renderer.
 
-## Extension checklist
+## Testing
 
-1. Add a `ModulePage` subclass.
-2. Register it in `qadesk/modules/__init__.py`.
-3. Add a tray menu action in `qadesk/tray.py` if the module needs direct access.
-4. Keep all external calls shell-free and all UI updates on the GTK thread.
+`npm test` covers argument construction, status parsing, config permissions, and
+the HTTP client. Electron smoke screenshots can be produced with:
+
+```bash
+npm start -- --module=overview --screenshot=/tmp/qa-dashboard.png
+```

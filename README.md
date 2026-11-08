@@ -1,10 +1,10 @@
-# QA Desktop
-Modular GTK4 desktop applications for **Quality Assurance Sentinels**, **Malware Scan**, and **QA SIEM**.
-Per-app launchers open one module without the suite sidebar: QA Sentinels, Malware Scan, QA SIEM.
-A small friendly top-bar tray icon lists the same three apps: SIEM, Sentinels, Malware Scan.
-Install with `./install.sh`; it enables the Ubuntu AppIndicators extension and registers an autostart tray.
-Each app drives the existing CLI or local HTTP API; engines and data formats stay unchanged.
-Sentinels runs `qa status`, `cycle`, `findings`, `logs`, and `evidence`.
-Malware Scan streams JSONL findings, supports optional ClamAV/YARA, and can quarantine.
-SIEM reads health, stats, alerts, and events; alert acknowledgement uses the protected token file.
-Settings override auto-detected commands, repository paths, SIEM URL, and token path.
+# QA Dashboard
+Electron dashboard for **QA Sentinels**, **Malware Scan**, and **QA SIEM** in one window with an Overview and module views.
+A monochrome dashboard tray icon opens the unified QA Dashboard.
+Per-app launchers open the same dashboard focused on Sentinels, Malware Scan, or SIEM.
+Install with `./install.sh`; it installs Electron locally and registers the tray autostart.
+The tray menu has no Quit option; close the window to keep the dashboard in the tray.
+Sentinels runs the existing `qa` CLI and streams status, findings, logs, and evidence output.
+Malware Scan streams JSONL findings, coverage metrics, optional ClamAV/YARA, and quarantine data.
+SIEM reads health, alerts, and events through the protected local API token.
+Requires Node.js, npm, and the existing QA tools; settings override auto-detected paths.

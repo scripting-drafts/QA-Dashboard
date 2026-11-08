@@ -1,5 +1,0 @@
-"""QA Desktop modular desktop suite."""
-
-from .core import APP_VERSION
-
-__all__ = ["APP_VERSION"]
