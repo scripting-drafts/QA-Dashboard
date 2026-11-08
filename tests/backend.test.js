@@ -38,8 +38,9 @@ test("malware target is required", () => {
 test("sentinels actions map to fixed argv", () => {
   assert.deepEqual(backend.sentinelsArgs("status"), ["status"]);
   assert.deepEqual(backend.sentinelsArgs("logs"),
-    ["logs", "--lines", "300"]);
+    ["logs", "--all-layers", "--follow", "--lines", "300", "--no-color"]);
   assert.throws(() => backend.sentinelsArgs("rm -rf /"), /unknown/);
+  assert.throws(() => backend.sentinelsArgs("evidence"), /unknown/);
 });
 
 test("status output parses colon-delimited values", () => {

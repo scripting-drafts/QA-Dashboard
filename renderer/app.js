@@ -5,7 +5,8 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
   overview: ["QA Dashboard", "All three QA tools in one local dashboard."],
-  sentinels: ["Sentinels", "Monitoring, findings, logs and evidence bundles."],
+  sentinels: ["Sentinels", "Monitoring, findings and live logs."],
+  logs: ["Sentinels Logs", "Live sentinel log stream."],
   malware: ["Malware Scan", "Bounded scanning with live findings and coverage status."],
   siem: ["SIEM", "Health, alerts and events from the local QA SIEM API."],
 };
@@ -20,6 +21,7 @@ let config = null;
 let currentView = "overview";
 let sentinelsBusy = false;
 let sentinelsAction = "";
+let logsRunning = false;
 let malwareBusy = false;
 let malwareFindings = 0;
 let toastTimer = null;
@@ -91,7 +93,6 @@ function setView(view) {
   document.body.classList.toggle("overview-mode", view === "overview");
   $("#view-title").textContent = title;
   $("#view-subtitle").textContent = subtitle;
-  $("#overview").hidden = view === "overview";
 }
 
 function overviewText(values) {
@@ -116,12 +117,6 @@ async function loadSentinelsStatus() {
     }
     statusGrid($("#sen-status"), entries);
     $("#overview-sentinels").textContent = overviewText(values);
-    if (result.output) {
-      $("#sen-output").textContent = "";
-      for (const line of result.output.split(/\r?\n/)) {
-        if (line) append($("#sen-output"), line);
-      }
-    }
     setConnection("ok", "Sentinels ready");
   } catch (error) {
     setConnection("error", "Sentinels unavailable");
@@ -140,13 +135,29 @@ async function runSentinels(action) {
   if (sentinelsBusy) return;
   sentinelsAction = action;
   setSentinelsBusy(true);
-  $("#sen-output").textContent = "";
-  append($("#sen-output"), `$ qa ${action}`);
   try {
     await window.qa.sentinels.run(action);
   } catch (error) {
     setSentinelsBusy(false);
     toast(String(error.message || error), true);
+  }
+}
+
+async function startSentinelLogs() {
+  if (logsRunning) return;
+  const output = $("#logs-output");
+  if (!output) return;
+  logsRunning = true;
+  output.textContent = "";
+  append(output, "$ qa logs --all-layers --follow");
+  setConnection("ok", "Live logs");
+  try {
+    const result = await window.qa.sentinels.logsStart();
+    if (!result.started) append(output, "log stream already running");
+  } catch (error) {
+    logsRunning = false;
+    setConnection("error", "Logs unavailable");
+    append(output, `error: ${error.message || error}`);
   }
 }
 
@@ -395,7 +406,7 @@ async function openSettings() {
 }
 
 async function saveSettings(event) {
-  event.preventDefault();
+  if (event) event.preventDefault();
   try {
     config = await window.qa.saveConfig({
       sentinelsBin: $("#set-sentinels-bin").value,
@@ -420,6 +431,13 @@ function refreshCurrent() {
     loadSentinelsStatus();
   } else if (currentView === "siem") {
     loadSiem();
+  } else if (currentView === "logs") {
+    if (logsRunning) {
+      const output = $("#logs-output");
+      output.scrollTop = output.scrollHeight;
+    } else {
+      startSentinelLogs();
+    }
   } else {
     $("#mal-path").focus();
   }
@@ -429,18 +447,20 @@ function bind() {
   $$("[data-open]").forEach((button) => {
     button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
   });
-  $("#overview").addEventListener("click", () => window.qa.openModule("overview"));
   $("#refresh").addEventListener("click", refreshCurrent);
   $("#settings").addEventListener("click", openSettings);
-  $("#settings-form").addEventListener("submit", saveSettings);
+  $("#settings-form").addEventListener("submit", (event) => event.preventDefault());
+  $("#settings-save").addEventListener("click", saveSettings);
+  $("#settings-cancel").addEventListener("click", () => $("#settings-dialog").close());
 
   $("#sen-refresh").addEventListener("click", loadSentinelsStatus);
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
+  $("#sen-logs").addEventListener("click", () => window.qa.openModule("logs"));
   $("#sen-cancel").addEventListener("click", async () => {
     await window.qa.sentinels.cancel();
-    append($("#sen-output"), "stop requested");
+    toast("Stop requested.");
   });
 
   $("#mal-start").addEventListener("click", startMalware);
@@ -476,12 +496,20 @@ function bind() {
 
   window.qa.onEvent((payload) => {
     if (payload.scope === "sentinels") {
-      if (payload.type === "line") append($("#sen-output"), payload.line);
+      if (payload.type === "line" && currentView === "logs") {
+        append($("#logs-output"), payload.line);
+      }
       if (payload.type === "done") {
-        setSentinelsBusy(false);
-        append($("#sen-output"), `exit ${payload.code}`);
-        if (["cycle", "evidence", "findings"].includes(sentinelsAction)) {
-          loadSentinelsStatus();
+        if (currentView === "logs") {
+          logsRunning = false;
+          append($("#logs-output"), `stream ended (exit ${payload.code})`);
+          setConnection(payload.code === 0 ? "" : "error", "Logs ended");
+        } else {
+          setSentinelsBusy(false);
+          toast(`Sentinel command finished (exit ${payload.code}).`, payload.code !== 0);
+          if (["cycle", "findings"].includes(sentinelsAction)) {
+            loadSentinelsStatus();
+          }
         }
       }
     }
@@ -521,6 +549,8 @@ async function init() {
     loadSentinelsStatus();
   } else if (initial === "siem") {
     loadSiem();
+  } else if (initial === "logs") {
+    startSentinelLogs();
   }
 }
 

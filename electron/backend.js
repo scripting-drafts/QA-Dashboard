@@ -180,9 +180,8 @@ function sentinelsArgs(action) {
     case "status": return ["status"];
     case "cycle": return ["cycle"];
     case "findings": return ["findings"];
-    case "logs": return ["logs", "--lines", "300"];
-    case "evidence": return [
-      "evidence", "--reason", "QA Dashboard request", "--hours", "24",
+    case "logs": return [
+      "logs", "--all-layers", "--follow", "--lines", "300", "--no-color",
     ];
     default: throw new Error("unknown sentinels action");
   }

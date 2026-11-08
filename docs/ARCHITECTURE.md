@@ -25,8 +25,10 @@ own primary and secondary action, so there is no separate quick-actions panel.
 ## Sentinels
 
 The main process resolves `qa` and its repository root, then runs fixed actions:
-`status`, `cycle`, `findings`, `logs`, and `evidence`. Output streams to the
-renderer over `event` messages. Arbitrary commands are not exposed.
+`status`, `cycle`, and `findings`. The Logs button opens a dedicated window
+that runs `qa logs --all-layers --follow`, so the stream follows file rotation
+continuously. Output streams to that window over `event` messages. Arbitrary
+commands are not exposed.
 
 ## Malware Scan
 

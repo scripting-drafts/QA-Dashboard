@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("qa", {
     status: () => ipcRenderer.invoke("sentinels:status"),
     run: (action) => ipcRenderer.invoke("sentinels:run", action),
     cancel: () => ipcRenderer.invoke("sentinels:cancel"),
+    logsStart: () => ipcRenderer.invoke("sentinels:logs"),
+    logsStop: () => ipcRenderer.invoke("sentinels:stopLogs"),
   },
   malware: {
     scan: (options) => ipcRenderer.invoke("malware:scan", options),

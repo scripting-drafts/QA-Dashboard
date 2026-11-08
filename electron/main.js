@@ -9,12 +9,13 @@ const {
 const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
-const MODULES = new Set(["overview", "sentinels", "malware", "siem"]);
+const MODULES = new Set(["overview", "sentinels", "logs", "malware", "siem"]);
 const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
   sentinels: "QA Sentinels",
+  logs: "Sentinels Logs",
   malware: "Malware Scan",
   siem: "QA SIEM",
 };
@@ -22,12 +23,14 @@ const WINDOW_TITLES = {
 const WINDOW_SIZES = {
   overview: { width: 980, height: 640 },
   sentinels: { width: 1020, height: 760 },
+  logs: { width: 980, height: 680 },
   malware: { width: 1080, height: 820 },
   siem: { width: 1080, height: 820 },
 };
 
 const windows = new Map();
 let activeSentinels = null;
+let activeLogs = null;
 let activeMalware = null;
 let startupModule = "overview";
 let screenshotPath = "";
@@ -101,6 +104,10 @@ function createWindow(module = "overview", show = true) {
   window.on("closed", () => {
     windows.delete(module);
     if (module === "sentinels") backend.cancelProcess(activeSentinels);
+    if (module === "logs") {
+      backend.cancelProcess(activeLogs);
+      activeLogs = null;
+    }
     if (module === "malware") backend.cancelProcess(activeMalware);
   });
   window.webContents.setWindowOpenHandler(({ url: target }) => {
@@ -180,11 +187,15 @@ function registerIpc() {
 
   ipcMain.handle("sentinels:run", async (event, action) => {
     if (activeSentinels) throw new Error("a sentinel command is already running");
+    const name = String(action || "");
+    if (!["cycle", "findings"].includes(name)) {
+      throw new Error("unsupported sentinels action");
+    }
     const cfg = backend.loadConfig();
     const binary = backend.resolveSentinelsBin(cfg);
     if (!binary) throw new Error("qa command not found");
     const root = backend.resolveSentinelsRoot(cfg);
-    const args = backend.sentinelsArgs(String(action || ""));
+    const args = backend.sentinelsArgs(name);
     const sender = event.sender;
     activeSentinels = backend.startStream(binary, args, {
       cwd: root || undefined,
@@ -201,6 +212,31 @@ function registerIpc() {
   ipcMain.handle("sentinels:cancel", () => {
     backend.cancelProcess(activeSentinels);
     activeSentinels = null;
+    return true;
+  });
+
+  ipcMain.handle("sentinels:logs", async (event) => {
+    if (activeLogs) return { started: false };
+    const cfg = backend.loadConfig();
+    const binary = backend.resolveSentinelsBin(cfg);
+    if (!binary) throw new Error("qa command not found");
+    const root = backend.resolveSentinelsRoot(cfg);
+    const sender = event.sender;
+    activeLogs = backend.startStream(binary, backend.sentinelsArgs("logs"), {
+      cwd: root || undefined,
+      env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
+      onLine: (line) => sendEvent(sender, { scope: "sentinels", type: "line", line }),
+      onDone: (code) => {
+        activeLogs = null;
+        sendEvent(sender, { scope: "sentinels", type: "done", code });
+      },
+    });
+    return { started: Boolean(activeLogs) };
+  });
+
+  ipcMain.handle("sentinels:stopLogs", () => {
+    backend.cancelProcess(activeLogs);
+    activeLogs = null;
     return true;
   });
 
@@ -303,6 +339,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
 
   app.on("before-quit", () => {
     backend.cancelProcess(activeSentinels);
+    backend.cancelProcess(activeLogs);
     backend.cancelProcess(activeMalware);
   });
 }

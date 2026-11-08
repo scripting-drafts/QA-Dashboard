@@ -140,6 +140,13 @@ body.overview-mode .topbar-title .brand-mark {
 
 body.overview-mode .topbar h2 { font-size: 28px; }
 body.overview-mode .top-actions { justify-content: center; }
+body.overview-mode .status-pill { display: none; }
+
+.logs-panel { margin-bottom: 0; }
+.logs-panel .console {
+  min-height: calc(100vh - 210px);
+  max-height: calc(100vh - 210px);
+}
 
 .topbar-title {
   display: flex;
