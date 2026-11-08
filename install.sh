@@ -62,7 +62,7 @@ Exec="$BIN" --module=$module
 Icon=$icon
 Terminal=false
 Categories=System;Security;Monitor;
-StartupNotify=true
+StartupNotify=false
 StartupWMClass=qa-dashboard
 EOF
     chmod 0644 "$APPS/$file.desktop"

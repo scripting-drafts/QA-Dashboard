@@ -31,6 +31,8 @@ let activeSentinels = null;
 let activeMalware = null;
 let startupModule = "overview";
 let screenshotPath = "";
+let allMinimized = false;
+let lastLaunchAt = 0;
 
 function parseArgs(argv) {
   let module = "overview";
@@ -111,6 +113,18 @@ function createWindow(module = "overview", show = true) {
       if (/^https?:\/\//i.test(target)) shell.openExternal(target);
     }
   });
+  window.on("minimize", () => {
+    const open = Array.from(windows.values()).filter((win) => !win.isDestroyed());
+    allMinimized = open.length > 0 && open.every((win) => win.isMinimized());
+  });
+  window.on("restore", () => {
+    if (!allMinimized) return;
+    allMinimized = false;
+    if (Date.now() - lastLaunchAt < 1500) return;
+    setTimeout(() => {
+      if (Date.now() - lastLaunchAt >= 1500) showWindow("overview");
+    }, 150);
+  });
   windows.set(module, window);
   return window;
 }
@@ -121,7 +135,7 @@ function showWindow(module = "overview") {
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
-  window.moveTop();
+  allMinimized = false;
   return window;
 }
 
@@ -261,6 +275,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
   Menu.setApplicationMenu(null);
 
   app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
+    lastLaunchAt = Date.now();
     const next = (additionalData && additionalData.module)
       || parseArgs(argv.slice(1)).module;
     showWindow(next || "overview");

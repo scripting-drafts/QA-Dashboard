@@ -52,7 +52,10 @@ standalone module buttons.
 
 All launches share one Electron instance. A second launch forwards its module
 argument to the running process; an existing window is restored and focused,
-otherwise it is created. Closing all windows exits the process, so the next
+otherwise it is created. When the app is restored after a full minimize, it
+brings the Dashboard forward unless the restore came from a module launcher.
+Desktop entries set `StartupNotify=false` so single-instance handoff cannot
+leave a stuck busy pointer. Closing all windows exits the process, so the next
 launcher click starts a fresh instance.
 
 The brand mark is a near-closed ouroboros ring with a rounded head, a cut-out
