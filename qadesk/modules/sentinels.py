@@ -12,7 +12,7 @@ from ..ui.base import ModulePage
 class SentinelsModule(ModulePage):
     id = "sentinels"
     title = "Sentinels"
-    icon = "utilities-system-monitor-symbolic"
+    icon = "utilities-system-monitor"
     description = "Routine evidence collection, findings, logs and evidence bundles."
 
     STATUS_KEYS = (
@@ -34,7 +34,6 @@ class SentinelsModule(ModulePage):
         self.status_box.append(Gtk.Label(
             label="Refresh to read the current sentinel status.", xalign=0))
         self.status_card.append(self.status_box)
-        self.append(self.status_card)
 
         self.refresh_button = self.action_button(
             "Refresh status", self.refresh, "Run qa status")
@@ -70,6 +69,7 @@ class SentinelsModule(ModulePage):
         activity.append(self.spinner)
         activity.append(self.status_label)
         self.append(activity)
+        self.append(self.status_card)
 
         self.output_expander = Gtk.Expander(label="Command output")
         self.output_scroller, self.output_view = self.make_output(200)

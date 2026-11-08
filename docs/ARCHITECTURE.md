@@ -35,6 +35,12 @@ the SIEM URL, token-file path, and enabled modules. Defaults are discovered from
 environment variables, `PATH`, and the standard local install locations.
 Bearer tokens are never written to this configuration.
 
+## Branding
+
+Custom SVG icons live under `data/icons/hicolor/scalable/apps/`. The installer
+copies them into the user icon theme and the desktop entries reference the named
+icons; the runtime adds the source and install icon roots to the GTK icon theme.
+
 ## Extension checklist
 
 1. Add a `ModulePage` subclass.

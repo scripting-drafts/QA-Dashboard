@@ -6,6 +6,7 @@ LIB="$PREFIX/lib/qa-desktop"
 BIN="$PREFIX/bin/qa-desktop"
 APPS="$PREFIX/share/applications"
 DOC="$PREFIX/share/doc/qa-desktop"
+ICONS="$PREFIX/share/icons/hicolor/scalable/apps"
 
 if ! python3 - <<'PY' >/dev/null 2>&1
 import gi
@@ -17,13 +18,14 @@ then
     exit 1
 fi
 
-install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$DOC"
+install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$DOC" "$ICONS"
 rm -rf "$LIB/qadesk"
 cp -a "$ROOT/qadesk" "$LIB/"
 find "$LIB" -type d -name __pycache__ -prune -exec rm -rf {} +
 python3 -m compileall -q "$LIB/qadesk"
 install -m 0755 "$ROOT/bin/qa-desktop" "$BIN"
 install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" "$DOC/"
+install -m 0644 "$ROOT/data/icons/hicolor/scalable/apps/"*.svg "$ICONS/"
 
 write_desktop() {
     local file=$1 title=$2 comment=$3 module=$4 icon=$5
@@ -49,18 +51,21 @@ EOF
 }
 
 write_desktop qa-desktop "QA Desktop" \
-    "Modular QA suite" "" "applications-system"
+    "Modular QA suite" "" "qa-desktop"
 write_desktop qa-sentinels "QA Sentinels" \
     "Evidence collection and failure correlation" "sentinels" \
     "utilities-system-monitor"
 write_desktop qa-malware-scan "Malware Scan" \
     "Scan files and folders for malware indicators" "malware" \
-    "security-high"
+    "qa-malware-scan"
 write_desktop qa-siem "QA SIEM" \
     "Local QA SIEM dashboard and alerts" "siem" "network-server"
 
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPS" >/dev/null 2>&1 || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
 fi
 
 cat <<EOF

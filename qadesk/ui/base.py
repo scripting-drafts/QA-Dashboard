@@ -125,14 +125,22 @@ class ModulePage(Gtk.Box):
         self._buttons: list[Gtk.Button] = []
 
     def add_heading(self, subtitle: str = "") -> Gtk.Label:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        icon = Gtk.Image.new_from_icon_name(self.icon)
+        icon.set_pixel_size(44)
+        icon.set_valign(Gtk.Align.START)
+        row.append(icon)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         title = Gtk.Label(label=self.title, xalign=0)
         title.add_css_class("h1")
-        self.append(title)
+        text.append(title)
         if subtitle:
             label = Gtk.Label(label=subtitle, xalign=0)
             label.set_wrap(True)
             label.add_css_class("dim")
-            self.append(label)
+            text.append(label)
+        row.append(text)
+        self.append(row)
         return title
 
     def section_label(self, text: str) -> Gtk.Label:
@@ -154,15 +162,11 @@ class ModulePage(Gtk.Box):
         self._buttons.append(button)
         return button
 
-    def action_row(self, *buttons: Gtk.Widget) -> Gtk.FlowBox:
-        row = Gtk.FlowBox()
-        row.set_selection_mode(Gtk.SelectionMode.NONE)
-        row.set_column_spacing(8)
-        row.set_row_spacing(8)
-        row.set_max_children_per_line(8)
+    def action_row(self, *buttons: Gtk.Widget) -> Gtk.Grid:
+        row = Gtk.Grid(column_spacing=8, row_spacing=8)
         row.set_halign(Gtk.Align.START)
-        for button in buttons:
-            row.append(button)
+        for index, button in enumerate(buttons):
+            row.attach(button, index % 4, index // 4, 1, 1)
         return row
 
     def make_output(self, min_height: int = 160) -> tuple[Gtk.ScrolledWindow, Gtk.TextView]:
