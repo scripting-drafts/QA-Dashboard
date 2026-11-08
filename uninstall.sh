@@ -8,22 +8,9 @@ APPS="$PREFIX/share/applications"
 DOC="$PREFIX/share/doc/qa-desktop"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 
-# Ask a running tray to quit through its menu event interface.
-python3 - <<'PY' >/dev/null 2>&1 || true
-import gi
-gi.require_version("Gio", "2.0")
-gi.require_version("GLib", "2.0")
-from gi.repository import Gio, GLib
-try:
-    conn = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-    conn.call_sync(
-        "org.scriptingdrafts.QADesktopTray", "/MenuBar",
-        "com.canonical.dbusmenu", "Event",
-        GLib.Variant("(isvu)", (5, "clicked", GLib.Variant("s", ""), 0)),
-        None, Gio.DBusCallFlags.NONE, 1000, None)
-except Exception:
-    pass
-PY
+# Stop the tray process. The tray intentionally exposes no Quit menu item.
+ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk.tray" {print $1}' \
+    | xargs -r kill 2>/dev/null || true
 
 rm -f "$BIN" "$BIN_TRAY"
 rm -rf "$LIB" "$DOC"

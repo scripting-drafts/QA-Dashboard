@@ -20,7 +20,7 @@ class TrayTests(unittest.TestCase):
         self.assertIn("Sentinels", labels)
         self.assertIn("Malware Scan", labels)
         self.assertIn("SIEM", labels)
-        self.assertIn("Quit", labels)
+        self.assertNotIn("Quit", labels)
 
     def test_item_properties(self) -> None:
         standard = QATray._item_props("Sentinels")

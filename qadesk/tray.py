@@ -108,8 +108,6 @@ MENU_ITEMS = (
     (1, "Sentinels", "sentinels"),
     (2, "Malware Scan", "malware"),
     (3, "SIEM", "siem"),
-    (4, None, None),
-    (5, "Quit", "quit"),
 )
 
 
@@ -361,13 +359,9 @@ class QATray:
 
     def _activate_menu(self, item_id: int) -> None:
         for ident, _label, module in MENU_ITEMS:
-            if ident != item_id:
-                continue
-            if module == "quit":
-                self.loop.quit()
-            else:
+            if ident == item_id:
                 self._launch(module)
-            return
+                return
 
 
 def main(argv: list[str] | None = None) -> int:
