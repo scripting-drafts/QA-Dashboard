@@ -70,15 +70,9 @@ function trayImage() {
 function createTray() {
   tray = new Tray(trayImage());
   tray.setToolTip("QA Dashboard");
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "QA Dashboard", click: () => showWindow("overview") },
-    { type: "separator" },
-    { label: "Sentinels", click: () => showWindow("sentinels") },
-    { label: "Malware Scan", click: () => showWindow("malware") },
-    { label: "SIEM", click: () => showWindow("siem") },
-  ]));
   tray.on("click", () => showWindow("overview"));
   tray.on("double-click", () => showWindow("overview"));
+  tray.on("right-click", () => showWindow("overview"));
 }
 
 function createWindow(module = "overview", show = true) {

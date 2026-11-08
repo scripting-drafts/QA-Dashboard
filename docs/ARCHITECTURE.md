@@ -38,11 +38,11 @@ posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 
 ## Tray and launchers
 
-The tray uses a monochrome three-tile dashboard glyph. Its menu opens the
-compact Overview or a specific module window; it intentionally has no Quit item.
-Each module has its own window, and windows are cascaded so they do not open
-directly on top of each other. Closing a module closes that window; the tray
-remains available. A single application instance manages all windows.
+The tray uses a monochrome three-tile dashboard glyph. Clicking the icon opens
+the compact Overview; there is no tray menu and no Quit item. Each module has its
+own window, and windows are cascaded so they do not open directly on top of each
+other. Closing a module closes that window; the tray remains available. A single
+application instance manages all windows.
 
 Per-app `.desktop` files call `qa-dashboard --module=sentinels`,
 `--module=malware`, or `--module=siem`. There is no separate QA Dashboard suite
