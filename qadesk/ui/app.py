@@ -31,6 +31,7 @@ class QADesktopApp(Gtk.Application):
         super().__init__(application_id=APP_ID,
                          flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.module_id = module_id
+        self.single_module = module_id in MODULE_IDS
         self.config = Config.load()
         self.window: Gtk.ApplicationWindow | None = None
         self.stack: Gtk.Stack | None = None
@@ -55,12 +56,14 @@ class QADesktopApp(Gtk.Application):
             self.window.present()
             return
         self._install_css()
+        window_title = (MODULE_MAP[self.module_id].title
+                        if self.single_module else "QA Desktop")
         self.window = Gtk.ApplicationWindow(application=self)
-        self.window.set_title("QA Desktop")
+        self.window.set_title(window_title)
         self.window.set_default_size(1180, 820)
 
         header = Gtk.HeaderBar()
-        title = Gtk.Label(label="QA Desktop")
+        title = Gtk.Label(label=window_title)
         title.add_css_class("h1")
         header.set_title_widget(title)
         menu = Gio.Menu()
@@ -79,11 +82,12 @@ class QADesktopApp(Gtk.Application):
         self.stack.set_hexpand(True)
         self.stack.set_vexpand(True)
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        sidebar = Gtk.StackSidebar()
-        sidebar.set_stack(self.stack)
-        sidebar.set_size_request(190, -1)
-        root.append(sidebar)
-        root.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        if not self.single_module:
+            sidebar = Gtk.StackSidebar()
+            sidebar.set_stack(self.stack)
+            sidebar.set_size_request(190, -1)
+            root.append(sidebar)
+            root.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         root.append(self.stack)
         self.window.set_child(root)
         self.window.connect("close-request", self._on_close_request)
@@ -112,8 +116,10 @@ class QADesktopApp(Gtk.Application):
             self.stack.remove(widget)
         self.modules.clear()
         self.module_widgets.clear()
-        for cls in MODULE_CLASSES:
-            if not self.config.enabled(cls.id):
+        classes = ((MODULE_MAP[self.module_id],) if self.single_module
+                   else MODULE_CLASSES)
+        for cls in classes:
+            if not self.single_module and not self.config.enabled(cls.id):
                 continue
             page = cls(self, self.config)
             scroller = Gtk.ScrolledWindow()
@@ -132,7 +138,9 @@ class QADesktopApp(Gtk.Application):
             label.set_margin_start(24)
             self.stack.add_titled(label, "empty", "No modules")
             self.module_widgets["empty"] = label
-        preferred = self.module_id if self.module_id in self.modules else current
+        preferred = (self.module_id if self.single_module
+                     else self.module_id if self.module_id in self.modules
+                     else current)
         if preferred not in self.modules:
             preferred = next(iter(self.modules), "empty")
         self.stack.set_visible_child_name(preferred)

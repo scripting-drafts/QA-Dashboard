@@ -24,19 +24,20 @@ Each module subclasses `qadesk.ui.base.ModulePage` and provides:
 - `refresh()` for an explicit user refresh;
 - `shutdown()` to stop workers and child processes.
 
-`qadesk.modules.MODULE_CLASSES` is the registry used by the shell. Disabled
-modules are omitted by the settings dialog. The only desktop access point is the
-tray icon; its menu starts the suite or a single module.
+`qadesk.modules.MODULE_CLASSES` is the registry used by the shell. Each
+`--module` launcher creates a single-module window without the suite sidebar.
+The three per-app desktop entries are the standalone access points; the tray
+menu lists the same three modules, and there is no suite entry.
 
 ## Tray integration
 
 `qadesk.tray` exports a minimal StatusNotifierItem and DBusMenu on the session
 bus under the fixed name `org.scriptingdrafts.QADesktopTray`. It registers with
 `org.kde.StatusNotifierWatcher`, using the Ubuntu AppIndicators extension for
-the top-bar presentation. A small recolored `security-high` symbolic shield is
-used as the panel glyph. `install.sh` installs the tray launcher, writes a
-`NoDisplay` autostart entry, enables the AppIndicators extension, and removes the
-old application-menu entries.
+the top-bar presentation. A friendly blue check glyph is used as the panel
+icon. `install.sh` installs the tray launcher, writes a `NoDisplay` autostart
+entry, enables the AppIndicators extension, and installs the three per-app
+launchers without a suite entry.
 
 ## Configuration
 

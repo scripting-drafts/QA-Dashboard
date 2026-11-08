@@ -16,7 +16,7 @@ class TrayTests(unittest.TestCase):
 
     def test_menu_contract(self) -> None:
         labels = [label for _ident, label, _module in MENU_ITEMS if label]
-        self.assertIn("Open QA Desktop", labels)
+        self.assertNotIn("Open QA Desktop", labels)
         self.assertIn("Sentinels", labels)
         self.assertIn("Malware Scan", labels)
         self.assertIn("SIEM", labels)

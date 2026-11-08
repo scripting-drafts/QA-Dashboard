@@ -19,7 +19,7 @@ try:
     conn.call_sync(
         "org.scriptingdrafts.QADesktopTray", "/MenuBar",
         "com.canonical.dbusmenu", "Event",
-        GLib.Variant("(isvu)", (6, "clicked", GLib.Variant("s", ""), 0)),
+        GLib.Variant("(isvu)", (5, "clicked", GLib.Variant("s", ""), 0)),
         None, Gio.DBusCallFlags.NONE, 1000, None)
 except Exception:
     pass

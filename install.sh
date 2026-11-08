@@ -34,9 +34,36 @@ install -m 0755 "$ROOT/bin/qa-desktop" "$BIN"
 install -m 0755 "$ROOT/bin/qa-desktop-tray" "$BIN_TRAY"
 install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" "$DOC/"
 
-# The tray is the only desktop access point.
+# Per-app standalone launchers; no suite entry.
 rm -f "$APPS/qa-desktop.desktop" "$APPS/qa-sentinels.desktop" \
       "$APPS/qa-malware-scan.desktop" "$APPS/qa-siem.desktop"
+
+write_desktop() {
+    local file=$1 title=$2 comment=$3 module=$4 icon=$5
+    cat > "$APPS/$file.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$title
+Comment=$comment
+Exec="$BIN" --module $module
+Icon=$icon
+Terminal=false
+Categories=System;Security;Monitor;
+StartupNotify=true
+StartupWMClass=org.scriptingdrafts.QADesktop
+EOF
+    chmod 0644 "$APPS/$file.desktop"
+}
+
+write_desktop qa-sentinels "QA Sentinels" \
+    "Evidence collection and failure correlation" "sentinels" \
+    "utilities-system-monitor"
+write_desktop qa-malware-scan "Malware Scan" \
+    "Scan files and folders for malware indicators" "malware" \
+    "security-high"
+write_desktop qa-siem "QA SIEM" \
+    "Local QA SIEM dashboard and alerts" "siem" "network-server"
+
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPS" >/dev/null 2>&1 || true
 fi
@@ -60,12 +87,14 @@ if command -v gnome-extensions >/dev/null 2>&1; then
     gnome-extensions enable ubuntu-appindicators@ubuntu.com >/dev/null 2>&1 || true
 fi
 
-if ! pgrep -f "$BIN_TRAY" >/dev/null 2>&1; then
-    if command -v setsid >/dev/null 2>&1; then
-        setsid "$BIN_TRAY" >/dev/null 2>&1 &
-    else
-        nohup "$BIN_TRAY" >/dev/null 2>&1 &
-    fi
+# Restart any running tray so the new icon and menu are loaded.
+ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk.tray" {print $1}' \
+    | xargs -r kill 2>/dev/null || true
+sleep 1
+if command -v setsid >/dev/null 2>&1; then
+    setsid "$BIN_TRAY" >/dev/null 2>&1 &
+else
+    nohup "$BIN_TRAY" >/dev/null 2>&1 &
 fi
 
 cat <<EOF
@@ -73,5 +102,5 @@ Installed QA Desktop tray access to $PREFIX
   app launcher : $BIN
   tray launcher: $BIN_TRAY
   autostart    : $AUTOSTART/qa-desktop-tray.desktop
-  access       : top-bar tray icon (menu opens the suite and modules)
+  access       : top-bar tray icon (menu opens the three apps)
 EOF

@@ -105,12 +105,11 @@ FALLBACK_ICON_PATHS = (
 )
 
 MENU_ITEMS = (
-    (1, "Open QA Desktop", None),
-    (2, "Sentinels", "sentinels"),
-    (3, "Malware Scan", "malware"),
-    (4, "SIEM", "siem"),
-    (5, None, None),
-    (6, "Quit", "quit"),
+    (1, "Sentinels", "sentinels"),
+    (2, "Malware Scan", "malware"),
+    (3, "SIEM", "siem"),
+    (4, None, None),
+    (5, "Quit", "quit"),
 )
 
 
@@ -145,8 +144,7 @@ def _recolor_symbolic(path: str) -> tuple[int, int, bytes]:
     return width, height, bytes(out)
 
 
-def _fallback_pixmap(path: str) -> tuple[int, int, bytes]:
-    pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
+def _argb_pixmap(pixbuf: GdkPixbuf.Pixbuf) -> tuple[int, int, bytes]:
     width = pixbuf.get_width()
     height = pixbuf.get_height()
     rowstride = pixbuf.get_rowstride()
@@ -162,7 +160,18 @@ def _fallback_pixmap(path: str) -> tuple[int, int, bytes]:
 
 
 def tray_pixmaps() -> list[tuple[int, int, bytes]]:
+    asset = Path(__file__).with_name("assets") / "qa-desktop-tray.svg"
     pixmaps = []
+    if asset.is_file():
+        for size in (16, 24, 32, 48, 64, 96):
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
+                    str(asset), size, size)
+                pixmaps.append(_argb_pixmap(pixbuf))
+            except Exception:
+                continue
+        if pixmaps:
+            return pixmaps
     for path in TRAY_ICON_PATHS:
         try:
             pixmaps.append(_recolor_symbolic(path))
@@ -172,7 +181,7 @@ def tray_pixmaps() -> list[tuple[int, int, bytes]]:
         return pixmaps
     for path in FALLBACK_ICON_PATHS:
         try:
-            pixmaps.append(_fallback_pixmap(path))
+            pixmaps.append(_argb_pixmap(GdkPixbuf.Pixbuf.new_from_file(path)))
         except Exception:
             continue
     return pixmaps
@@ -251,8 +260,8 @@ class QATray:
 
     def _item_method(self, _connection, _sender, _path, _interface, method,
                      _params, invocation) -> None:
-        if method in ("Activate", "ContextMenu", "SecondaryActivate"):
-            self._launch(None)
+        if method in ("Activate", "SecondaryActivate"):
+            self._launch("sentinels")
         invocation.return_value(None)
 
     def _launch(self, module: str | None) -> None:
