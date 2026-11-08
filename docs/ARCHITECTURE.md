@@ -25,8 +25,18 @@ Each module subclasses `qadesk.ui.base.ModulePage` and provides:
 - `shutdown()` to stop workers and child processes.
 
 `qadesk.modules.MODULE_CLASSES` is the registry used by the shell. Disabled
-modules are omitted by the settings dialog; per-module `.desktop` entries start
-the same shell focused on one module.
+modules are omitted by the settings dialog. The only desktop access point is the
+tray icon; its menu starts the suite or a single module.
+
+## Tray integration
+
+`qadesk.tray` exports a minimal StatusNotifierItem and DBusMenu on the session
+bus under the fixed name `org.scriptingdrafts.QADesktopTray`. It registers with
+`org.kde.StatusNotifierWatcher`, using the Ubuntu AppIndicators extension for
+the top-bar presentation. A small recolored `security-high` symbolic shield is
+used as the panel glyph. `install.sh` installs the tray launcher, writes a
+`NoDisplay` autostart entry, enables the AppIndicators extension, and removes the
+old application-menu entries.
 
 ## Configuration
 
@@ -39,5 +49,5 @@ Bearer tokens are never written to this configuration.
 
 1. Add a `ModulePage` subclass.
 2. Register it in `qadesk/modules/__init__.py`.
-3. Add a launcher in `install.sh` if it should appear as a separate desktop app.
+3. Add a tray menu action in `qadesk/tray.py` if the module needs direct access.
 4. Keep all external calls shell-free and all UI updates on the GTK thread.
