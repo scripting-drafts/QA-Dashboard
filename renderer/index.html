@@ -10,33 +10,18 @@
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></div>
-        <div>
-          <h1>QA Dashboard</h1>
-          <p>Local operations</p>
-        </div>
-      </div>
-      <nav id="nav" aria-label="Dashboard sections">
-        <button data-view="overview" class="active">Overview</button>
-        <button data-view="sentinels">Sentinels</button>
-        <button data-view="malware">Malware Scan</button>
-        <button data-view="siem">SIEM</button>
-      </nav>
-      <div class="sidebar-footer">
-        <span id="connection-dot" class="dot"></span>
-        <span id="sidebar-status">Ready</span>
-      </div>
-    </aside>
-
     <main>
       <header class="topbar">
-        <div>
-          <h2 id="view-title">Overview</h2>
-          <p id="view-subtitle">All three QA tools in one local dashboard.</p>
+        <div class="topbar-title">
+          <div class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div>
+            <h2 id="view-title">QA Dashboard</h2>
+            <p id="view-subtitle">All three QA tools in one local dashboard.</p>
+          </div>
         </div>
         <div class="top-actions">
+          <span class="status-pill"><span id="connection-dot" class="dot"></span><span id="sidebar-status">Ready</span></span>
+          <button id="overview">Overview</button>
           <button id="refresh">Refresh</button>
           <button id="settings">Settings</button>
         </div>

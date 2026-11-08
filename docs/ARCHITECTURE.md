@@ -10,7 +10,7 @@ engines stay independent: the dashboard only invokes their CLI or local API.
 | Main process (`electron/main.js`) | Window, monochrome tray icon, IPC, child processes, local SIEM HTTP |
 | Backend (`electron/backend.js`) | Config resolution, fixed argv builders, streaming, HTTP |
 | Preload (`electron/preload.js`) | Minimal `contextBridge` API; no Node in the renderer |
-| Renderer (`renderer/`) | Single dashboard with Overview, Sentinels, Malware Scan, SIEM |
+| Renderer (`renderer/`) | Compact Overview window and module-specific windows |
 
 The renderer has `nodeIntegration: false`, `contextIsolation: true`, and
 `sandbox: true`. It never receives the SIEM bearer token; HTTP requests are made
@@ -39,9 +39,10 @@ posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 ## Tray and launchers
 
 The tray uses a monochrome three-tile dashboard glyph. Its menu opens the
-unified dashboard or a specific module; it intentionally has no Quit item.
-Closing the window hides it to the tray. A single-instance lock focuses the
-existing dashboard.
+compact Overview or a specific module window; it intentionally has no Quit item.
+Each module has its own window, and windows are cascaded so they do not open
+directly on top of each other. Closing a module closes that window; the tray
+remains available. A single application instance manages all windows.
 
 Per-app `.desktop` files call `qa-dashboard --module=sentinels`,
 `--module=malware`, or `--module=siem`. There is no separate QA Dashboard suite
@@ -59,5 +60,6 @@ request time and are never written to this file or exposed to the renderer.
 the HTTP client. Electron smoke screenshots can be produced with:
 
 ```bash
-npm start -- --module=overview --screenshot=/tmp/qa-dashboard.png
+npm start -- --module=overview --screenshot=/tmp/qa-overview.png
+npm start -- --module=malware --screenshot=/tmp/qa-malware.png
 ```

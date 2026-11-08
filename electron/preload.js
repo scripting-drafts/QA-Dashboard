@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("qa", {
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   pickPath: (kind) => ipcRenderer.invoke("dialog:pick", kind),
+  openModule: (module) => ipcRenderer.invoke("app:open", module),
   sentinels: {
     status: () => ipcRenderer.invoke("sentinels:status"),
     run: (action) => ipcRenderer.invoke("sentinels:run", action),
@@ -25,10 +26,5 @@ contextBridge.exposeInMainWorld("qa", {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("event", listener);
     return () => ipcRenderer.removeListener("event", listener);
-  },
-  onNavigate: (callback) => {
-    const listener = (_event, module) => callback(module);
-    ipcRenderer.on("navigate", listener);
-    return () => ipcRenderer.removeListener("navigate", listener);
   },
 });

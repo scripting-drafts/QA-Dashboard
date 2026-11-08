@@ -4,7 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
-  overview: ["Overview", "All three QA tools in one local dashboard."],
+  overview: ["QA Dashboard", "All three QA tools in one local dashboard."],
   sentinels: ["Sentinels", "Monitoring, findings, logs and evidence bundles."],
   malware: ["Malware Scan", "Bounded scanning with live findings and coverage status."],
   siem: ["SIEM", "Health, alerts and events from the local QA SIEM API."],
@@ -83,17 +83,14 @@ function statusGrid(node, entries) {
 function setView(view) {
   if (!TITLES[view]) view = "overview";
   currentView = view;
-  $$("#nav button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === view);
-  });
   $$(".view").forEach((section) => {
     section.classList.toggle("active", section.id === `view-${view}`);
   });
   const [title, subtitle] = TITLES[view];
+  document.title = title;
   $("#view-title").textContent = title;
   $("#view-subtitle").textContent = subtitle;
-  if (view === "sentinels") loadSentinelsStatus();
-  if (view === "siem") loadSiem();
+  $("#overview").hidden = view === "overview";
 }
 
 function overviewText(values) {
@@ -408,30 +405,31 @@ async function saveSettings(event) {
     });
     $("#settings-dialog").close();
     toast("Settings saved.");
-    loadSentinelsStatus();
-    loadSiem();
+    refreshCurrent();
   } catch (error) {
     toast(String(error.message || error), true);
   }
 }
 
+function refreshCurrent() {
+  if (currentView === "overview") {
+    loadSentinelsStatus();
+    loadSiem();
+  } else if (currentView === "sentinels") {
+    loadSentinelsStatus();
+  } else if (currentView === "siem") {
+    loadSiem();
+  } else {
+    $("#mal-path").focus();
+  }
+}
+
 function bind() {
-  $$("#nav button").forEach((button) => {
-    button.addEventListener("click", () => setView(button.dataset.view));
-  });
   $$("[data-open]").forEach((button) => {
-    button.addEventListener("click", () => setView(button.dataset.open));
+    button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
   });
-  $("#refresh").addEventListener("click", () => {
-    if (currentView === "sentinels") loadSentinelsStatus();
-    else if (currentView === "siem") loadSiem();
-    else if (currentView === "overview") {
-      loadSentinelsStatus();
-      loadSiem();
-    } else {
-      $("#mal-path").focus();
-    }
-  });
+  $("#overview").addEventListener("click", () => window.qa.openModule("overview"));
+  $("#refresh").addEventListener("click", refreshCurrent);
   $("#settings").addEventListener("click", openSettings);
   $("#settings-form").addEventListener("submit", saveSettings);
 
@@ -471,10 +469,7 @@ function bind() {
       const action = button.dataset.action;
       if (action === "sentinels-status") loadSentinelsStatus();
       else if (action === "siem-refresh") loadSiem();
-      else if (action === "malware-focus") {
-        setView("malware");
-        $("#mal-path").focus();
-      }
+      else if (action === "malware-focus") window.qa.openModule("malware");
     });
   });
 
@@ -506,7 +501,6 @@ function bind() {
       }
     }
   });
-  window.qa.onNavigate((module) => setView(module));
 }
 
 async function init() {
@@ -519,8 +513,14 @@ async function init() {
   } catch (error) {
     toast(String(error.message || error), true);
   }
-  loadSentinelsStatus();
-  loadSiem();
+  if (initial === "overview") {
+    loadSentinelsStatus();
+    loadSiem();
+  } else if (initial === "sentinels") {
+    loadSentinelsStatus();
+  } else if (initial === "siem") {
+    loadSiem();
+  }
 }
 
 init();

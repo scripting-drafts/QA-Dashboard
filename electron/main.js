@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
-  app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray,
+  app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, shell, Tray,
 } = require("electron");
 const backend = require("./backend");
 
@@ -12,7 +12,21 @@ const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set(["overview", "sentinels", "malware", "siem"]);
 const ICON_DIR = path.join(__dirname, "..", "assets");
 
-let mainWindow = null;
+const WINDOW_TITLES = {
+  overview: "QA Dashboard",
+  sentinels: "QA Sentinels",
+  malware: "Malware Scan",
+  siem: "QA SIEM",
+};
+
+const WINDOW_SIZES = {
+  overview: { width: 980, height: 640 },
+  sentinels: { width: 1020, height: 760 },
+  malware: { width: 1080, height: 820 },
+  siem: { width: 1080, height: 820 },
+};
+
+const windows = new Map();
 let tray = null;
 let isQuitting = false;
 let activeSentinels = null;
@@ -53,67 +67,6 @@ function trayImage() {
   return nativeImage.createEmpty();
 }
 
-function showWindow(module = "overview") {
-  if (!MODULES.has(module)) module = "overview";
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow(true, module);
-    return;
-  }
-  mainWindow.show();
-  mainWindow.focus();
-  mainWindow.webContents.send("navigate", module);
-}
-
-function createWindow(show = true, module = "overview") {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    if (show) {
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.webContents.send("navigate", module);
-    }
-    return mainWindow;
-  }
-  mainWindow = new BrowserWindow({
-    width: 1320,
-    height: 900,
-    minWidth: 980,
-    minHeight: 680,
-    show: false,
-    title: "QA Dashboard",
-    backgroundColor: "#1d1d20",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  const url = pathToFileURL(path.join(__dirname, "..", "renderer", "index.html"));
-  url.searchParams.set("module", module);
-  mainWindow.loadURL(url.toString());
-  mainWindow.once("ready-to-show", () => {
-    if (show) mainWindow.show();
-  });
-  mainWindow.on("close", (event) => {
-    if (!isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-    }
-  });
-  mainWindow.on("closed", () => { mainWindow = null; });
-  mainWindow.webContents.setWindowOpenHandler(({ url: target }) => {
-    if (/^https?:\/\//i.test(target)) shell.openExternal(target);
-    return { action: "deny" };
-  });
-  mainWindow.webContents.on("will-navigate", (event, target) => {
-    if (!target.startsWith("file://")) {
-      event.preventDefault();
-      if (/^https?:\/\//i.test(target)) shell.openExternal(target);
-    }
-  });
-  return mainWindow;
-}
-
 function createTray() {
   tray = new Tray(trayImage());
   tray.setToolTip("QA Dashboard");
@@ -126,6 +79,76 @@ function createTray() {
   ]));
   tray.on("click", () => showWindow("overview"));
   tray.on("double-click", () => showWindow("overview"));
+}
+
+function createWindow(module = "overview", show = true) {
+  if (!MODULES.has(module)) module = "overview";
+  const existing = windows.get(module);
+  if (existing && !existing.isDestroyed()) {
+    if (show) {
+      if (existing.isMinimized()) existing.restore();
+      existing.show();
+      existing.focus();
+    }
+    return existing;
+  }
+  const size = WINDOW_SIZES[module];
+  const area = screen.getPrimaryDisplay().workArea;
+  const offset = Math.min(windows.size, 5) * 28;
+  const x = Math.min(
+    Math.max(0, Math.round(area.x + (area.width - size.width) / 2) + offset),
+    area.x + Math.max(0, area.width - size.width));
+  const y = Math.min(
+    Math.max(0, Math.round(area.y + (area.height - size.height) / 2) + offset),
+    area.y + Math.max(0, area.height - size.height));
+  const window = new BrowserWindow({
+    ...size,
+    x,
+    y,
+    minWidth: module === "overview" ? 820 : 900,
+    minHeight: module === "overview" ? 540 : 620,
+    show: false,
+    title: WINDOW_TITLES[module],
+    backgroundColor: "#1d1d20",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  const url = pathToFileURL(path.join(__dirname, "..", "renderer", "index.html"));
+  url.searchParams.set("module", module);
+  window.loadURL(url.toString());
+  window.once("ready-to-show", () => {
+    if (show) window.show();
+  });
+  window.on("closed", () => {
+    windows.delete(module);
+    if (module === "sentinels") backend.cancelProcess(activeSentinels);
+    if (module === "malware") backend.cancelProcess(activeMalware);
+  });
+  window.webContents.setWindowOpenHandler(({ url: target }) => {
+    if (/^https?:\/\//i.test(target)) shell.openExternal(target);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, target) => {
+    if (!target.startsWith("file://")) {
+      event.preventDefault();
+      if (/^https?:\/\//i.test(target)) shell.openExternal(target);
+    }
+  });
+  windows.set(module, window);
+  return window;
+}
+
+function showWindow(module = "overview") {
+  if (!MODULES.has(module)) module = "overview";
+  const window = createWindow(module, true);
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+  return window;
 }
 
 function sendEvent(sender, payload) {
@@ -143,6 +166,11 @@ function registerIpc() {
     }
     backend.saveConfig(current);
     return backend.configView(backend.loadConfig());
+  });
+
+  ipcMain.handle("app:open", (_event, module) => {
+    showWindow(String(module || "overview"));
+    return true;
   });
 
   ipcMain.handle("sentinels:status", async () => {
@@ -234,8 +262,11 @@ function registerIpc() {
   });
 
   ipcMain.handle("dialog:pick", async (_event, kind) => {
-    if (!mainWindow) return null;
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const parent = BrowserWindow.getFocusedWindow()
+      || windows.get("overview")
+      || Array.from(windows.values()).find((window) => !window.isDestroyed())
+      || null;
+    const result = await dialog.showOpenDialog(parent, {
       title: kind === "folder" ? "Select a folder" : "Select a file",
       properties: [kind === "folder" ? "openDirectory" : "openFile"],
     });
@@ -264,27 +295,29 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     registerIpc();
     createTray();
-    createWindow(!startHidden, startupModule);
-    if (screenshotPath) {
-      mainWindow.webContents.once("did-finish-load", () => {
-        setTimeout(async () => {
-          try {
-            const image = await mainWindow.webContents.capturePage();
-            fs.writeFileSync(screenshotPath, image.toPNG());
-          } catch (error) {
-            console.error(error);
-          } finally {
-            isQuitting = true;
-            app.quit();
-          }
-        }, 1500);
-      });
+    if (!startHidden || screenshotPath) {
+      const window = createWindow(startupModule, true);
+      if (screenshotPath) {
+        window.webContents.once("did-finish-load", () => {
+          setTimeout(async () => {
+            try {
+              const image = await window.webContents.capturePage();
+              fs.writeFileSync(screenshotPath, image.toPNG());
+            } catch (error) {
+              console.error(error);
+            } finally {
+              isQuitting = true;
+              app.quit();
+            }
+          }, 1500);
+        });
+      }
     }
     app.on("activate", () => showWindow("overview"));
   });
 
   app.on("window-all-closed", () => {
-    // Keep the tray process alive; the window is hidden on close.
+    // Keep the tray process alive.
   });
 
   app.on("before-quit", () => {
