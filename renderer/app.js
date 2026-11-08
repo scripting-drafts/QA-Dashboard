@@ -88,6 +88,7 @@ function setView(view) {
   });
   const [title, subtitle] = TITLES[view];
   document.title = title;
+  document.body.classList.toggle("overview-mode", view === "overview");
   $("#view-title").textContent = title;
   $("#view-subtitle").textContent = subtitle;
   $("#overview").hidden = view === "overview";

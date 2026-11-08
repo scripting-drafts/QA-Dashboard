@@ -35,28 +35,29 @@
             <span class="kicker">Monitoring</span>
             <h3>Sentinels</h3>
             <p id="overview-sentinels" class="muted">Not loaded yet.</p>
-            <button data-open="sentinels">Open Sentinels</button>
+            <div class="card-actions">
+              <button data-open="sentinels">Open Sentinels</button>
+              <button class="ghost" data-action="sentinels-status">Refresh</button>
+            </div>
           </article>
           <article class="card">
             <span class="kicker">Detection</span>
             <h3>Malware Scan</h3>
             <p id="overview-malware" class="muted">No scan in this session.</p>
-            <button data-open="malware">Open Malware Scan</button>
+            <div class="card-actions">
+              <button data-open="malware">Open Malware Scan</button>
+              <button class="ghost" data-action="malware-focus">Scan a file</button>
+            </div>
           </article>
           <article class="card">
             <span class="kicker">Events</span>
             <h3>SIEM</h3>
             <p id="overview-siem" class="muted">Not connected yet.</p>
-            <button data-open="siem">Open SIEM</button>
+            <div class="card-actions">
+              <button data-open="siem">Open SIEM</button>
+              <button class="ghost" data-action="siem-refresh">Refresh</button>
+            </div>
           </article>
-        </div>
-        <div class="panel">
-          <h3>Quick actions</h3>
-          <div class="toolbar">
-            <button data-action="sentinels-status">Refresh Sentinels</button>
-            <button data-action="siem-refresh">Refresh SIEM</button>
-            <button data-action="malware-focus">Scan a file</button>
-          </div>
         </div>
       </section>
 

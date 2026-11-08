@@ -16,6 +16,12 @@ The renderer has `nodeIntegration: false`, `contextIsolation: true`, and
 `sandbox: true`. It never receives the SIEM bearer token; HTTP requests are made
 in the main process.
 
+## Overview layout
+
+The Overview uses a centered ouroboros lockup above the title. The status,
+Refresh, and Settings controls sit in the hero row. Each module card carries its
+own primary and secondary action, so there is no separate quick-actions panel.
+
 ## Sentinels
 
 The main process resolves `qa` and its repository root, then runs fixed actions:

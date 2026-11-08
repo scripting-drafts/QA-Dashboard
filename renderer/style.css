@@ -117,6 +117,30 @@ main {
   margin-bottom: 18px;
 }
 
+body.overview-mode .topbar {
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+body.overview-mode .topbar-title {
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+body.overview-mode .topbar-title .brand-mark {
+  width: 56px;
+  height: 56px;
+  -webkit-mask-image: url("../assets/qa-dashboard-detailed.svg");
+  mask-image: url("../assets/qa-dashboard-detailed.svg");
+}
+
+body.overview-mode .topbar h2 { font-size: 28px; }
+body.overview-mode .top-actions { justify-content: center; }
+
 .topbar-title {
   display: flex;
   align-items: center;
@@ -181,7 +205,27 @@ main {
 
 .card h3 { margin: 0; font-size: 18px; }
 .card p { margin: 0; min-height: 38px; line-height: 1.4; }
-.card button { margin-top: auto; align-self: flex-start; }
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  padding: 6px 8px;
+}
+
+button.ghost:hover {
+  background: var(--panel-alt);
+  color: var(--text);
+}
 
 .kicker {
   color: var(--accent);
