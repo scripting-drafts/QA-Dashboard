@@ -21,7 +21,6 @@
         </div>
         <div class="top-actions">
           <span class="status-pill"><span id="connection-dot" class="dot"></span><span id="sidebar-status">Ready</span></span>
-          <button id="refresh">Refresh</button>
           <button id="settings">Settings</button>
         </div>
       </header>
@@ -36,7 +35,6 @@
             <p id="overview-sentinels" class="muted">Not loaded yet.</p>
             <div class="card-actions">
               <button data-open="sentinels">Open Sentinels</button>
-              <button class="ghost" data-action="sentinels-status">Refresh</button>
             </div>
           </article>
           <article class="card">
@@ -54,7 +52,6 @@
             <p id="overview-siem" class="muted">Not connected yet.</p>
             <div class="card-actions">
               <button data-open="siem">Open SIEM</button>
-              <button class="ghost" data-action="siem-refresh">Refresh</button>
             </div>
           </article>
         </div>
@@ -62,14 +59,13 @@
 
       <section id="view-sentinels" class="view">
         <div class="toolbar">
-          <button id="sen-refresh">Refresh status</button>
           <button data-sen="cycle">Run cycle</button>
           <button data-sen="findings">Findings</button>
           <button id="sen-logs">Logs</button>
           <button id="sen-cancel" class="danger" disabled>Stop</button>
         </div>
         <div id="sen-status" class="status-grid">
-          <p class="muted">Refresh to read sentinel status.</p>
+          <p class="muted">Waiting for sentinel status.</p>
         </div>
       </section>
 
@@ -130,7 +126,6 @@
 
       <section id="view-siem" class="view">
         <div class="toolbar">
-          <button id="siem-refresh">Refresh</button>
           <button id="siem-open">Open dashboard</button>
         </div>
         <div id="siem-status" class="status-grid">
@@ -150,12 +145,12 @@
 
   <dialog id="settings-dialog">
     <form id="settings-form">
-      <h2>Settings</h2>
-      <label>Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect"></label>
-      <label>Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
-      <label>Malware Scan command <input id="set-malware-bin" type="text" placeholder="auto-detect"></label>
-      <label>SIEM URL <input id="set-siem-url" type="text"></label>
-      <label>SIEM token file <input id="set-siem-token" type="text"></label>
+      <h2 id="settings-title">Settings</h2>
+      <label data-settings-module="sentinels">Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect"></label>
+      <label data-settings-module="sentinels">Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
+      <label data-settings-module="malware">Malware Scan command <input id="set-malware-bin" type="text" placeholder="auto-detect"></label>
+      <label data-settings-module="siem">SIEM URL <input id="set-siem-url" type="text"></label>
+      <label data-settings-module="siem">SIEM token file <input id="set-siem-token" type="text"></label>
       <p id="settings-resolved" class="muted"></p>
       <div class="dialog-actions">
         <button id="settings-cancel" type="button">Cancel</button>

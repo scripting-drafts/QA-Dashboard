@@ -11,6 +11,12 @@ const TITLES = {
   siem: ["SIEM", "Health, alerts and events from the local QA SIEM API."],
 };
 
+const SETTINGS_TITLES = {
+  sentinels: "Sentinels settings",
+  malware: "Malware Scan settings",
+  siem: "SIEM settings",
+};
+
 const SENTINEL_KEYS = [
   "last sample", "last ingest", "last hardware", "last lsm", "database",
   "critical", "inventory", "evidence", "ticket drafts", "core2 triage",
@@ -22,6 +28,7 @@ let currentView = "overview";
 let sentinelsBusy = false;
 let sentinelsAction = "";
 let logsRunning = false;
+let settingsModule = "";
 let malwareBusy = false;
 let malwareFindings = 0;
 let toastTimer = null;
@@ -90,6 +97,7 @@ function setView(view) {
   });
   const [title, subtitle] = TITLES[view];
   document.title = title;
+  document.body.dataset.module = view;
   document.body.classList.toggle("overview-mode", view === "overview");
   $("#view-title").textContent = title;
   $("#view-subtitle").textContent = subtitle;
@@ -104,20 +112,23 @@ function overviewText(values) {
   return parts.length ? parts.join(" · ") : "Status loaded.";
 }
 
+function renderSentinelsStatus(result) {
+  const values = result.values || {};
+  const entries = [];
+  for (const key of SENTINEL_KEYS) {
+    if (values[key]) entries.push([key, values[key]]);
+  }
+  for (const [key, value] of Object.entries(values)) {
+    if (!SENTINEL_KEYS.includes(key)) entries.push([key, value]);
+  }
+  statusGrid($("#sen-status"), entries);
+  $("#overview-sentinels").textContent = overviewText(values);
+  setConnection("ok", "Sentinels ready");
+}
+
 async function loadSentinelsStatus() {
   try {
-    const result = await window.qa.sentinels.status();
-    const values = result.values || {};
-    const entries = [];
-    for (const key of SENTINEL_KEYS) {
-      if (values[key]) entries.push([key, values[key]]);
-    }
-    for (const [key, value] of Object.entries(values)) {
-      if (!SENTINEL_KEYS.includes(key)) entries.push([key, value]);
-    }
-    statusGrid($("#sen-status"), entries);
-    $("#overview-sentinels").textContent = overviewText(values);
-    setConnection("ok", "Sentinels ready");
+    renderSentinelsStatus(await window.qa.sentinels.status());
   } catch (error) {
     setConnection("error", "Sentinels unavailable");
     toast(String(error.message || error), true);
@@ -127,7 +138,6 @@ async function loadSentinelsStatus() {
 function setSentinelsBusy(busy) {
   sentinelsBusy = busy;
   $$("[data-sen]").forEach((button) => { button.disabled = busy; });
-  $("#sen-refresh").disabled = busy;
   $("#sen-cancel").disabled = !busy;
 }
 
@@ -287,7 +297,6 @@ function renderSiemStatus(data) {
   if (data.error) {
     setConnection("error", "SIEM issue");
     $("#overview-siem").textContent = data.error;
-    toast(data.error, true);
   } else {
     setConnection("ok", "SIEM connected");
     $("#overview-siem").textContent =
@@ -369,12 +378,15 @@ function renderEvents(events) {
   }
 }
 
+function renderSiemSnapshot(data) {
+  renderSiemStatus(data);
+  renderAlerts(Array.isArray(data.alerts) ? data.alerts : []);
+  renderEvents(Array.isArray(data.events) ? data.events : []);
+}
+
 async function loadSiem() {
   try {
-    const data = await window.qa.siem.refresh();
-    renderSiemStatus(data);
-    renderAlerts(Array.isArray(data.alerts) ? data.alerts : []);
-    renderEvents(Array.isArray(data.events) ? data.events : []);
+    renderSiemSnapshot(await window.qa.siem.refresh());
   } catch (error) {
     setConnection("error", "SIEM unavailable");
     toast(String(error.message || error), true);
@@ -388,14 +400,28 @@ function fillSettings(view) {
   $("#set-malware-bin").value = view.malwareBin || "";
   $("#set-siem-url").value = view.siemUrl || "";
   $("#set-siem-token").value = view.siemTokenFile || "";
+  $$("[data-settings-module]").forEach((label) => {
+    label.hidden = label.dataset.settingsModule !== settingsModule;
+  });
+  $("#settings-title").textContent = SETTINGS_TITLES[settingsModule] || "Settings";
   const resolved = view.resolved || {};
-  $("#settings-resolved").textContent =
-    `Detected: qa=${resolved.sentinelsBin || "missing"} · ` +
-    `malware-scan=${resolved.malwareBin || "missing"} · ` +
-    `token=${resolved.siemTokenAvailable ? "readable" : "missing"}`;
+  if (settingsModule === "sentinels") {
+    $("#settings-resolved").textContent =
+      `Detected: qa=${resolved.sentinelsBin || "missing"} · ` +
+      `root=${resolved.sentinelsRoot || "missing"}`;
+  } else if (settingsModule === "malware") {
+    $("#settings-resolved").textContent =
+      `Detected: malware-scan=${resolved.malwareBin || "missing"}`;
+  } else {
+    $("#settings-resolved").textContent =
+      `Endpoint: ${view.siemUrl || "-"} · ` +
+      `token=${resolved.siemTokenAvailable ? "readable" : "missing"}`;
+  }
 }
 
 async function openSettings() {
+  if (!SETTINGS_TITLES[currentView]) return;
+  settingsModule = currentView;
   try {
     config = await window.qa.getConfig();
     fillSettings(config);
@@ -407,39 +433,24 @@ async function openSettings() {
 
 async function saveSettings(event) {
   if (event) event.preventDefault();
+  const payload = {};
+  if (settingsModule === "sentinels") {
+    payload.sentinelsBin = $("#set-sentinels-bin").value;
+    payload.sentinelsRoot = $("#set-sentinels-root").value;
+  } else if (settingsModule === "malware") {
+    payload.malwareBin = $("#set-malware-bin").value;
+  } else if (settingsModule === "siem") {
+    payload.siemUrl = $("#set-siem-url").value;
+    payload.siemTokenFile = $("#set-siem-token").value;
+  } else {
+    return;
+  }
   try {
-    config = await window.qa.saveConfig({
-      sentinelsBin: $("#set-sentinels-bin").value,
-      sentinelsRoot: $("#set-sentinels-root").value,
-      malwareBin: $("#set-malware-bin").value,
-      siemUrl: $("#set-siem-url").value,
-      siemTokenFile: $("#set-siem-token").value,
-    });
+    config = await window.qa.saveConfig(payload);
     $("#settings-dialog").close();
-    toast("Settings saved.");
-    refreshCurrent();
+    toast(`${SETTINGS_TITLES[settingsModule]} saved.`);
   } catch (error) {
     toast(String(error.message || error), true);
-  }
-}
-
-function refreshCurrent() {
-  if (currentView === "overview") {
-    loadSentinelsStatus();
-    loadSiem();
-  } else if (currentView === "sentinels") {
-    loadSentinelsStatus();
-  } else if (currentView === "siem") {
-    loadSiem();
-  } else if (currentView === "logs") {
-    if (logsRunning) {
-      const output = $("#logs-output");
-      output.scrollTop = output.scrollHeight;
-    } else {
-      startSentinelLogs();
-    }
-  } else {
-    $("#mal-path").focus();
   }
 }
 
@@ -447,13 +458,11 @@ function bind() {
   $$("[data-open]").forEach((button) => {
     button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
   });
-  $("#refresh").addEventListener("click", refreshCurrent);
   $("#settings").addEventListener("click", openSettings);
   $("#settings-form").addEventListener("submit", (event) => event.preventDefault());
   $("#settings-save").addEventListener("click", saveSettings);
   $("#settings-cancel").addEventListener("click", () => $("#settings-dialog").close());
 
-  $("#sen-refresh").addEventListener("click", loadSentinelsStatus);
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
@@ -478,7 +487,6 @@ function bind() {
     if (selected) $("#mal-path").value = selected;
   });
 
-  $("#siem-refresh").addEventListener("click", loadSiem);
   $("#siem-open").addEventListener("click", async () => {
     try { await window.qa.siem.open(); } catch (error) {
       toast(String(error.message || error), true);
@@ -487,15 +495,22 @@ function bind() {
 
   $$("[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
-      const action = button.dataset.action;
-      if (action === "sentinels-status") loadSentinelsStatus();
-      else if (action === "siem-refresh") loadSiem();
-      else if (action === "malware-focus") window.qa.openModule("malware");
+      if (button.dataset.action === "malware-focus") {
+        window.qa.openModule("malware");
+      }
     });
   });
 
   window.qa.onEvent((payload) => {
     if (payload.scope === "sentinels") {
+      if (payload.type === "status" && currentView !== "logs") {
+        if (payload.error) {
+          setConnection("error", "Sentinels unavailable");
+          $("#overview-sentinels").textContent = "Sentinels unavailable.";
+        } else {
+          renderSentinelsStatus(payload.data);
+        }
+      }
       if (payload.type === "line" && currentView === "logs") {
         append($("#logs-output"), payload.line);
       }
@@ -511,6 +526,15 @@ function bind() {
             loadSentinelsStatus();
           }
         }
+      }
+    }
+    if (payload.scope === "siem" && payload.type === "snapshot" &&
+        currentView !== "logs") {
+      if (payload.error) {
+        setConnection("error", "SIEM unavailable");
+        $("#overview-siem").textContent = payload.error;
+      } else {
+        renderSiemSnapshot(payload.data);
       }
     }
     if (payload.scope === "malware") {

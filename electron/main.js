@@ -36,6 +36,12 @@ let startupModule = "overview";
 let screenshotPath = "";
 let allMinimized = false;
 let lastLaunchAt = 0;
+let sentinelsTimer = null;
+let siemTimer = null;
+let sentinelsRefreshing = false;
+let siemRefreshing = false;
+
+const AUTO_REFRESH_MS = 10000;
 
 function parseArgs(argv) {
   let module = "overview";
@@ -150,6 +156,84 @@ function sendEvent(sender, payload) {
   if (sender && !sender.isDestroyed()) sender.send("event", payload);
 }
 
+function broadcastTo(modules, payload) {
+  let sent = false;
+  for (const module of modules) {
+    const window = windows.get(module);
+    if (window && !window.isDestroyed()) {
+      window.webContents.send("event", payload);
+      sent = true;
+    }
+  }
+  return sent;
+}
+
+async function sentinelsStatus() {
+  const cfg = backend.loadConfig();
+  const binary = backend.resolveSentinelsBin(cfg);
+  if (!binary) throw new Error("qa command not found");
+  const root = backend.resolveSentinelsRoot(cfg);
+  const result = await backend.runCapture(binary, ["status"], {
+    cwd: root || undefined,
+    env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
+    timeout: 30000,
+  });
+  return {
+    code: result.code,
+    output: result.output,
+    values: backend.parseStatus(result.output),
+  };
+}
+
+async function autoRefreshSentinels() {
+  if (sentinelsRefreshing) return;
+  if (!windows.has("overview") && !windows.has("sentinels")) return;
+  sentinelsRefreshing = true;
+  try {
+    broadcastTo(["overview", "sentinels"], {
+      scope: "sentinels", type: "status", data: await sentinelsStatus(),
+    });
+  } catch (error) {
+    broadcastTo(["overview", "sentinels"], {
+      scope: "sentinels", type: "status", error: String(error.message || error),
+    });
+  } finally {
+    sentinelsRefreshing = false;
+  }
+}
+
+async function autoRefreshSiem() {
+  if (siemRefreshing) return;
+  if (!windows.has("overview") && !windows.has("siem")) return;
+  siemRefreshing = true;
+  try {
+    broadcastTo(["overview", "siem"], {
+      scope: "siem", type: "snapshot",
+      data: await backend.siemSnapshot(backend.loadConfig()),
+    });
+  } catch (error) {
+    broadcastTo(["overview", "siem"], {
+      scope: "siem", type: "snapshot", error: String(error.message || error),
+    });
+  } finally {
+    siemRefreshing = false;
+  }
+}
+
+function startAutoRefresh() {
+  clearInterval(sentinelsTimer);
+  clearInterval(siemTimer);
+  sentinelsTimer = setInterval(autoRefreshSentinels, AUTO_REFRESH_MS);
+  siemTimer = setInterval(autoRefreshSiem, AUTO_REFRESH_MS);
+}
+
+function stopAutoRefresh() {
+  clearInterval(sentinelsTimer);
+  clearInterval(siemTimer);
+  sentinelsTimer = null;
+  siemTimer = null;
+}
+
 function registerIpc() {
   ipcMain.handle("config:get", () => backend.configView(backend.loadConfig()));
   ipcMain.handle("config:save", (_event, incoming) => {
@@ -160,6 +244,10 @@ function registerIpc() {
       }
     }
     backend.saveConfig(current);
+    setTimeout(() => {
+      autoRefreshSentinels();
+      autoRefreshSiem();
+    }, 0);
     return backend.configView(backend.loadConfig());
   });
 
@@ -168,22 +256,7 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle("sentinels:status", async () => {
-    const cfg = backend.loadConfig();
-    const binary = backend.resolveSentinelsBin(cfg);
-    if (!binary) throw new Error("qa command not found");
-    const root = backend.resolveSentinelsRoot(cfg);
-    const result = await backend.runCapture(binary, ["status"], {
-      cwd: root || undefined,
-      env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
-      timeout: 30000,
-    });
-    return {
-      code: result.code,
-      output: result.output,
-      values: backend.parseStatus(result.output),
-    };
-  });
+  ipcMain.handle("sentinels:status", async () => sentinelsStatus());
 
   ipcMain.handle("sentinels:run", async (event, action) => {
     if (activeSentinels) throw new Error("a sentinel command is already running");
@@ -319,6 +392,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
 
   app.whenReady().then(() => {
     registerIpc();
+    startAutoRefresh();
     const window = createWindow(startupModule, true);
     if (screenshotPath) {
       window.webContents.once("did-finish-load", () => {
@@ -338,6 +412,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
   });
 
   app.on("before-quit", () => {
+    stopAutoRefresh();
     backend.cancelProcess(activeSentinels);
     backend.cancelProcess(activeLogs);
     backend.cancelProcess(activeMalware);

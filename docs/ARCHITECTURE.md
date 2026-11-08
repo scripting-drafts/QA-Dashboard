@@ -18,9 +18,8 @@ in the main process.
 
 ## Overview layout
 
-The Overview uses a centered ouroboros lockup above the title. The status,
-Refresh, and Settings controls sit in the hero row. Each module card carries its
-own primary and secondary action, so there is no separate quick-actions panel.
+The Overview uses a centered ouroboros lockup above the title. Module cards
+carry their open actions; the Overview has no Refresh or Settings controls.
 
 ## Sentinels
 
@@ -66,6 +65,16 @@ symbol; `assets/qa-dashboard-detailed.svg` adds contour and scale detail for the
 Overview header. `assets/qa-dashboard-icon.svg` is the dark rounded launcher
 icon. The 256 and 512 PNG exports provide the Electron window icon and later
 platform packaging.
+
+## Settings and auto-refresh
+
+Settings open from a module window and are scoped to that module: Sentinels
+command and root, Malware Scan command, or SIEM URL and token file. Saving one
+module leaves the other configuration keys untouched.
+
+The main process refreshes Sentinels status and the SIEM snapshot every 10
+seconds and broadcasts the results to the Overview and the relevant module
+windows. There are no Refresh buttons.
 
 ## Configuration
 
