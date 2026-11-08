@@ -18,6 +18,12 @@ then
 fi
 
 install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$DOC"
+# Remove icons from the previous custom-branding build.
+rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
+      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg"
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
 rm -rf "$LIB/qadesk"
 cp -a "$ROOT/qadesk" "$LIB/"
 find "$LIB" -type d -name __pycache__ -prune -exec rm -rf {} +

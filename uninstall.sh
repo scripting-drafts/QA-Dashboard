@@ -8,6 +8,11 @@ DOC="$PREFIX/share/doc/qa-desktop"
 
 rm -f "$BIN"
 rm -rf "$LIB" "$DOC"
+rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
+      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg"
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
 for file in qa-desktop qa-sentinels qa-malware-scan qa-siem; do
     rm -f "$APPS/$file.desktop"
 done
