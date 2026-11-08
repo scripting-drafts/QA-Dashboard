@@ -14,7 +14,7 @@ from ..ui.base import ModulePage
 class SiemModule(ModulePage):
     id = "siem"
     title = "SIEM"
-    icon = "network-server"
+    icon = "network-server-symbolic"
     description = "Local QA SIEM health, alerts, events and dashboard access."
 
     def __init__(self, app, config) -> None:

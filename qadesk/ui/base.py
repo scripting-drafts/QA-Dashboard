@@ -125,22 +125,14 @@ class ModulePage(Gtk.Box):
         self._buttons: list[Gtk.Button] = []
 
     def add_heading(self, subtitle: str = "") -> Gtk.Label:
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        icon = Gtk.Image.new_from_icon_name(self.icon)
-        icon.set_pixel_size(44)
-        icon.set_valign(Gtk.Align.START)
-        row.append(icon)
-        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         title = Gtk.Label(label=self.title, xalign=0)
         title.add_css_class("h1")
-        text.append(title)
+        self.append(title)
         if subtitle:
             label = Gtk.Label(label=subtitle, xalign=0)
             label.set_wrap(True)
             label.add_css_class("dim")
-            text.append(label)
-        row.append(text)
-        self.append(row)
+            self.append(label)
         return title
 
     def section_label(self, text: str) -> Gtk.Label:

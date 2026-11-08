@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -56,17 +54,12 @@ class QADesktopApp(Gtk.Application):
         if self.window is not None:
             self.window.present()
             return
-        self._install_icons()
         self._install_css()
         self.window = Gtk.ApplicationWindow(application=self)
         self.window.set_title("QA Desktop")
         self.window.set_default_size(1180, 820)
-        self.window.set_icon_name("qa-desktop")
 
         header = Gtk.HeaderBar()
-        logo = Gtk.Image.new_from_icon_name("qa-desktop")
-        logo.set_pixel_size(28)
-        header.pack_start(logo)
         title = Gtk.Label(label="QA Desktop")
         title.add_css_class("h1")
         header.set_title_widget(title)
@@ -96,23 +89,6 @@ class QADesktopApp(Gtk.Application):
         self.window.connect("close-request", self._on_close_request)
         self.reload_modules()
         self.window.present()
-
-    def _install_icons(self) -> None:
-        display = Gdk.Display.get_default()
-        if display is None:
-            return
-        theme = Gtk.IconTheme.get_for_display(display)
-        source_root = Path(__file__).resolve().parents[2]
-        prefix_root = (Path(__file__).resolve().parents[4]
-                       if len(Path(__file__).resolve().parents) > 4 else None)
-        candidates = [source_root / "data" / "icons"]
-        if prefix_root is not None:
-            candidates.append(prefix_root / "share" / "icons")
-        candidates.extend((Path.home() / ".local" / "share" / "icons",
-                           Path("/usr/share/icons")))
-        for candidate in candidates:
-            if candidate.is_dir():
-                theme.add_search_path(str(candidate))
 
     def _install_css(self) -> None:
         if self._css_installed:
@@ -263,8 +239,6 @@ class QADesktopApp(Gtk.Application):
         dialog.set_modal(True)
         dialog.set_program_name("QA Desktop")
         dialog.set_version(APP_VERSION)
-        if hasattr(dialog, "set_logo_icon_name"):
-            dialog.set_logo_icon_name("qa-desktop")
         dialog.set_comments(
             "Modular desktop access to Quality Assurance Sentinels, "
             "Malware Scan and QA SIEM.")

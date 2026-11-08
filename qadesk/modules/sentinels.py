@@ -12,7 +12,7 @@ from ..ui.base import ModulePage
 class SentinelsModule(ModulePage):
     id = "sentinels"
     title = "Sentinels"
-    icon = "utilities-system-monitor"
+    icon = "utilities-system-monitor-symbolic"
     description = "Routine evidence collection, findings, logs and evidence bundles."
 
     STATUS_KEYS = (
