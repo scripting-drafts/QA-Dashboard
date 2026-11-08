@@ -43,6 +43,14 @@ fi
 install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
     "$ROOT/docs/PORTING.md" "$DOC/"
 
+# Older launchers enabled startup notification, which made GNOME keep a busy
+# cursor after a single-instance handoff. Note that a session reload is needed
+# to refresh the Shell's cached launcher metadata.
+LAUNCHER_NEEDS_RELOGIN=0
+if grep -qs '^StartupNotify=true' "$APPS/qa-dashboard.desktop" "$APPS/qa-sentinels.desktop"; then
+    LAUNCHER_NEEDS_RELOGIN=1
+fi
+
 # Remove the old GTK/Python launchers and menu entries.
 rm -f "$PREFIX/bin/qa-desktop" "$PREFIX/bin/qa-desktop-tray"
 rm -rf "$PREFIX/lib/qa-desktop" "$PREFIX/share/doc/qa-desktop"
@@ -112,6 +120,10 @@ fi
 
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPS" >/dev/null 2>&1 || true
+fi
+
+if [ "$LAUNCHER_NEEDS_RELOGIN" -eq 1 ]; then
+    echo "Sign out and back in once to refresh GNOME's launcher cursor." >&2
 fi
 
 cat <<EOF
