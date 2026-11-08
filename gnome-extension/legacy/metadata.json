@@ -1,7 +1,0 @@
-{
-  "uuid": "qa-dashboard@local",
-  "name": "QA Dashboard",
-  "description": "Open the QA Dashboard from the top bar.",
-  "shell-version": ["42", "43", "44"],
-  "version": 2
-}

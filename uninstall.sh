@@ -8,8 +8,8 @@ ICONS="$PREFIX/share/icons/hicolor/scalable/apps"
 DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
-EXT_UUID="qa-dashboard@local"
-EXT_DIR="$DATA/gnome-shell/extensions/$EXT_UUID"
+LEGACY_EXT_UUID="qa-dashboard@local"
+LEGACY_EXT_DIR="$DATA/gnome-shell/extensions/$LEGACY_EXT_UUID"
 
 # Stop Electron and any legacy Python tray/app.
 ps -eo pid=,args= | awk -v app="$LIB" 'index($0, app) && $0 ~ /electron/ && $0 !~ /awk/ {print $1}' \
@@ -21,15 +21,27 @@ ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk" {print $1}' \
 sleep 1
 
 if command -v gnome-extensions >/dev/null 2>&1; then
-    gnome-extensions disable "$EXT_UUID" >/dev/null 2>&1 || true
+    gnome-extensions disable "$LEGACY_EXT_UUID" >/dev/null 2>&1 || true
 fi
-rm -rf "$EXT_DIR"
+rm -rf "$LEGACY_EXT_DIR"
 if command -v gsettings >/dev/null 2>&1; then
     ENABLED="$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null || true)"
-    if printf '%s' "$ENABLED" | grep -q "$EXT_UUID"; then
+    if printf '%s' "$ENABLED" | grep -q "$LEGACY_EXT_UUID"; then
         UPDATED="$(printf '%s' "$ENABLED" \
-            | sed "s/'$EXT_UUID', //; s/, '$EXT_UUID'//; s/'$EXT_UUID'//")"
+            | sed "s/'$LEGACY_EXT_UUID', //; s/, '$LEGACY_EXT_UUID'//; s/'$LEGACY_EXT_UUID'//")"
         gsettings set org.gnome.shell enabled-extensions "$UPDATED" 2>/dev/null || true
+    fi
+    DISABLED="$(gsettings get org.gnome.shell disabled-extensions 2>/dev/null || true)"
+    if printf '%s' "$DISABLED" | grep -q "$LEGACY_EXT_UUID"; then
+        UPDATED_DISABLED="$(printf '%s' "$DISABLED" \
+            | sed "s/'$LEGACY_EXT_UUID', //; s/, '$LEGACY_EXT_UUID'//; s/'$LEGACY_EXT_UUID'//")"
+        gsettings set org.gnome.shell disabled-extensions "$UPDATED_DISABLED" 2>/dev/null || true
+    fi
+    FAVORITES="$(gsettings get org.gnome.shell favorite-apps 2>/dev/null || true)"
+    if printf '%s' "$FAVORITES" | grep -q "'qa-dashboard.desktop'"; then
+        UPDATED_FAVORITES="$(printf '%s' "$FAVORITES" \
+            | sed "s/'qa-dashboard.desktop', //; s/, 'qa-dashboard.desktop'//; s/'qa-dashboard.desktop'//")"
+        gsettings set org.gnome.shell favorite-apps "$UPDATED_FAVORITES" 2>/dev/null || true
     fi
 fi
 
@@ -42,7 +54,7 @@ rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
       "$ICONS/qa-dashboard.svg"
 rm -f "$AUTOSTART/qa-dashboard-tray.desktop" \
       "$AUTOSTART/qa-desktop-tray.desktop"
-for file in qa-desktop qa-sentinels qa-malware-scan qa-siem; do
+for file in qa-desktop qa-dashboard qa-sentinels qa-malware-scan qa-siem; do
     rm -f "$APPS/$file.desktop"
 done
 if command -v update-desktop-database >/dev/null 2>&1; then

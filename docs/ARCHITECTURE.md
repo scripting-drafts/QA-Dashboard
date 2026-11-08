@@ -42,32 +42,25 @@ groups are terminated on Stop.
 posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 `shell.openExternal`.
 
-## Top-bar icon and launchers
+## Launchers and single instance
 
-The top-bar icon is a small GNOME Shell extension, `qa-dashboard@local`. It uses
-the monochrome ouroboros mark and launches `qa-dashboard --module=overview` on
-click. There is no dropdown menu and no Quit item. The extension ships in
-`gnome-extension/legacy` for GNOME 42–44 and `gnome-extension/modern` for GNOME
-45+; `install.sh` selects the matching one. The shell extension replaces the
-Electron tray, whose AppIndicator single click opened an empty menu.
+There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
+Overview and is also the desktop favourite; `install.sh` migrates an existing
+QA Sentinels favourite to it. Per-app `.desktop` files call
+`qa-dashboard --module=sentinels`, `--module=malware`, or `--module=siem` for
+standalone module buttons.
+
+All launches share one Electron instance. A second launch forwards its module
+argument to the running process; an existing window is restored and focused,
+otherwise it is created. Closing all windows exits the process, so the next
+launcher click starts a fresh instance.
 
 The brand mark is a near-closed ouroboros ring with a rounded head, a cut-out
-eye, and a tapered tail. `assets/qa-dashboard.svg` is the transparent
-symbol used by the top bar and as the renderer mask;
-`assets/qa-dashboard-icon.svg` is the dark rounded launcher icon. The 256 and
-512 PNG exports provide the Electron window icon and later platform packaging.
-
-Each module has its own window, and windows are cascaded so they do not open
-directly on top of each other. Closing a module closes that window; the top-bar
-icon remains available. A single application instance manages all windows.
-
-Per-app `.desktop` files call `qa-dashboard --module=sentinels`,
-`--module=malware`, or `--module=siem`. There is no separate QA Dashboard suite
-desktop entry; the top-bar icon is the unified entry point.
-
-The GNOME integration is Linux-specific. Windows and macOS releases replace only
-this shell access layer; the Electron core and module windows stay unchanged.
-See `docs/PORTING.md`.
+eye, and a tapered tail. `assets/qa-dashboard.svg` is the simple transparent
+symbol; `assets/qa-dashboard-detailed.svg` adds contour and scale detail for the
+Overview header. `assets/qa-dashboard-icon.svg` is the dark rounded launcher
+icon. The 256 and 512 PNG exports provide the Electron window icon and later
+platform packaging.
 
 ## Configuration
 

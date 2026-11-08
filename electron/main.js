@@ -121,6 +121,7 @@ function showWindow(module = "overview") {
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
+  window.moveTop();
   return window;
 }
 
@@ -248,19 +249,20 @@ function registerIpc() {
   });
 }
 
-if (!app.requestSingleInstanceLock()) {
+const initial = parseArgs(process.argv.slice(1));
+if (!app.requestSingleInstanceLock({ module: initial.module })) {
   app.quit();
 } else {
-  const parsed = parseArgs(process.argv.slice(1));
-  startupModule = parsed.module;
-  screenshotPath = parsed.screenshot;
+  startupModule = initial.module;
+  screenshotPath = initial.screenshot;
 
   app.setName("QA Dashboard");
   app.setAppUserModelId(APP_ID);
   Menu.setApplicationMenu(null);
 
-  app.on("second-instance", (_event, argv) => {
-    const next = parseArgs(argv.slice(1)).module;
+  app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
+    const next = (additionalData && additionalData.module)
+      || parseArgs(argv.slice(1)).module;
     showWindow(next || "overview");
   });
 

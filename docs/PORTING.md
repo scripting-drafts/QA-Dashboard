@@ -16,20 +16,19 @@ boundary unchanged across platforms.
 
 ## Linux (this branch)
 
-- Monochrome ouroboros GNOME Shell top-bar icon in `gnome-extension/`.
-- `install.sh` / `uninstall.sh` manage the extension and per-app launchers.
-- Click opens `qa-dashboard --module=overview`; no menu and no Quit item.
+- No tray or top-bar icon.
+- `qa-dashboard.desktop` opens the Overview and is used as the favourite.
+- Per-app `.desktop` files open Sentinels, Malware Scan, or SIEM directly.
+- All launches share one Electron instance and focus existing windows.
 
 ## Windows (later)
 
-- Replace the GNOME extension with a tray icon whose click opens the Overview.
-- Do not attach a context menu; keep the single-instance module routing.
-- Add shortcuts that launch `--module=sentinels`, `--module=malware`, and
-  `--module=siem`.
+- No tray icon; use Start-menu and desktop shortcuts.
+- The main shortcut opens the Overview; module shortcuts use `--module=...`.
+- Keep the single-instance module routing.
 
 ## macOS (later)
 
-- Use a menu-bar status item with a template (monochrome) image; its action
-  opens the Overview without a dropdown.
+- No menu-bar icon; the Dock/app icon opens the Overview.
 - Package as an app bundle and add per-module shortcuts or URL schemes.
 - Keep the same preload, backend, and renderer code.
