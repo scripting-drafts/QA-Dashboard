@@ -85,21 +85,11 @@ input[type="text"]:focus {
 .brand-mark {
   width: 34px;
   height: 34px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 3px;
+  flex: 0 0 auto;
+  background-color: currentColor;
+  -webkit-mask: url("../assets/qa-dashboard.svg") center / contain no-repeat;
+  mask: url("../assets/qa-dashboard.svg") center / contain no-repeat;
 }
-
-.brand-mark i {
-  display: block;
-  background: var(--text);
-  border-radius: 3px;
-  opacity: 0.9;
-}
-
-.brand-mark i:nth-child(2) { opacity: 0.55; }
-.brand-mark i:nth-child(3) { grid-column: 1 / -1; opacity: 0.75; }
 
 .dot {
   width: 8px;

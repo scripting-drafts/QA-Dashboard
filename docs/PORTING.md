@@ -1,7 +1,7 @@
 # Porting notes
 
-The Electron core is platform-neutral and should be reused on Windows and
-macOS. Only the shell integration belongs to a platform branch.
+All three releases—Linux, Windows, and macOS—are Electron applications. The
+Electron core is shared; only shell integration is platform-specific.
 
 ## Shared core
 
@@ -9,13 +9,14 @@ macOS. Only the shell integration belongs to a platform branch.
 - `electron/backend.js`: fixed CLI arguments, streaming, SIEM HTTP.
 - `electron/preload.js`: narrow `contextBridge` API.
 - `renderer/`: compact Overview and module views.
+- `assets/qa-dashboard-*`: shared ouroboros brand mark, launcher icon, and PNGs.
 
 Keep module names, window sizes, single-instance behavior, and the token
 boundary unchanged across platforms.
 
 ## Linux (this branch)
 
-- Monochrome GNOME Shell top-bar icon in `gnome-extension/`.
+- Monochrome ouroboros GNOME Shell top-bar icon in `gnome-extension/`.
 - `install.sh` / `uninstall.sh` manage the extension and per-app launchers.
 - Click opens `qa-dashboard --module=overview`; no menu and no Quit item.
 

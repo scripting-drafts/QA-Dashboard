@@ -10,6 +10,7 @@ const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set(["overview", "sentinels", "malware", "siem"]);
+const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
@@ -80,6 +81,7 @@ function createWindow(module = "overview", show = true) {
     minHeight: module === "overview" ? 540 : 620,
     show: false,
     title: WINDOW_TITLES[module],
+    icon: APP_ICON,
     backgroundColor: "#1d1d20",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

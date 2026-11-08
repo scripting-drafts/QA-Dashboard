@@ -4,6 +4,7 @@ PREFIX="${PREFIX:-$HOME/.local}"
 LIB="$PREFIX/lib/qa-dashboard"
 BIN="$PREFIX/bin/qa-dashboard"
 APPS="$PREFIX/share/applications"
+ICONS="$PREFIX/share/icons/hicolor/scalable/apps"
 DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -37,7 +38,8 @@ rm -rf "$LIB" "$DOC"
 rm -f "$PREFIX/bin/qa-desktop" "$PREFIX/bin/qa-desktop-tray"
 rm -rf "$PREFIX/lib/qa-desktop" "$PREFIX/share/doc/qa-desktop"
 rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
-      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg"
+      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg" \
+      "$ICONS/qa-dashboard.svg"
 rm -f "$AUTOSTART/qa-dashboard-tray.desktop" \
       "$AUTOSTART/qa-desktop-tray.desktop"
 for file in qa-desktop qa-sentinels qa-malware-scan qa-siem; do

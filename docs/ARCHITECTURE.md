@@ -39,12 +39,17 @@ posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 ## Top-bar icon and launchers
 
 The top-bar icon is a small GNOME Shell extension, `qa-dashboard@local`. It uses
-the monochrome three-tile dashboard glyph and launches
-`qa-dashboard --module=overview` on click. There is no dropdown menu and no Quit
-item. The extension ships in `gnome-extension/legacy` for GNOME 42–44 and
-`gnome-extension/modern` for GNOME 45+; `install.sh` selects the matching one.
-The shell extension replaces the Electron tray, whose AppIndicator single click
-opened an empty menu.
+the monochrome ouroboros mark and launches `qa-dashboard --module=overview` on
+click. There is no dropdown menu and no Quit item. The extension ships in
+`gnome-extension/legacy` for GNOME 42–44 and `gnome-extension/modern` for GNOME
+45+; `install.sh` selects the matching one. The shell extension replaces the
+Electron tray, whose AppIndicator single click opened an empty menu.
+
+The brand mark is a near-closed ouroboros ring with a rounded head, a cut-out
+eye, and a tapered tail. `assets/qa-dashboard.svg` is the transparent
+symbol used by the top bar and as the renderer mask;
+`assets/qa-dashboard-icon.svg` is the dark rounded launcher icon. The 256 and
+512 PNG exports provide the Electron window icon and later platform packaging.
 
 Each module has its own window, and windows are cascaded so they do not open
 directly on top of each other. Closing a module closes that window; the top-bar
@@ -54,7 +59,7 @@ Per-app `.desktop` files call `qa-dashboard --module=sentinels`,
 `--module=malware`, or `--module=siem`. There is no separate QA Dashboard suite
 desktop entry; the top-bar icon is the unified entry point.
 
-The GNOME integration is Linux-specific. Windows and macOS ports replace only
+The GNOME integration is Linux-specific. Windows and macOS releases replace only
 this shell access layer; the Electron core and module windows stay unchanged.
 See `docs/PORTING.md`.
 

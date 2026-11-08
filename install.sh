@@ -5,6 +5,7 @@ PREFIX="${PREFIX:-$HOME/.local}"
 LIB="$PREFIX/lib/qa-dashboard"
 BIN="$PREFIX/bin/qa-dashboard"
 APPS="$PREFIX/share/applications"
+ICONS="$PREFIX/share/icons/hicolor/scalable/apps"
 DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -25,7 +26,7 @@ ps -eo pid=,args= | awk -v app="$LIB" 'index($0, app) && $0 ~ /electron/ && $0 !
     | xargs -r kill 2>/dev/null || true
 sleep 1
 
-install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$DOC" "$AUTOSTART"
+install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$ICONS" "$DOC" "$AUTOSTART"
 rm -rf "$LIB/electron" "$LIB/renderer" "$LIB/assets" "$LIB/node_modules"
 cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$LIB/"
 install -m 0644 "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
@@ -35,6 +36,10 @@ else
     (cd "$LIB" && npm ci --no-audit --no-fund >/dev/null)
 fi
 install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
+install -m 0644 "$ROOT/assets/qa-dashboard-icon.svg" "$ICONS/qa-dashboard.svg"
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
 install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
     "$ROOT/docs/PORTING.md" "$DOC/"
 
@@ -64,13 +69,11 @@ EOF
 }
 
 write_desktop qa-sentinels "QA Sentinels" \
-    "Evidence collection and failure correlation" "sentinels" \
-    "utilities-system-monitor"
+    "Evidence collection and failure correlation" "sentinels" "qa-dashboard"
 write_desktop qa-malware-scan "Malware Scan" \
-    "Scan files and folders for malware indicators" "malware" \
-    "security-high"
+    "Scan files and folders for malware indicators" "malware" "qa-dashboard"
 write_desktop qa-siem "QA SIEM" \
-    "Local QA SIEM dashboard and alerts" "siem" "network-server"
+    "Local QA SIEM dashboard and alerts" "siem" "qa-dashboard"
 
 # Install the GNOME Shell top-bar icon. It launches the Overview on click and
 # replaces the Electron tray, which opened an empty AppIndicator menu.
@@ -83,6 +86,8 @@ if [ -n "$SHELL_MAJOR" ] && [ "$SHELL_MAJOR" -ge 45 ] 2>/dev/null; then
 else
     EXT_SRC="$ROOT/gnome-extension/legacy"
 fi
+EXT_WAS_PRESENT=0
+[ -d "$EXT_DIR" ] && EXT_WAS_PRESENT=1
 rm -rf "$EXT_DIR"
 install -d -m 0755 "$EXT_DIR"
 cp -a "$EXT_SRC/." "$EXT_DIR/"
@@ -95,9 +100,11 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPS" >/dev/null 2>&1 || true
 fi
 
+EXT_NEEDS_RELOGIN=0
 if command -v gnome-extensions >/dev/null 2>&1; then
     gnome-extensions disable "$EXT_UUID" >/dev/null 2>&1 || true
     if ! gnome-extensions enable "$EXT_UUID" >/dev/null 2>&1; then
+        EXT_NEEDS_RELOGIN=1
         # A newly copied extension is unknown until the shell rescans its
         # extension directory. Add it to the login list so the next session
         # starts with the top-bar icon enabled.
@@ -115,7 +122,11 @@ if command -v gnome-extensions >/dev/null 2>&1; then
         fi
     fi
 else
+    EXT_NEEDS_RELOGIN=1
     echo "Install gnome-extensions, then enable $EXT_UUID." >&2
+fi
+if [ "$EXT_WAS_PRESENT" -eq 1 ] && [ "$EXT_NEEDS_RELOGIN" -eq 0 ]; then
+    echo "Top-bar icon updated; sign out and back in if it does not refresh." >&2
 fi
 
 cat <<EOF
