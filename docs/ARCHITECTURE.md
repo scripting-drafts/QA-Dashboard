@@ -7,7 +7,7 @@ engines stay independent: the dashboard only invokes their CLI or local API.
 
 | Layer | Responsibility |
 | --- | --- |
-| Main process (`electron/main.js`) | Window, monochrome tray icon, IPC, child processes, local SIEM HTTP |
+| Main process (`electron/main.js`) | Window lifecycle, IPC, child processes, local SIEM HTTP |
 | Backend (`electron/backend.js`) | Config resolution, fixed argv builders, streaming, HTTP |
 | Preload (`electron/preload.js`) | Minimal `contextBridge` API; no Node in the renderer |
 | Renderer (`renderer/`) | Compact Overview window and module-specific windows |
@@ -36,17 +36,27 @@ groups are terminated on Stop.
 posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 `shell.openExternal`.
 
-## Tray and launchers
+## Top-bar icon and launchers
 
-The tray uses a monochrome three-tile dashboard glyph. Clicking the icon opens
-the compact Overview; there is no tray menu and no Quit item. Each module has its
-own window, and windows are cascaded so they do not open directly on top of each
-other. Closing a module closes that window; the tray remains available. A single
-application instance manages all windows.
+The top-bar icon is a small GNOME Shell extension, `qa-dashboard@local`. It uses
+the monochrome three-tile dashboard glyph and launches
+`qa-dashboard --module=overview` on click. There is no dropdown menu and no Quit
+item. The extension ships in `gnome-extension/legacy` for GNOME 42–44 and
+`gnome-extension/modern` for GNOME 45+; `install.sh` selects the matching one.
+The shell extension replaces the Electron tray, whose AppIndicator single click
+opened an empty menu.
+
+Each module has its own window, and windows are cascaded so they do not open
+directly on top of each other. Closing a module closes that window; the top-bar
+icon remains available. A single application instance manages all windows.
 
 Per-app `.desktop` files call `qa-dashboard --module=sentinels`,
 `--module=malware`, or `--module=siem`. There is no separate QA Dashboard suite
-desktop entry; the tray is the unified entry point.
+desktop entry; the top-bar icon is the unified entry point.
+
+The GNOME integration is Linux-specific. Windows and macOS ports replace only
+this shell access layer; the Electron core and module windows stay unchanged.
+See `docs/PORTING.md`.
 
 ## Configuration
 

@@ -7,6 +7,9 @@ BIN="$PREFIX/bin/qa-dashboard"
 APPS="$PREFIX/share/applications"
 DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
+EXT_UUID="qa-dashboard@local"
+EXT_DIR="$DATA/gnome-shell/extensions/$EXT_UUID"
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
     echo "QA Dashboard requires Node.js and npm." >&2
@@ -32,7 +35,8 @@ else
     (cd "$LIB" && npm ci --no-audit --no-fund >/dev/null)
 fi
 install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
-install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" "$DOC/"
+install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
+    "$ROOT/docs/PORTING.md" "$DOC/"
 
 # Remove the old GTK/Python launchers and menu entries.
 rm -f "$PREFIX/bin/qa-desktop" "$PREFIX/bin/qa-desktop-tray"
@@ -68,35 +72,55 @@ write_desktop qa-malware-scan "Malware Scan" \
 write_desktop qa-siem "QA SIEM" \
     "Local QA SIEM dashboard and alerts" "siem" "network-server"
 
-rm -f "$AUTOSTART/qa-desktop-tray.desktop"
-cat > "$AUTOSTART/qa-dashboard-tray.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=QA Dashboard tray
-Comment=Monochrome QA Dashboard access
-Exec="$BIN" --tray
-Icon=utilities-system-monitor
-Terminal=false
-NoDisplay=true
-Hidden=false
-X-GNOME-Autostart-enabled=true
-OnlyShowIn=GNOME;
-EOF
-chmod 0644 "$AUTOSTART/qa-dashboard-tray.desktop"
+# Install the GNOME Shell top-bar icon. It launches the Overview on click and
+# replaces the Electron tray, which opened an empty AppIndicator menu.
+SHELL_MAJOR=""
+if command -v gnome-shell >/dev/null 2>&1; then
+    SHELL_MAJOR="$(gnome-shell --version 2>/dev/null | awk '{print $3}' | cut -d. -f1)"
+fi
+if [ -n "$SHELL_MAJOR" ] && [ "$SHELL_MAJOR" -ge 45 ] 2>/dev/null; then
+    EXT_SRC="$ROOT/gnome-extension/modern"
+else
+    EXT_SRC="$ROOT/gnome-extension/legacy"
+fi
+rm -rf "$EXT_DIR"
+install -d -m 0755 "$EXT_DIR"
+cp -a "$EXT_SRC/." "$EXT_DIR/"
+install -m 0644 "$ROOT/assets/qa-dashboard.svg" "$EXT_DIR/qa-dashboard.svg"
+
+rm -f "$AUTOSTART/qa-desktop-tray.desktop" \
+      "$AUTOSTART/qa-dashboard-tray.desktop"
 
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPS" >/dev/null 2>&1 || true
 fi
 
-if command -v setsid >/dev/null 2>&1; then
-    setsid "$BIN" --tray >/dev/null 2>&1 &
+if command -v gnome-extensions >/dev/null 2>&1; then
+    gnome-extensions disable "$EXT_UUID" >/dev/null 2>&1 || true
+    if ! gnome-extensions enable "$EXT_UUID" >/dev/null 2>&1; then
+        # A newly copied extension is unknown until the shell rescans its
+        # extension directory. Add it to the login list so the next session
+        # starts with the top-bar icon enabled.
+        ENABLED="$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null || true)"
+        case "$ENABLED" in
+            *"$EXT_UUID"*) ;;
+            "@as []"|"[]") ENABLED="['$EXT_UUID']" ;;
+            *) ENABLED="$(printf '%s' "$ENABLED" | sed "s/]$/, '$EXT_UUID']/")" ;;
+        esac
+        if [ -n "$ENABLED" ] && gsettings set org.gnome.shell enabled-extensions "$ENABLED" 2>/dev/null; then
+            echo "Top-bar icon enabled for the next GNOME Shell login." >&2
+        else
+            echo "Top-bar icon installed but not enabled yet." >&2
+            echo "Sign out and back in, then run: gnome-extensions enable $EXT_UUID" >&2
+        fi
+    fi
 else
-    nohup "$BIN" --tray >/dev/null 2>&1 &
+    echo "Install gnome-extensions, then enable $EXT_UUID." >&2
 fi
 
 cat <<EOF
 Installed QA Dashboard to $PREFIX
-  launcher : $BIN
-  autostart: $AUTOSTART/qa-dashboard-tray.desktop
-  access   : monochrome top-bar tray icon (dashboard and three apps)
+  launcher   : $BIN
+  top bar    : $EXT_DIR (GNOME extension $EXT_UUID)
+  modules    : QA Sentinels, Malware Scan, QA SIEM launchers
 EOF

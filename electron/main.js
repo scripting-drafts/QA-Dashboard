@@ -4,13 +4,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
-  app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, shell, Tray,
+  app, BrowserWindow, dialog, ipcMain, Menu, screen, shell,
 } = require("electron");
 const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set(["overview", "sentinels", "malware", "siem"]);
-const ICON_DIR = path.join(__dirname, "..", "assets");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
@@ -27,22 +26,17 @@ const WINDOW_SIZES = {
 };
 
 const windows = new Map();
-let tray = null;
-let isQuitting = false;
 let activeSentinels = null;
 let activeMalware = null;
 let startupModule = "overview";
-let startHidden = false;
 let screenshotPath = "";
 
 function parseArgs(argv) {
   let module = "overview";
-  let hidden = false;
   let screenshot = "";
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
-    if (value === "--tray") hidden = true;
-    else if (value.startsWith("--module=")) {
+    if (value.startsWith("--module=")) {
       const candidate = value.slice("--module=".length);
       if (MODULES.has(candidate)) module = candidate;
     } else if (value === "--module" && argv[index + 1]) {
@@ -55,24 +49,7 @@ function parseArgs(argv) {
       index += 1;
     }
   }
-  return { module, hidden, screenshot };
-}
-
-function trayImage() {
-  for (const name of ("tray-dashboard-22.png", "tray-dashboard-32.png",
-                      "tray-dashboard-64.png")) {
-    const image = nativeImage.createFromPath(path.join(ICON_DIR, name));
-    if (!image.isEmpty()) return image;
-  }
-  return nativeImage.createEmpty();
-}
-
-function createTray() {
-  tray = new Tray(trayImage());
-  tray.setToolTip("QA Dashboard");
-  tray.on("click", () => showWindow("overview"));
-  tray.on("double-click", () => showWindow("overview"));
-  tray.on("right-click", () => showWindow("overview"));
+  return { module, screenshot };
 }
 
 function createWindow(module = "overview", show = true) {
@@ -274,7 +251,6 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   const parsed = parseArgs(process.argv.slice(1));
   startupModule = parsed.module;
-  startHidden = parsed.hidden;
   screenshotPath = parsed.screenshot;
 
   app.setName("QA Dashboard");
@@ -288,39 +264,26 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     registerIpc();
-    createTray();
-    if (!startHidden || screenshotPath) {
-      const window = createWindow(startupModule, true);
-      if (screenshotPath) {
-        window.webContents.once("did-finish-load", () => {
-          setTimeout(async () => {
-            try {
-              const image = await window.webContents.capturePage();
-              fs.writeFileSync(screenshotPath, image.toPNG());
-            } catch (error) {
-              console.error(error);
-            } finally {
-              isQuitting = true;
-              app.quit();
-            }
-          }, 1500);
-        });
-      }
+    const window = createWindow(startupModule, true);
+    if (screenshotPath) {
+      window.webContents.once("did-finish-load", () => {
+        setTimeout(async () => {
+          try {
+            const image = await window.webContents.capturePage();
+            fs.writeFileSync(screenshotPath, image.toPNG());
+          } catch (error) {
+            console.error(error);
+          } finally {
+            app.quit();
+          }
+        }, 1500);
+      });
     }
     app.on("activate", () => showWindow("overview"));
   });
 
-  app.on("window-all-closed", () => {
-    // Keep the tray process alive.
-  });
-
   app.on("before-quit", () => {
-    isQuitting = true;
     backend.cancelProcess(activeSentinels);
     backend.cancelProcess(activeMalware);
-    if (tray) {
-      tray.destroy();
-      tray = null;
-    }
   });
 }

@@ -6,6 +6,9 @@ BIN="$PREFIX/bin/qa-dashboard"
 APPS="$PREFIX/share/applications"
 DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
+EXT_UUID="qa-dashboard@local"
+EXT_DIR="$DATA/gnome-shell/extensions/$EXT_UUID"
 
 # Stop Electron and any legacy Python tray/app.
 ps -eo pid=,args= | awk -v app="$LIB" 'index($0, app) && $0 ~ /electron/ && $0 !~ /awk/ {print $1}' \
@@ -15,6 +18,19 @@ ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk.tray" {print $
 ps -eo pid=,args= | awk '$2=="python3" && $3=="-m" && $4=="qadesk" {print $1}' \
     | xargs -r kill 2>/dev/null || true
 sleep 1
+
+if command -v gnome-extensions >/dev/null 2>&1; then
+    gnome-extensions disable "$EXT_UUID" >/dev/null 2>&1 || true
+fi
+rm -rf "$EXT_DIR"
+if command -v gsettings >/dev/null 2>&1; then
+    ENABLED="$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null || true)"
+    if printf '%s' "$ENABLED" | grep -q "$EXT_UUID"; then
+        UPDATED="$(printf '%s' "$ENABLED" \
+            | sed "s/'$EXT_UUID', //; s/, '$EXT_UUID'//; s/'$EXT_UUID'//")"
+        gsettings set org.gnome.shell enabled-extensions "$UPDATED" 2>/dev/null || true
+    fi
+fi
 
 rm -f "$BIN"
 rm -rf "$LIB" "$DOC"
