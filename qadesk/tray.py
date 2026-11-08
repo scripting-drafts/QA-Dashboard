@@ -105,9 +105,9 @@ FALLBACK_ICON_PATHS = (
 )
 
 MENU_ITEMS = (
-    (1, "Sentinels", "sentinels"),
-    (2, "Malware Scan", "malware"),
-    (3, "SIEM", "siem"),
+    (1, "SIEM", "siem"),
+    (2, "Sentinels", "sentinels"),
+    (3, "Malware Scan", "malware"),
 )
 
 

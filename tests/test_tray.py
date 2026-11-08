@@ -16,11 +16,7 @@ class TrayTests(unittest.TestCase):
 
     def test_menu_contract(self) -> None:
         labels = [label for _ident, label, _module in MENU_ITEMS if label]
-        self.assertNotIn("Open QA Desktop", labels)
-        self.assertIn("Sentinels", labels)
-        self.assertIn("Malware Scan", labels)
-        self.assertIn("SIEM", labels)
-        self.assertNotIn("Quit", labels)
+        self.assertEqual(labels, ["SIEM", "Sentinels", "Malware Scan"])
 
     def test_item_properties(self) -> None:
         standard = QATray._item_props("Sentinels")
