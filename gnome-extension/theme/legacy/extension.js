@@ -1,11 +1,18 @@
 "use strict";
 
-const { Gio, GLib } = imports.gi;
+const { Gio, GLib, Shell } = imports.gi;
 const Main = imports.ui.main;
 
-const APP_ID = "qa-dashboard.desktop";
+const APP_IDS = [
+    "qa-dashboard.desktop",
+    "qa-sentinels.desktop",
+    "qa-malware-scan.desktop",
+    "qa-siem.desktop",
+];
 let settings = null;
 let settingsSignal = 0;
+let appSystem = null;
+let appSystemSignal = 0;
 let timerId = 0;
 let attempts = 0;
 
@@ -43,7 +50,7 @@ function setDockIcon() {
 
     const gicon = new Gio.ThemedIcon({ name: iconName() });
     for (const appIcon of dash.getAppIcons()) {
-        if (!appIcon.app || appIcon.app.get_id() !== APP_ID)
+        if (!appIcon.app || !APP_IDS.includes(appIcon.app.get_id()))
             continue;
 
         const texture = findIconTexture(appIcon, 0);
@@ -77,16 +84,22 @@ function init() {
 function enable() {
     settings = new Gio.Settings({ schema_id: "org.gnome.desktop.interface" });
     settingsSignal = settings.connect("changed::color-scheme", schedule);
+    appSystem = Shell.AppSystem.get_default();
+    appSystemSignal = appSystem.connect("app-state-changed", schedule);
     schedule();
 }
 
 function disable() {
     if (settings && settingsSignal)
         settings.disconnect(settingsSignal);
+    if (appSystem && appSystemSignal)
+        appSystem.disconnect(appSystemSignal);
     if (timerId)
         GLib.source_remove(timerId);
     settings = null;
     settingsSignal = 0;
+    appSystem = null;
+    appSystemSignal = 0;
     timerId = 0;
     attempts = 0;
 }

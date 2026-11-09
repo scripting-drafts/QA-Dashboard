@@ -1,10 +1,16 @@
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import Shell from "gi://Shell";
 
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-const APP_ID = "qa-dashboard.desktop";
+const APP_IDS = [
+    "qa-dashboard.desktop",
+    "qa-sentinels.desktop",
+    "qa-malware-scan.desktop",
+    "qa-siem.desktop",
+];
 
 export default class QADashboardThemeExtension extends Extension {
     enable() {
@@ -13,16 +19,23 @@ export default class QADashboardThemeExtension extends Extension {
         });
         this._settingsSignal = this._settings.connect(
             "changed::color-scheme", () => this._schedule());
+        this._appSystem = Shell.AppSystem.get_default();
+        this._appSystemSignal = this._appSystem.connect(
+            "app-state-changed", () => this._schedule());
         this._schedule();
     }
 
     disable() {
         if (this._settings && this._settingsSignal)
             this._settings.disconnect(this._settingsSignal);
+        if (this._appSystem && this._appSystemSignal)
+            this._appSystem.disconnect(this._appSystemSignal);
         if (this._timerId)
             GLib.source_remove(this._timerId);
         this._settings = null;
         this._settingsSignal = 0;
+        this._appSystem = null;
+        this._appSystemSignal = 0;
         this._timerId = 0;
         this._attempts = 0;
     }
@@ -81,7 +94,7 @@ export default class QADashboardThemeExtension extends Extension {
 
         const gicon = new Gio.ThemedIcon({ name: this._iconName() });
         for (const appIcon of dash.getAppIcons()) {
-            if (!appIcon.app || appIcon.app.get_id() !== APP_ID)
+            if (!appIcon.app || !APP_IDS.includes(appIcon.app.get_id()))
                 continue;
 
             const texture = this._findIconTexture(appIcon);

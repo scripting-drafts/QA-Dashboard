@@ -20,9 +20,10 @@ in the main process.
 
 The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
-The visual language is a TaiG-inspired teal palette with cyan edge glows,
-glassy gradient panels, and layered shadows. Light and dark variants follow the
-desktop color setting, including the native window decoration.
+The visual language is a TaiG-inspired teal palette. The light variant uses
+flat surfaces without shadows or glows; the dark variant keeps the cyan edge
+glows, glassy gradients, and layered shadows. Both follow the desktop color
+setting, including the native window decoration.
 
 ## Sentinels
 
@@ -66,8 +67,8 @@ The brand mark is the brush-enso artwork, converted to a transparent alpha mask
 at `assets/qa-dashboard-enso.png`. CSS tints it for the active light or dark
 theme and for the Overview gradient. The favourite/dock icon has full-colour
 light and dark tile variants. A hidden `qa-dashboard-theme@local` Shell
-extension switches the dock favourite with the chosen appearance and adds no
-top-bar item.
+extension switches the favourite and other QA launcher icons with the chosen
+appearance and adds no top-bar item.
 
 ## Settings and auto-refresh
 
