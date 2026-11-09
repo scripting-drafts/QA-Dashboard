@@ -1,6 +1,6 @@
 # QA Dashboard
 Electron dashboard for **QA Sentinels**, **Malware Scan**, and **QA SIEM**.
-Linux, Windows, and macOS releases use this Electron core with a TaiG-inspired dark teal interface.
+Linux, Windows, and macOS releases use this Electron core with a TaiG-inspired teal interface that follows the desktop light/dark setting.
 Use the **QA Dashboard** favourite or standalone launcher to open the compact Overview.
 Module launchers in the applications menu open Sentinels, Malware Scan, or SIEM directly.
 Install with `./install.sh` (Node.js, npm); it installs the dashboard and module launchers.

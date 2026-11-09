@@ -43,6 +43,17 @@ let siemRefreshing = false;
 
 const AUTO_REFRESH_MS = 10000;
 
+function windowBackground() {
+  return nativeTheme.shouldUseDarkColors ? "#0b1418" : "#eef8f8";
+}
+
+function syncWindowBackgrounds() {
+  const color = windowBackground();
+  for (const window of windows.values()) {
+    if (!window.isDestroyed()) window.setBackgroundColor(color);
+  }
+}
+
 function parseArgs(argv) {
   let module = "overview";
   let screenshot = "";
@@ -93,8 +104,7 @@ function createWindow(module = "overview", show = true) {
     show: false,
     title: WINDOW_TITLES[module],
     icon: APP_ICON,
-    darkTheme: true,
-    backgroundColor: "#0b1418",
+    backgroundColor: windowBackground(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -382,7 +392,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
 
   app.setName("QA Dashboard");
   app.setAppUserModelId(APP_ID);
-  nativeTheme.themeSource = "dark";
+  nativeTheme.themeSource = "system";
   Menu.setApplicationMenu(null);
 
   app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
@@ -394,6 +404,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
 
   app.whenReady().then(() => {
     registerIpc();
+    nativeTheme.on("updated", syncWindowBackgrounds);
     startAutoRefresh();
     const window = createWindow(startupModule, true);
     if (screenshotPath) {
