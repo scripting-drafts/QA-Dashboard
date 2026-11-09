@@ -561,20 +561,6 @@ function fillSettings(view) {
     label.hidden = label.dataset.settingsModule !== settingsModule;
   });
   $("#settings-title").textContent = SETTINGS_TITLES[settingsModule] || "Settings";
-  const resolved = view.resolved || {};
-  if (settingsModule === "sentinels") {
-    $("#settings-resolved").textContent =
-      `Detected: qa=${resolved.sentinelsBin || "missing"} · ` +
-      `root=${resolved.sentinelsRoot || "missing"} · ` +
-      `settings=${resolved.sentinelsSettings || "not found"}`;
-  } else if (settingsModule === "malware") {
-    $("#settings-resolved").textContent =
-      `Detected: malware-scan=${resolved.malwareBin || "missing"}`;
-  } else {
-    $("#settings-resolved").textContent =
-      `Endpoint: ${view.siemUrl || "-"} · ` +
-      `token=${resolved.siemTokenAvailable ? "readable" : "missing"}`;
-  }
 }
 
 async function openSettings() {
