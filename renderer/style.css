@@ -16,6 +16,7 @@
   --accent-2: #1b8f9d;
   --accent-soft: rgba(72, 216, 226, 0.14);
   --accent-glow: rgba(72, 216, 226, 0.35);
+  --on-accent: #041316;
   --danger: #ff7b84;
   --ok: #65e0b2;
   --warn: #f5c451;
@@ -241,6 +242,47 @@ button.ghost:hover {
 .panel h3 {
   font-size: 15px;
   margin: 0 0 12px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-head h3 { margin: 0; }
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-alt);
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.segmented button:hover {
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
 }
 
 .muted { color: var(--muted); }
@@ -684,6 +726,7 @@ dialog::backdrop {
     --accent-2: #1b8f9d;
     --accent-soft: rgba(27, 143, 157, 0.12);
     --accent-glow: rgba(27, 143, 157, 0.2);
+    --on-accent: #ffffff;
     --danger: #b3261e;
     --ok: #0b7a5a;
     --warn: #8a5b00;

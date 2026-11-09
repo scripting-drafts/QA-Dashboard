@@ -40,7 +40,10 @@ commands are not exposed.
 The renderer sends scan options. The backend builds an argument vector with
 `--json`, `--fail-on none`, and a final `--` before the target. Child output is
 streamed line by line; the renderer parses JSONL findings and summaries. Process
-groups are terminated on Stop.
+groups are terminated on Stop. The Malware window switches between raw scan
+output and the quarantine list. The Malware Scan package also installs
+`malware-scan-sandbox`, which inspects quarantined samples inside a read-only,
+no-network bubblewrap sandbox.
 
 ## SIEM
 

@@ -98,7 +98,6 @@
           <div class="toolbar">
             <button id="mal-start">Start scan</button>
             <button id="mal-stop" class="danger" disabled>Stop</button>
-            <button id="mal-list">Quarantine list</button>
           </div>
         </div>
         <div class="summary-grid" id="mal-summary">
@@ -117,8 +116,15 @@
           </div>
         </div>
         <div class="panel">
-          <h3>Raw output</h3>
+          <div class="panel-head">
+            <h3 id="mal-view-title">Raw output</h3>
+            <div class="segmented" role="tablist" aria-label="Malware output view">
+              <button id="mal-view-raw" data-mal-view="raw" class="active" role="tab" aria-selected="true">Raw output</button>
+              <button id="mal-view-quarantine" data-mal-view="quarantine" role="tab" aria-selected="false">Quarantine list</button>
+            </div>
+          </div>
           <pre id="mal-output" class="console"></pre>
+          <pre id="mal-quarantine-output" class="console" hidden></pre>
         </div>
       </section>
 

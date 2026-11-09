@@ -32,6 +32,7 @@ let logsRunning = false;
 let settingsModule = "";
 let malwareBusy = false;
 let malwareFindings = 0;
+let malwareView = "raw";
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -236,6 +237,20 @@ function renderMalwareSummary(summary) {
   $("#overview-malware").textContent = parts.join(" · ") || "Scan finished.";
 }
 
+function setMalwareView(view) {
+  malwareView = view === "quarantine" ? "quarantine" : "raw";
+  $$("[data-mal-view]").forEach((button) => {
+    const active = button.dataset.malView === malwareView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  $("#mal-output").hidden = malwareView !== "raw";
+  $("#mal-quarantine-output").hidden = malwareView !== "quarantine";
+  $("#mal-view-title").textContent =
+    malwareView === "raw" ? "Raw output" : "Quarantine list";
+  if (malwareView === "quarantine") showQuarantine();
+}
+
 async function startMalware() {
   if (malwareBusy) return;
   const target = $("#mal-path").value.trim();
@@ -243,6 +258,7 @@ async function startMalware() {
     toast("Choose a file or folder to scan.", true);
     return;
   }
+  setMalwareView("raw");
   resetMalware();
   setMalwareBusy(true);
   append($("#mal-output"), "starting scan…");
@@ -266,11 +282,12 @@ async function startMalware() {
 async function showQuarantine() {
   try {
     const result = await window.qa.malware.list();
-    $("#mal-output").textContent = "";
+    const output = $("#mal-quarantine-output");
+    output.textContent = "";
     for (const line of String(result.output || "").split(/\r?\n/)) {
-      if (line) append($("#mal-output"), line);
+      if (line) append(output, line);
     }
-    $("#mal-output").scrollTop = 0;
+    output.scrollTop = 0;
     if (result.code !== 0) toast("Quarantine list failed.", true);
   } catch (error) {
     toast(String(error.message || error), true);
@@ -483,7 +500,9 @@ function bind() {
     await window.qa.malware.cancel();
     append($("#mal-output"), "stop requested");
   });
-  $("#mal-list").addEventListener("click", showQuarantine);
+  $$("[data-mal-view]").forEach((button) => {
+    button.addEventListener("click", () => setMalwareView(button.dataset.malView));
+  });
   $("#mal-folder").addEventListener("click", async () => {
     const selected = await window.qa.pickPath("folder");
     if (selected) $("#mal-path").value = selected;
