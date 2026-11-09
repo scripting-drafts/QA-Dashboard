@@ -17,7 +17,7 @@ const WINDOW_TITLES = {
   overview: "QA Dashboard",
   sentinels: "QA Sentinels",
   rules: "Ticket Rules",
-  logs: "Sentinels Logs",
+  logs: "QA Sentinels Logs",
   malware: "Malware Scan",
   siem: "QA SIEM",
 };

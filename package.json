@@ -1,5 +1,6 @@
 {
   "name": "qa-dashboard",
+  "productName": "QA Dashboard",
   "version": "0.2.0",
   "private": true,
   "description": "Electron dashboard for QA Sentinels, Malware Scan, and QA SIEM",

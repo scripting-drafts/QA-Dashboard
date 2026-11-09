@@ -18,7 +18,7 @@ boundary unchanged across platforms.
 
 - No tray or top-bar icon.
 - `qa-dashboard.desktop` opens the Overview and is used as the favourite.
-- Per-app `.desktop` files open Sentinels, Malware Scan, or SIEM directly.
+- Per-app `.desktop` files open QA Sentinels, Malware Scan, or SIEM directly.
 - All launches share one Electron instance and focus existing windows.
 
 ## Windows (later)

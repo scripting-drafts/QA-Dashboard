@@ -5,15 +5,15 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
   overview: ["QA Dashboard", "All three QA tools in one local dashboard."],
-  sentinels: ["Sentinels", "Monitoring, findings and live logs."],
+  sentinels: ["QA Sentinels", "Monitoring, findings and live logs."],
   rules: ["Ticket Rules", "How issues move between ticket states, and why."],
-  logs: ["Sentinels Logs", "Live sentinel log stream."],
+  logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
   malware: ["Malware Scan", "Bounded scanning with live findings and coverage status."],
   siem: ["SIEM", "Health, alerts and events from the local QA SIEM API."],
 };
 
 const SETTINGS_TITLES = {
-  sentinels: "Sentinels settings",
+  sentinels: "QA Sentinels settings",
   malware: "Malware Scan settings",
   siem: "SIEM settings",
 };
@@ -127,7 +127,7 @@ function renderSentinelsStatus(result) {
   }
   statusGrid($("#sen-status"), entries);
   $("#overview-sentinels").textContent = overviewText(values);
-  setConnection("ok", "Sentinels ready");
+  setConnection("ok", "QA Sentinels ready");
   if (!sentinelsFitted && currentView === "sentinels") {
     sentinelsFitted = true;
     requestAnimationFrame(() => {
@@ -141,7 +141,7 @@ async function loadSentinelsStatus() {
   try {
     renderSentinelsStatus(await window.qa.sentinels.status());
   } catch (error) {
-    setConnection("error", "Sentinels unavailable");
+    setConnection("error", "QA Sentinels unavailable");
     toast(String(error.message || error), true);
   }
 }
@@ -672,8 +672,8 @@ function bind() {
     if (payload.scope === "sentinels") {
       if (payload.type === "status" && currentView !== "logs") {
         if (payload.error) {
-          setConnection("error", "Sentinels unavailable");
-          $("#overview-sentinels").textContent = "Sentinels unavailable.";
+          setConnection("error", "QA Sentinels unavailable");
+          $("#overview-sentinels").textContent = "QA Sentinels unavailable.";
         } else {
           renderSentinelsStatus(payload.data);
         }

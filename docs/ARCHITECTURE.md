@@ -25,7 +25,7 @@ flat white surfaces without shadows or glows; the dark variant keeps the cyan
 edge glows, glassy gradients, and layered shadows. Both follow the desktop color
 setting, including the native window decoration.
 
-## Sentinels
+## QA Sentinels
 
 The main process resolves `qa` and its repository root, then runs fixed actions:
 `status`, `cycle`, and `findings`. A cycle runs automatically at the interval
