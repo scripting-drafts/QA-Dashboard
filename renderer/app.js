@@ -417,6 +417,10 @@ function renderAlerts(alerts) {
     title.className = "row-title";
     title.textContent = alert.rule || "alert";
     head.append(title);
+    const time = document.createElement("span");
+    time.className = "muted mono";
+    time.textContent = alert.last_seen || "";
+    head.append(time);
     const ack = document.createElement("button");
     ack.textContent = "Ack";
     ack.addEventListener("click", async () => {
@@ -431,7 +435,7 @@ function renderAlerts(alerts) {
     head.append(ack);
     const detail = document.createElement("div");
     detail.className = "row-detail";
-    detail.textContent = `host ${alert.host_id ?? "-"} · count ${alert.count ?? "-"} · last ${alert.last_seen ?? "-"}`;
+    detail.textContent = `host ${alert.host_id ?? "-"} · count ${alert.count ?? "-"}`;
     row.append(head, detail);
     node.append(row);
   }

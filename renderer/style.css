@@ -407,18 +407,15 @@ button.ghost:hover {
   overflow: auto;
 }
 
-#siem-alerts {
-  flex-direction: row;
-  flex-wrap: nowrap;
-  max-height: none;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 6px;
+.siem-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
-#siem-alerts .row {
-  flex: 0 0 320px;
-  min-width: 320px;
+@media (max-width: 860px) {
+  .siem-columns { grid-template-columns: minmax(0, 1fr); }
 }
 
 .finding, .row {
