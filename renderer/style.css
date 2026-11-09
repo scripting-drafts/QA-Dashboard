@@ -407,6 +407,28 @@ button.ghost:hover {
   overflow: auto;
 }
 
+.siem-columns .row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 0 0 78px;
+  height: 78px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.siem-columns .row-detail {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.siem-columns .row.open {
+  flex-basis: auto;
+  height: auto;
+  overflow: visible;
+}
+
 .siem-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
