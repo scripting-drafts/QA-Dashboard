@@ -281,11 +281,12 @@
 
         <div class="panel">
           <h3>Manifest Kinds</h3>
-          <p class="muted rules-note">Every ticket manifest records one of these kinds. When several views describe the same signature, one directory survives in the bucket the viability verdict requires; ties prefer correlation over crash over event, then the newest manifest.</p>
+          <p class="muted rules-note">Every ticket manifest records one of these kinds. When several views describe the same signature, one directory survives in the bucket the viability verdict requires; ties prefer correlation over crash over event over finding, then the newest manifest.</p>
           <ul class="rules-kinds">
             <li><strong>correlation</strong> &mdash; carries silent-stop context from preceding events.</li>
             <li><strong>crash</strong> &mdash; carries a stack; a single crash satisfies substantiation.</li>
-            <li><strong>event</strong> &mdash; the weakest form; needs volume or another signal.</li>
+            <li><strong>event</strong> &mdash; the weakest journal form; needs volume or another signal.</li>
+            <li><strong>finding</strong> &mdash; a layer-1 heuristic finding such as hardware coverage or pstore errors; ranked after event.</li>
           </ul>
         </div>
       </section>
