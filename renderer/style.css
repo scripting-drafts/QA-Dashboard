@@ -299,15 +299,15 @@ button.ghost:hover {
 .rules-flow {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 6px;
 }
 
 .flow-node {
   flex: 0 0 auto;
-  min-width: 172px;
-  max-width: 230px;
+  min-width: 150px;
+  max-width: 190px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -335,15 +335,30 @@ button.ghost:hover {
   font-size: 18px;
 }
 
-.flow-dest {
+.flow-department {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
+  padding: 6px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+}
+
+.flow-department-title {
+  color: var(--muted);
+  font-family: "Adwaita Mono", "Noto Sans Mono", monospace;
+  font-size: 11px;
+}
+
+.flow-dest {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
 }
 
 .flow-dest .flow-node {
-  min-width: 210px;
-  max-width: 260px;
+  min-width: 118px;
+  max-width: 132px;
 }
 
 .table-wrap { overflow-x: auto; }
