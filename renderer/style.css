@@ -792,3 +792,56 @@ dialog::backdrop {
 
   dialog::backdrop { background: rgba(14, 35, 39, 0.32); }
 }
+
+/* Optional light-mode variant: cyan glows only, with no dark shadows. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:
+      radial-gradient(ellipse 72% 55% at 8% -10%, rgba(72, 216, 226, 0.22), transparent 62%),
+      radial-gradient(ellipse 60% 48% at 104% 108%, rgba(27, 143, 157, 0.14), transparent 66%),
+      #ffffff;
+  }
+
+  .topbar-title .brand-mark {
+    filter: drop-shadow(0 0 13px rgba(27, 143, 157, 0.28));
+  }
+
+  body.overview-mode .topbar::before {
+    display: block;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(72, 216, 226, 0.18) 0 18%, transparent 62%),
+      conic-gradient(from 202deg at 50% 50%,
+        transparent 0deg 38deg,
+        rgba(27, 143, 157, 0.34) 52deg,
+        rgba(27, 143, 157, 0.05) 88deg,
+        transparent 122deg);
+    opacity: 0.82;
+  }
+
+  body.overview-mode .topbar-title .brand-mark {
+    filter:
+      drop-shadow(0 0 20px rgba(27, 143, 157, 0.3))
+      drop-shadow(0 0 44px rgba(72, 216, 226, 0.18));
+  }
+
+  body.overview-mode .topbar h2 { text-shadow: 0 0 22px rgba(27, 143, 157, 0.16); }
+  .kicker { text-shadow: 0 0 12px rgba(27, 143, 157, 0.16); }
+
+  .card, .panel, .status-grid, .metric {
+    box-shadow: 0 0 28px rgba(72, 216, 226, 0.11);
+  }
+
+  .card:hover {
+    border-color: var(--line-strong);
+    box-shadow: 0 0 34px rgba(72, 216, 226, 0.16);
+    transform: none;
+  }
+
+  button { box-shadow: 0 0 16px rgba(72, 216, 226, 0.10); }
+  button:hover { box-shadow: 0 0 22px rgba(72, 216, 226, 0.16); }
+  button.primary { box-shadow: 0 0 26px rgba(72, 216, 226, 0.32); }
+  button.primary:hover { box-shadow: 0 0 34px rgba(72, 216, 226, 0.4); }
+  .status-pill { box-shadow: 0 0 18px rgba(72, 216, 226, 0.12); }
+  .dot.ok { box-shadow: 0 0 9px rgba(11, 122, 90, 0.32); }
+  .dot.error { box-shadow: 0 0 9px rgba(179, 38, 30, 0.28); }
+}
