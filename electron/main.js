@@ -44,7 +44,7 @@ let siemRefreshing = false;
 const AUTO_REFRESH_MS = 10000;
 
 function windowBackground() {
-  return nativeTheme.shouldUseDarkColors ? "#0b1418" : "#eef8f8";
+  return nativeTheme.shouldUseDarkColors ? "#0b1418" : "#ffffff";
 }
 
 function syncWindowBackgrounds() {

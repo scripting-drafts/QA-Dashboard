@@ -21,8 +21,8 @@ in the main process.
 The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
 The visual language is a TaiG-inspired teal palette. The light variant uses
-flat surfaces without shadows or glows; the dark variant keeps the cyan edge
-glows, glassy gradients, and layered shadows. Both follow the desktop color
+flat white surfaces without shadows or glows; the dark variant keeps the cyan
+edge glows, glassy gradients, and layered shadows. Both follow the desktop color
 setting, including the native window decoration.
 
 ## Sentinels

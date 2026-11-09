@@ -649,10 +649,10 @@ dialog::backdrop {
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
-    --bg: #f3f9f9;
-    --sidebar: #e8f3f3;
-    --panel: linear-gradient(155deg, rgba(255, 255, 255, 0.98) 0%, rgba(238, 249, 249, 0.96) 100%);
-    --panel-alt: linear-gradient(155deg, rgba(249, 254, 254, 0.99) 0%, rgba(230, 245, 245, 0.97) 100%);
+    --bg: #ffffff;
+    --sidebar: #ffffff;
+    --panel: #ffffff;
+    --panel-alt: #f7f8f8;
     --panel-solid: #ffffff;
     --text: #10272b;
     --muted: #55777b;
@@ -671,8 +671,8 @@ dialog::backdrop {
 
   ::selection { background: rgba(27, 143, 157, 0.18); color: #10272b; }
 
-  * { scrollbar-color: rgba(27, 143, 157, 0.28) rgba(31, 95, 103, 0.08); }
-  ::-webkit-scrollbar-track { background: rgba(31, 95, 103, 0.06); }
+  * { scrollbar-color: rgba(27, 143, 157, 0.28) rgba(0, 0, 0, 0.04); }
+  ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.04); }
   ::-webkit-scrollbar-thumb { background: rgba(27, 143, 157, 0.24); }
   ::-webkit-scrollbar-thumb:hover { background: rgba(27, 143, 157, 0.4); }
 
@@ -707,13 +707,13 @@ dialog::backdrop {
   }
 
   button {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(231, 246, 246, 0.98));
+    background: linear-gradient(180deg, #ffffff, #f5f6f6);
     border-color: rgba(27, 143, 157, 0.2);
     box-shadow: none;
   }
 
   button:hover {
-    background: linear-gradient(180deg, #ffffff, #dff2f2);
+    background: linear-gradient(180deg, #ffffff, #eef0f0);
     border-color: var(--line-strong);
     box-shadow: none;
   }
@@ -747,7 +747,7 @@ dialog::backdrop {
   }
 
   input[type="text"] {
-    background: linear-gradient(180deg, #ffffff, #f0f9f9);
+    background: linear-gradient(180deg, #ffffff, #f7f8f8);
     border-color: rgba(27, 143, 157, 0.2);
     box-shadow: none;
   }
@@ -767,14 +767,14 @@ dialog::backdrop {
   .dot.ok, .dot.error { box-shadow: none; }
 
   .console {
-    background: linear-gradient(180deg, #fbfefe 0%, #edf7f7 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #f7f8f8 100%);
     border-color: rgba(27, 143, 157, 0.16);
     color: #2a555a;
     box-shadow: none;
   }
 
   .finding, .row {
-    background: linear-gradient(155deg, rgba(255, 255, 255, 0.98) 0%, rgba(235, 247, 247, 0.96) 100%);
+    background: linear-gradient(155deg, #ffffff 0%, #f7f8f8 100%);
     border-color: rgba(27, 143, 157, 0.14);
   }
 
