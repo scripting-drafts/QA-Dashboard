@@ -91,7 +91,7 @@
             <summary>External engines</summary>
             <div class="check-grid">
               <label>ClamAV <input id="mal-clamav" type="text" value="auto" placeholder="auto, clamdscan, or empty"></label>
-              <label>YARA <input id="mal-yara" type="text" value="yara" placeholder="yara executable"></label>
+              <label>YARA-X <input id="mal-yara" type="text" placeholder="yr executable (optional)"></label>
               <label>YARA rules <input id="mal-yara-rules" type="text" placeholder="rules file"></label>
             </div>
           </details>
@@ -121,10 +121,24 @@
             <div class="segmented" role="tablist" aria-label="Malware output view">
               <button id="mal-view-raw" data-mal-view="raw" class="active" role="tab" aria-selected="true">Raw output</button>
               <button id="mal-view-quarantine" data-mal-view="quarantine" role="tab" aria-selected="false">Quarantine list</button>
+              <button id="mal-view-sandbox" data-mal-view="sandbox" role="tab" aria-selected="false">Sandbox</button>
             </div>
           </div>
-          <pre id="mal-output" class="console"></pre>
-          <pre id="mal-quarantine-output" class="console" hidden></pre>
+          <div id="mal-raw-pane" class="mal-pane">
+            <pre id="mal-output" class="console"></pre>
+          </div>
+          <div id="mal-quarantine-pane" class="mal-pane" hidden>
+            <div id="mal-quarantine-list" class="list">
+              <p class="muted">No quarantined files.</p>
+            </div>
+          </div>
+          <div id="mal-sandbox-pane" class="mal-pane" hidden>
+            <div class="sandbox-run">
+              <input id="mal-sandbox-target" type="text" placeholder="Quarantine ID or file path">
+              <button id="mal-sandbox-run">Run sandbox</button>
+            </div>
+            <pre id="mal-sandbox-output" class="console"></pre>
+          </div>
         </div>
       </section>
 

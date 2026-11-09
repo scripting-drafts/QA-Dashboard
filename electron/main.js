@@ -414,6 +414,30 @@ function registerIpc() {
     return backend.runCapture(binary, ["list"], { timeout: 30000 });
   });
 
+  ipcMain.handle("malware:sandbox", async (event, options) => {
+    if (activeMalware) throw new Error("a malware task is already running");
+    const target = String(options?.target || "").trim();
+    const asFile = Boolean(options?.file);
+    if (!target) throw new Error("choose a quarantine ID or file");
+    if (!asFile && (!/^[A-Za-z0-9._-]+$/.test(target) ||
+                    target.includes(".."))) {
+      throw new Error("invalid quarantine ID");
+    }
+    const cfg = backend.loadConfig();
+    const binary = backend.resolveSandboxBin(cfg);
+    if (!binary) throw new Error("malware-scan-sandbox executable not found");
+    const args = asFile ? ["--file", target] : ["--quarantine", target];
+    const sender = event.sender;
+    activeMalware = backend.startStream(binary, args, {
+      onLine: (line) => sendEvent(sender, { scope: "sandbox", type: "line", line }),
+      onDone: (code) => {
+        activeMalware = null;
+        sendEvent(sender, { scope: "sandbox", type: "done", code });
+      },
+    });
+    return { started: Boolean(activeMalware) };
+  });
+
   ipcMain.handle("siem:refresh", async () => backend.siemSnapshot(backend.loadConfig()));
   ipcMain.handle("siem:ack", async (_event, id) => {
     const numeric = Number(id);

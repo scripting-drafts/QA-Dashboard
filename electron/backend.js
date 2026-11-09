@@ -130,6 +130,28 @@ function resolveMalwareBin(cfg) {
   return "";
 }
 
+function resolveSandboxBin(cfg) {
+  const envBin = executable(process.env.MALWARE_SCAN_SANDBOX_BIN || "");
+  if (envBin) return envBin;
+  const malware = resolveMalwareBin(cfg);
+  if (malware) {
+    const sibling = executable(path.join(path.dirname(malware), "malware-scan-sandbox"));
+    if (sibling) return sibling;
+  }
+  const fromPath = executable("malware-scan-sandbox");
+  if (fromPath) return fromPath;
+  for (const candidate of [
+    path.join(os.homedir(), "malware-scan", "scripts", "malware-scan-sandbox"),
+    path.join(os.homedir(), ".local", "bin", "malware-scan-sandbox"),
+  ]) {
+    if (fs.existsSync(candidate)) {
+      const found = executable(candidate);
+      if (found) return found;
+    }
+  }
+  return "";
+}
+
 function resolveSiemTokenFile(cfg) {
   const configured = expand(cfg.siemTokenFile);
   if (configured) return configured;
@@ -192,7 +214,7 @@ function buildMalwareArgs(binary, target, options = {}) {
   if (!binary) throw new Error("malware-scan executable is not configured");
   const pathValue = expand(String(target || "").trim());
   if (!pathValue) throw new Error("choose a file or folder to scan");
-  const args = [binary, "scan", "--json", "--fail-on", "none"];
+  const args = ["scan", "--json", "--fail-on", "none"];
   if (options.allFiles) args.push("--all-files");
   if (options.deep) args.push("--deep");
   if (options.quarantine) args.push("--quarantine");
@@ -404,6 +426,7 @@ module.exports = {
   loadConfig,
   parseStatus,
   resolveMalwareBin,
+  resolveSandboxBin,
   resolveSentinelsBin,
   resolveSentinelsRoot,
   resolveSiemTokenFile,

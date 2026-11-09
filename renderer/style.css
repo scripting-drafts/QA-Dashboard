@@ -285,6 +285,14 @@ button.ghost:hover {
   box-shadow: none;
 }
 
+.sandbox-run {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sandbox-run input { flex: 1; }
+
 .muted { color: var(--muted); }
 
 .app-version {

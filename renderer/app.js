@@ -185,6 +185,8 @@ function setMalwareBusy(busy) {
   $("#mal-stop").disabled = !busy;
   $("#mal-folder").disabled = busy;
   $("#mal-file").disabled = busy;
+  $("#mal-sandbox-run").disabled = busy;
+  $("#mal-sandbox-target").disabled = busy;
 }
 
 function resetMalware() {
@@ -238,16 +240,20 @@ function renderMalwareSummary(summary) {
 }
 
 function setMalwareView(view) {
-  malwareView = view === "quarantine" ? "quarantine" : "raw";
+  malwareView = ["raw", "quarantine", "sandbox"].includes(view) ? view : "raw";
   $$("[data-mal-view]").forEach((button) => {
     const active = button.dataset.malView === malwareView;
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", String(active));
   });
-  $("#mal-output").hidden = malwareView !== "raw";
-  $("#mal-quarantine-output").hidden = malwareView !== "quarantine";
-  $("#mal-view-title").textContent =
-    malwareView === "raw" ? "Raw output" : "Quarantine list";
+  $("#mal-raw-pane").hidden = malwareView !== "raw";
+  $("#mal-quarantine-pane").hidden = malwareView !== "quarantine";
+  $("#mal-sandbox-pane").hidden = malwareView !== "sandbox";
+  $("#mal-view-title").textContent = {
+    raw: "Raw output",
+    quarantine: "Quarantine list",
+    sandbox: "Sandbox",
+  }[malwareView];
   if (malwareView === "quarantine") showQuarantine();
 }
 
@@ -279,17 +285,75 @@ async function startMalware() {
   }
 }
 
+function renderQuarantine(result) {
+  const node = $("#mal-quarantine-list");
+  clear(node);
+  let rows = 0;
+  for (const line of String(result.output || "").split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const match = line.match(/^(\S+)\s+(\S+)\s+(\d+)\s+(.*)$/);
+    if (!match) {
+      if (!/^No quarantined files\.$/.test(line.trim())) node.append(muted(line));
+      continue;
+    }
+    const [, id, verdict, size, original] = match;
+    const row = document.createElement("div");
+    row.className = "row";
+    const head = document.createElement("div");
+    head.className = "row-head";
+    const badge = document.createElement("span");
+    badge.className = `badge badge-${verdict}`;
+    badge.textContent = verdict;
+    const title = document.createElement("span");
+    title.className = "row-title";
+    title.textContent = id;
+    const button = document.createElement("button");
+    button.textContent = "Sandbox";
+    button.addEventListener("click", () => {
+      $("#mal-sandbox-target").value = id;
+      runSandbox(id, false);
+    });
+    head.append(badge, title, button);
+    const detail = document.createElement("div");
+    detail.className = "row-detail";
+    detail.textContent = `${Number(size).toLocaleString()} bytes · ${original}`;
+    row.append(head, detail);
+    node.append(row);
+    rows += 1;
+  }
+  if (!rows) node.append(muted("No quarantined files."));
+  if (result.code !== 0) toast("Quarantine list failed.", true);
+}
+
 async function showQuarantine() {
   try {
-    const result = await window.qa.malware.list();
-    const output = $("#mal-quarantine-output");
-    output.textContent = "";
-    for (const line of String(result.output || "").split(/\r?\n/)) {
-      if (line) append(output, line);
-    }
-    output.scrollTop = 0;
-    if (result.code !== 0) toast("Quarantine list failed.", true);
+    renderQuarantine(await window.qa.malware.list());
   } catch (error) {
+    toast(String(error.message || error), true);
+  }
+}
+
+async function runSandbox(targetOverride, fileOverride) {
+  if (malwareBusy) return;
+  const target = String(targetOverride ||
+    $("#mal-sandbox-target").value || "").trim();
+  if (!target) {
+    toast("Choose a quarantine ID or file.", true);
+    return;
+  }
+  const asFile = fileOverride !== undefined
+    ? fileOverride
+    : target.includes("/") || target.startsWith("~");
+  setMalwareView("sandbox");
+  $("#mal-sandbox-target").value = target;
+  const output = $("#mal-sandbox-output");
+  output.textContent = "";
+  append(output, `sandbox ${asFile ? "file" : "quarantine"}: ${target}`);
+  setMalwareBusy(true);
+  try {
+    await window.qa.malware.sandbox({ target, file: asFile });
+  } catch (error) {
+    setMalwareBusy(false);
     toast(String(error.message || error), true);
   }
 }
@@ -498,10 +562,19 @@ function bind() {
   $("#mal-start").addEventListener("click", startMalware);
   $("#mal-stop").addEventListener("click", async () => {
     await window.qa.malware.cancel();
-    append($("#mal-output"), "stop requested");
+    const output = malwareView === "sandbox"
+      ? $("#mal-sandbox-output") : $("#mal-output");
+    append(output, "stop requested");
   });
   $$("[data-mal-view]").forEach((button) => {
     button.addEventListener("click", () => setMalwareView(button.dataset.malView));
+  });
+  $("#mal-sandbox-run").addEventListener("click", () => runSandbox());
+  $("#mal-sandbox-target").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runSandbox();
+    }
   });
   $("#mal-folder").addEventListener("click", async () => {
     const selected = await window.qa.pickPath("folder");
@@ -560,6 +633,18 @@ function bind() {
         $("#overview-siem").textContent = payload.error;
       } else {
         renderSiemSnapshot(payload.data);
+      }
+    }
+    if (payload.scope === "sandbox") {
+      if (payload.type === "line") {
+        append($("#mal-sandbox-output"), payload.line);
+      }
+      if (payload.type === "done") {
+        setMalwareBusy(false);
+        append($("#mal-sandbox-output"), `sandbox exit ${payload.code}`);
+        if (payload.code !== 0) {
+          toast(`Sandbox exited with ${payload.code}.`, true);
+        }
       }
     }
     if (payload.scope === "malware") {
