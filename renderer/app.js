@@ -33,6 +33,7 @@ let settingsModule = "";
 let malwareBusy = false;
 let malwareFindings = 0;
 let malwareView = "raw";
+const expandedSiemRows = new Set();
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -400,6 +401,59 @@ function formatUptime(value) {
   return `${hours}h ${minutes}m`;
 }
 
+function makeRowClickable(row, record, key) {
+  row.classList.add("row-clickable");
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
+  row.setAttribute("aria-expanded", "false");
+  const head = row.querySelector(".row-head");
+  const toggle = document.createElement("span");
+  toggle.className = "row-toggle";
+  toggle.textContent = "\u25b8";
+  toggle.setAttribute("aria-hidden", "true");
+  const button = head.querySelector("button");
+  if (button) head.insertBefore(toggle, button);
+  else head.append(toggle);
+  let body = null;
+  const collapse = () => {
+    if (!body) return;
+    body.remove();
+    body = null;
+    row.classList.remove("open");
+    row.setAttribute("aria-expanded", "false");
+  };
+  const expand = () => {
+    if (body) return;
+    body = document.createElement("pre");
+    body.className = "row-json";
+    body.textContent = JSON.stringify(record, null, 2);
+    row.append(body);
+    row.classList.add("open");
+    row.setAttribute("aria-expanded", "true");
+  };
+  const activate = () => {
+    if (body) {
+      expandedSiemRows.delete(key);
+      collapse();
+      return;
+    }
+    expandedSiemRows.add(key);
+    expand();
+  };
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    activate();
+  });
+  row.addEventListener("keydown", (event) => {
+    if (event.target !== row) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activate();
+    }
+  });
+  if (expandedSiemRows.has(key)) expand();
+}
+
 function renderAlerts(alerts) {
   const node = $("#siem-alerts");
   clear(node);
@@ -437,6 +491,7 @@ function renderAlerts(alerts) {
     detail.className = "row-detail";
     detail.textContent = `host ${alert.host_id ?? "-"} · count ${alert.count ?? "-"}`;
     row.append(head, detail);
+    makeRowClickable(row, alert, `alert:${alert.id}`);
     node.append(row);
   }
 }
@@ -466,6 +521,7 @@ function renderEvents(events) {
     detail.className = "row-detail";
     detail.textContent = `${event.rule ?? "-"} · host ${event.host_id ?? "-"} · ${event.subject || event.detail || ""}`;
     row.append(head, detail);
+    makeRowClickable(row, event, `event:${event.id}`);
     node.append(row);
   }
 }

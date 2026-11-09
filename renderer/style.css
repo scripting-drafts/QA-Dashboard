@@ -462,6 +462,37 @@ button.ghost:hover {
 
 .row button { margin-left: auto; }
 
+.row-clickable { cursor: pointer; }
+
+.row-clickable:hover { border-color: var(--line-strong); }
+
+.row-clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.row-toggle {
+  color: var(--muted);
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.row.open .row-toggle { transform: rotate(90deg); }
+
+.row-json {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-solid);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .toast {
   position: sticky;
   top: 0;
