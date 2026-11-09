@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
@@ -307,6 +308,14 @@ function registerIpc() {
   ipcMain.handle("app:open", (_event, module) => {
     showWindow(String(module || "overview"));
     return true;
+  });
+
+  ipcMain.handle("app:open-tickets", async () => {
+    const tickets = path.join(os.homedir(),
+      "Quality-Assurance-Sentinels", "tickets");
+    const error = await shell.openPath(tickets);
+    if (error) throw new Error(error);
+    return tickets;
   });
 
   ipcMain.handle("app:version", () => app.getVersion());

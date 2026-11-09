@@ -557,6 +557,13 @@ function bind() {
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
+  $("#sen-findings").addEventListener("click", async () => {
+    try {
+      await window.qa.openTickets();
+    } catch (error) {
+      toast(String(error.message || error), true);
+    }
+  });
   $("#sen-logs").addEventListener("click", () => window.qa.openModule("logs"));
 
   $("#mal-start").addEventListener("click", startMalware);
