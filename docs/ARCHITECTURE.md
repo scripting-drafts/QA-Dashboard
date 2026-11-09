@@ -18,7 +18,7 @@ in the main process.
 
 ## Overview layout
 
-The Overview uses a centered ouroboros lockup above the title. Module cards
+The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
 The visual language is a TaiG-inspired teal palette with cyan edge glows,
 glassy gradient panels, and layered shadows. Light and dark variants follow the
@@ -62,12 +62,10 @@ Desktop entries set `StartupNotify=false` so single-instance handoff cannot
 leave a stuck busy pointer. Closing all windows exits the process, so the next
 launcher click starts a fresh instance.
 
-The brand mark is a near-closed ouroboros ring with a rounded head, a cut-out
-eye, and a tapered tail. `assets/qa-dashboard.svg` is the simple transparent
-symbol; `assets/qa-dashboard-detailed.svg` adds contour and scale detail for the
-Overview header. `assets/qa-dashboard-icon.svg` is the dark rounded launcher
-icon. The 256 and 512 PNG exports provide the Electron window icon and later
-platform packaging.
+The brand mark is the brush-enso artwork, converted to a transparent alpha mask
+at `assets/qa-dashboard-enso.png`. CSS tints it for the active light or dark
+theme and for the Overview gradient. `assets/qa-dashboard-256.png` and the 512
+and 1024 exports are the dark rounded app icons and the Electron window icon.
 
 ## Settings and auto-refresh
 

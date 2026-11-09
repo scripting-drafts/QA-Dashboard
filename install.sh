@@ -5,7 +5,7 @@ PREFIX="${PREFIX:-$HOME/.local}"
 LIB="$PREFIX/lib/qa-dashboard"
 BIN="$PREFIX/bin/qa-dashboard"
 APPS="$PREFIX/share/applications"
-ICONS="$PREFIX/share/icons/hicolor/scalable/apps"
+ICONS="$PREFIX/share/icons/hicolor"
 DOC="$PREFIX/share/doc/qa-dashboard"
 AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -26,7 +26,8 @@ ps -eo pid=,args= | awk -v app="$LIB" 'index($0, app) && $0 ~ /electron/ && $0 !
     | xargs -r kill 2>/dev/null || true
 sleep 1
 
-install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$ICONS" "$DOC" "$AUTOSTART"
+install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$ICONS/256x256/apps" \
+    "$ICONS/512x512/apps" "$DOC" "$AUTOSTART"
 rm -rf "$LIB/electron" "$LIB/renderer" "$LIB/assets" "$LIB/node_modules"
 cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$LIB/"
 install -m 0644 "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
@@ -36,9 +37,11 @@ else
     (cd "$LIB" && npm ci --no-audit --no-fund >/dev/null)
 fi
 install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
-install -m 0644 "$ROOT/assets/qa-dashboard-icon.svg" "$ICONS/qa-dashboard.svg"
+install -m 0644 "$ROOT/assets/qa-dashboard-256.png" "$ICONS/256x256/apps/qa-dashboard.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-512.png" "$ICONS/512x512/apps/qa-dashboard.png"
+rm -f "$ICONS/scalable/apps/qa-dashboard.svg"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-    gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+    gtk-update-icon-cache -f -t "$ICONS" >/dev/null 2>&1 || true
 fi
 install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
     "$ROOT/docs/PORTING.md" "$DOC/"

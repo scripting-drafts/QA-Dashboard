@@ -9,7 +9,7 @@ Electron core is shared; only shell integration is platform-specific.
 - `electron/backend.js`: fixed CLI arguments, streaming, SIEM HTTP.
 - `electron/preload.js`: narrow `contextBridge` API.
 - `renderer/`: compact Overview and module views.
-- `assets/qa-dashboard-*`: shared ouroboros brand mark, launcher icon, and PNGs.
+- `assets/qa-dashboard-*`: shared brush-enso brand mark, launcher icon, and PNGs.
 
 Keep module names, window sizes, single-instance behavior, and the token
 boundary unchanged across platforms.

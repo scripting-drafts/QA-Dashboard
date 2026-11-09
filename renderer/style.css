@@ -78,8 +78,8 @@ input[type="text"]:focus {
   height: 34px;
   flex: 0 0 auto;
   background-color: currentColor;
-  -webkit-mask: url("../assets/qa-dashboard.svg") center / contain no-repeat;
-  mask: url("../assets/qa-dashboard.svg") center / contain no-repeat;
+  -webkit-mask: url("../assets/qa-dashboard-enso.png") center / contain no-repeat;
+  mask: url("../assets/qa-dashboard-enso.png") center / contain no-repeat;
 }
 
 .dot {
@@ -125,8 +125,8 @@ body.overview-mode .topbar-title {
 body.overview-mode .topbar-title .brand-mark {
   width: 56px;
   height: 56px;
-  -webkit-mask-image: url("../assets/qa-dashboard-detailed.svg");
-  mask-image: url("../assets/qa-dashboard-detailed.svg");
+  -webkit-mask-image: url("../assets/qa-dashboard-enso.png");
+  mask-image: url("../assets/qa-dashboard-enso.png");
 }
 
 body.overview-mode .topbar h2 { font-size: 28px; }
