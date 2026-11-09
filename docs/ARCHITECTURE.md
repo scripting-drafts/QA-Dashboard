@@ -20,6 +20,8 @@ in the main process.
 
 The Overview uses a centered ouroboros lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
+The visual language is a TaiG-inspired charcoal/teal palette with cyan edge
+glows, glassy gradient panels, and layered shadows.
 
 ## Sentinels
 

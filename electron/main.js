@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
-  app, BrowserWindow, dialog, ipcMain, Menu, screen, shell,
+  app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen, shell,
 } = require("electron");
 const backend = require("./backend");
 
@@ -93,7 +93,8 @@ function createWindow(module = "overview", show = true) {
     show: false,
     title: WINDOW_TITLES[module],
     icon: APP_ICON,
-    backgroundColor: "#1d1d20",
+    darkTheme: true,
+    backgroundColor: "#0b1418",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -381,6 +382,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
 
   app.setName("QA Dashboard");
   app.setAppUserModelId(APP_ID);
+  nativeTheme.themeSource = "dark";
   Menu.setApplicationMenu(null);
 
   app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
