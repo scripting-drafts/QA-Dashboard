@@ -52,13 +52,8 @@ rm -rf "$PREFIX/lib/qa-desktop" "$PREFIX/share/doc/qa-desktop"
 rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
       "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg" \
       "$ICONS/scalable/apps/qa-dashboard.svg" \
-      "$ICONS/scalable/apps/qa-dashboard-symbolic.svg" \
       "$ICONS/256x256/apps/qa-dashboard.png" \
-      "$ICONS/512x512/apps/qa-dashboard.png" \
-      "$ICONS/256x256/apps/qa-dashboard-light.png" \
-      "$ICONS/256x256/apps/qa-dashboard-dark.png" \
-      "$ICONS/512x512/apps/qa-dashboard-light.png" \
-      "$ICONS/512x512/apps/qa-dashboard-dark.png"
+      "$ICONS/512x512/apps/qa-dashboard.png"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "$ICONS" >/dev/null 2>&1 || true
 fi

@@ -27,7 +27,7 @@ ps -eo pid=,args= | awk -v app="$LIB" 'index($0, app) && $0 ~ /electron/ && $0 !
 sleep 1
 
 install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$ICONS/256x256/apps" \
-    "$ICONS/512x512/apps" "$ICONS/scalable/apps" "$DOC" "$AUTOSTART"
+    "$ICONS/512x512/apps" "$DOC" "$AUTOSTART"
 rm -rf "$LIB/electron" "$LIB/renderer" "$LIB/assets" "$LIB/node_modules"
 cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$LIB/"
 install -m 0644 "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
@@ -39,12 +39,7 @@ fi
 install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
 install -m 0644 "$ROOT/assets/qa-dashboard-256.png" "$ICONS/256x256/apps/qa-dashboard.png"
 install -m 0644 "$ROOT/assets/qa-dashboard-512.png" "$ICONS/512x512/apps/qa-dashboard.png"
-install -m 0644 "$ROOT/assets/qa-dashboard-symbolic.svg" "$ICONS/scalable/apps/qa-dashboard-symbolic.svg"
-rm -f "$ICONS/scalable/apps/qa-dashboard.svg" \
-      "$ICONS/256x256/apps/qa-dashboard-light.png" \
-      "$ICONS/256x256/apps/qa-dashboard-dark.png" \
-      "$ICONS/512x512/apps/qa-dashboard-light.png" \
-      "$ICONS/512x512/apps/qa-dashboard-dark.png"
+rm -f "$ICONS/scalable/apps/qa-dashboard.svg"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "$ICONS" >/dev/null 2>&1 || true
 fi
@@ -85,13 +80,13 @@ EOF
 }
 
 write_desktop qa-dashboard "QA Dashboard" \
-    "Local QA operations dashboard" "overview" "qa-dashboard-symbolic"
+    "Local QA operations dashboard" "overview" "qa-dashboard"
 write_desktop qa-sentinels "QA Sentinels" \
-    "Evidence collection and failure correlation" "sentinels" "qa-dashboard-symbolic"
+    "Evidence collection and failure correlation" "sentinels" "qa-dashboard"
 write_desktop qa-malware-scan "Malware Scan" \
-    "Scan files and folders for malware indicators" "malware" "qa-dashboard-symbolic"
+    "Scan files and folders for malware indicators" "malware" "qa-dashboard"
 write_desktop qa-siem "QA SIEM" \
-    "Local QA SIEM dashboard and alerts" "siem" "qa-dashboard-symbolic"
+    "Local QA SIEM dashboard and alerts" "siem" "qa-dashboard"
 
 # Remove the former GNOME top-bar icon and tray autostart.
 if command -v gnome-extensions >/dev/null 2>&1; then

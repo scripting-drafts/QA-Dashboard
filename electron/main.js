@@ -10,6 +10,7 @@ const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set(["overview", "sentinels", "logs", "malware", "siem"]);
+const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
@@ -46,18 +47,10 @@ function windowBackground() {
   return nativeTheme.shouldUseDarkColors ? "#0b1418" : "#eef8f8";
 }
 
-function currentAppIcon() {
-  return path.join(__dirname, "..", "assets",
-    nativeTheme.shouldUseDarkColors ? "qa-dashboard-256.png" : "qa-dashboard-light-256.png");
-}
-
 function syncWindowBackgrounds() {
   const color = windowBackground();
-  const icon = currentAppIcon();
   for (const window of windows.values()) {
-    if (window.isDestroyed()) continue;
-    window.setBackgroundColor(color);
-    window.setIcon(icon);
+    if (!window.isDestroyed()) window.setBackgroundColor(color);
   }
 }
 
@@ -110,7 +103,7 @@ function createWindow(module = "overview", show = true) {
     minHeight: module === "overview" ? 540 : 620,
     show: false,
     title: WINDOW_TITLES[module],
-    icon: currentAppIcon(),
+    icon: APP_ICON,
     backgroundColor: windowBackground(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
