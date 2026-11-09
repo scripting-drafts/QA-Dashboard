@@ -147,7 +147,7 @@
       <section id="view-rules" class="view">
         <div class="panel">
           <h3>Issue lifecycle</h3>
-          <p class="muted rules-note">Drafts are generated automatically for every issue grouped by vendor and signature. Nothing is submitted without a human.</p>
+          <p class="muted rules-note">Drafts are generated automatically for every issue grouped by vendor and signature. Nothing is submitted without a human. Every staged ticket records its path in the <code>Issue's Lifecycle</code> section of <code>ticket.md</code>.</p>
           <div class="rules-flow">
             <div class="flow-node">
               <strong>drafts/</strong>
@@ -237,7 +237,7 @@
                 <tr>
                   <td class="state">any bucket</td><td class="state">one bucket</td>
                   <td>The same signature appears in several buckets or views.</td>
-                  <td><code>duplicate &lt;bucket&gt;/&lt;name&gt;</code>; the older copy is parked under <code>evidence/prior-*</code>.</td>
+                  <td>Consolidated into the bucket the current viability checks require; ties prefer correlation over crash over event, then the newest. The older copy is parked under <code>evidence/prior-*</code>.</td>
                 </tr>
                 <tr>
                   <td class="state">raise/</td><td class="state">raised/</td>
@@ -270,7 +270,7 @@
 
         <div class="panel">
           <h3>Ticket kinds</h3>
-          <p class="muted rules-note">When several views describe the same signature, one directory survives: <code>raise/</code> wins, then correlation over crash over event, then the newest manifest.</p>
+          <p class="muted rules-note">When several views describe the same signature, one directory survives in the bucket the viability verdict requires; ties prefer correlation over crash over event, then the newest manifest.</p>
           <ul class="rules-kinds">
             <li><strong>correlation</strong> &mdash; carries silent-stop context from preceding events.</li>
             <li><strong>crash</strong> &mdash; carries a stack; a single crash satisfies substantiation.</li>
