@@ -27,6 +27,7 @@ let config = null;
 let currentView = "overview";
 let sentinelsBusy = false;
 let sentinelsAction = "";
+let sentinelsFitted = false;
 let logsRunning = false;
 let settingsModule = "";
 let malwareBusy = false;
@@ -124,6 +125,13 @@ function renderSentinelsStatus(result) {
   statusGrid($("#sen-status"), entries);
   $("#overview-sentinels").textContent = overviewText(values);
   setConnection("ok", "Sentinels ready");
+  if (!sentinelsFitted && currentView === "sentinels") {
+    sentinelsFitted = true;
+    requestAnimationFrame(() => {
+      const bottom = $("#sen-status").getBoundingClientRect().bottom;
+      window.qa.fitSentinels(Math.ceil(bottom + 24));
+    });
+  }
 }
 
 async function loadSentinelsStatus() {
@@ -138,7 +146,6 @@ async function loadSentinelsStatus() {
 function setSentinelsBusy(busy) {
   sentinelsBusy = busy;
   $$("[data-sen]").forEach((button) => { button.disabled = busy; });
-  $("#sen-cancel").disabled = !busy;
 }
 
 async function runSentinels(action) {
@@ -397,6 +404,7 @@ function fillSettings(view) {
   if (!view) return;
   $("#set-sentinels-bin").value = view.sentinelsBin || "";
   $("#set-sentinels-root").value = view.sentinelsRoot || "";
+  $("#set-sentinels-cycle").value = view.sentinelsCycleMinutes || "10";
   $("#set-malware-bin").value = view.malwareBin || "";
   $("#set-siem-url").value = view.siemUrl || "";
   $("#set-siem-token").value = view.siemTokenFile || "";
@@ -408,7 +416,8 @@ function fillSettings(view) {
   if (settingsModule === "sentinels") {
     $("#settings-resolved").textContent =
       `Detected: qa=${resolved.sentinelsBin || "missing"} · ` +
-      `root=${resolved.sentinelsRoot || "missing"}`;
+      `root=${resolved.sentinelsRoot || "missing"} · ` +
+      `cycle=${view.sentinelsCycleMinutes || "10"}m`;
   } else if (settingsModule === "malware") {
     $("#settings-resolved").textContent =
       `Detected: malware-scan=${resolved.malwareBin || "missing"}`;
@@ -437,6 +446,7 @@ async function saveSettings(event) {
   if (settingsModule === "sentinels") {
     payload.sentinelsBin = $("#set-sentinels-bin").value;
     payload.sentinelsRoot = $("#set-sentinels-root").value;
+    payload.sentinelsCycleMinutes = $("#set-sentinels-cycle").value;
   } else if (settingsModule === "malware") {
     payload.malwareBin = $("#set-malware-bin").value;
   } else if (settingsModule === "siem") {
@@ -467,10 +477,6 @@ function bind() {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
   $("#sen-logs").addEventListener("click", () => window.qa.openModule("logs"));
-  $("#sen-cancel").addEventListener("click", async () => {
-    await window.qa.sentinels.cancel();
-    toast("Stop requested.");
-  });
 
   $("#mal-start").addEventListener("click", startMalware);
   $("#mal-stop").addEventListener("click", async () => {
@@ -492,14 +498,14 @@ function bind() {
       toast(String(error.message || error), true);
     }
   });
-
-  $$("[data-action]").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (button.dataset.action === "malware-focus") {
-        window.qa.openModule("malware");
-      }
-    });
-  });
+  $("#siem-alerts").addEventListener("wheel", (event) => {
+    const node = event.currentTarget;
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX) &&
+        node.scrollWidth > node.clientWidth) {
+      node.scrollLeft += event.deltaY;
+      event.preventDefault();
+    }
+  }, { passive: false });
 
   window.qa.onEvent((payload) => {
     if (payload.scope === "sentinels") {
@@ -565,6 +571,12 @@ async function init() {
     config = await window.qa.getConfig();
   } catch (error) {
     toast(String(error.message || error), true);
+  }
+  try {
+    const version = await window.qa.version();
+    $("#app-version").textContent = `Version ${version}`;
+  } catch (error) {
+    $("#app-version").hidden = true;
   }
   if (initial === "overview") {
     loadSentinelsStatus();

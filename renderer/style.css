@@ -135,8 +135,8 @@ body[data-module="logs"] #settings { display: none; }
 
 .logs-panel { margin-bottom: 0; }
 .logs-panel .console {
-  min-height: calc(100vh - 210px);
-  max-height: calc(100vh - 210px);
+  min-height: calc(100vh - 170px);
+  max-height: calc(100vh - 170px);
 }
 
 .topbar-title {
@@ -244,6 +244,14 @@ button.ghost:hover {
 }
 
 .muted { color: var(--muted); }
+
+.app-version {
+  margin: 18px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
 .mono, .console, code, pre { font-family: "Adwaita Mono", "Noto Sans Mono", monospace; }
 
 .toolbar {
@@ -347,6 +355,20 @@ button.ghost:hover {
   gap: 7px;
   max-height: 330px;
   overflow: auto;
+}
+
+#siem-alerts {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
+#siem-alerts .row {
+  flex: 0 0 320px;
+  min-width: 320px;
 }
 
 .finding, .row {

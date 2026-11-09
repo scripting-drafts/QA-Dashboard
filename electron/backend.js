@@ -12,6 +12,7 @@ const DEFAULT_CONFIG = {
   malwareBin: "",
   siemUrl: "http://127.0.0.1:8088",
   siemTokenFile: "",
+  sentinelsCycleMinutes: "10",
 };
 
 const MAX_HTTP_BODY = 8 * 1024 * 1024;

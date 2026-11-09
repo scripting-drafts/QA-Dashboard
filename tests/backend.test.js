@@ -59,12 +59,15 @@ test("config round-trips with private permissions", () => {
   process.env.XDG_CONFIG_HOME = temp;
   try {
     const cfg = backend.loadConfig();
+    assert.equal(cfg.sentinelsCycleMinutes, "10");
     cfg.siemUrl = "http://127.0.0.1:9999/";
     cfg.sentinelsBin = "/opt/qa";
+    cfg.sentinelsCycleMinutes = "2";
     backend.saveConfig(cfg);
     const loaded = backend.loadConfig();
     assert.equal(loaded.siemUrl, "http://127.0.0.1:9999");
     assert.equal(loaded.sentinelsBin, "/opt/qa");
+    assert.equal(loaded.sentinelsCycleMinutes, "2");
     const mode = fs.statSync(backend.configPath()).mode & 0o777;
     assert.equal(mode, 0o600);
   } finally {

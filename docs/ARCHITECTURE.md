@@ -28,8 +28,10 @@ setting, including the native window decoration.
 ## Sentinels
 
 The main process resolves `qa` and its repository root, then runs fixed actions:
-`status`, `cycle`, and `findings`. The Logs button opens a dedicated window
-that runs `qa logs --all-layers --follow`, so the stream follows file rotation
+`status`, `cycle`, and `findings`. A cycle runs automatically at the interval
+stored in `sentinelsCycleMinutes` (10 minutes by default); there is no manual
+cycle button. The Logs button opens a dedicated window that runs
+`qa logs --all-layers --follow`, so the stream follows file rotation
 continuously. Output streams to that window over `event` messages. Arbitrary
 commands are not exposed.
 
@@ -83,8 +85,9 @@ windows. There are no Refresh buttons.
 ## Configuration
 
 `~/.config/qa-desktop/config.json` stores command overrides, repository roots,
-the SIEM URL, and token-file path. It is written mode `0600`. Tokens are read at
-request time and are never written to this file or exposed to the renderer.
+the SIEM URL, token-file path, and the Sentinel cycle interval. It is written
+mode `0600`. Tokens are read at request time and are never written to this file
+or exposed to the renderer.
 
 ## Testing
 

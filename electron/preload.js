@@ -3,6 +3,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("qa", {
+  version: () => ipcRenderer.invoke("app:version"),
+  fitSentinels: (height) => ipcRenderer.invoke("window:fit-sentinels", height),
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   pickPath: (kind) => ipcRenderer.invoke("dialog:pick", kind),

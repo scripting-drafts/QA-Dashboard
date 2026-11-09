@@ -38,8 +38,10 @@ let allMinimized = false;
 let lastLaunchAt = 0;
 let sentinelsTimer = null;
 let siemTimer = null;
+let sentinelsCycleTimer = null;
 let sentinelsRefreshing = false;
 let siemRefreshing = false;
+let sentinelsCycleRunning = false;
 
 const AUTO_REFRESH_MS = 10000;
 
@@ -231,16 +233,55 @@ async function autoRefreshSiem() {
   }
 }
 
+async function runSentinelsCycle() {
+  if (sentinelsCycleRunning || activeSentinels) return;
+  const cfg = backend.loadConfig();
+  const binary = backend.resolveSentinelsBin(cfg);
+  if (!binary) return;
+  sentinelsCycleRunning = true;
+  try {
+    const root = backend.resolveSentinelsRoot(cfg);
+    await backend.runCapture(binary, ["cycle"], {
+      cwd: root || undefined,
+      env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
+      timeout: 30 * 60 * 1000,
+    });
+  } catch (_error) {
+    // The next status refresh reports the current sentinel state.
+  } finally {
+    sentinelsCycleRunning = false;
+    autoRefreshSentinels();
+  }
+}
+
+function sentinelsCycleMinutes() {
+  const value = Number(backend.loadConfig().sentinelsCycleMinutes);
+  return Number.isFinite(value) && value > 0 ? Math.max(1, Math.round(value)) : 10;
+}
+
+function startSentinelsCycleTimer() {
+  clearInterval(sentinelsCycleTimer);
+  sentinelsCycleTimer = setInterval(
+    runSentinelsCycle, sentinelsCycleMinutes() * 60 * 1000);
+}
+
+function stopSentinelsCycleTimer() {
+  clearInterval(sentinelsCycleTimer);
+  sentinelsCycleTimer = null;
+}
+
 function startAutoRefresh() {
   clearInterval(sentinelsTimer);
   clearInterval(siemTimer);
   sentinelsTimer = setInterval(autoRefreshSentinels, AUTO_REFRESH_MS);
   siemTimer = setInterval(autoRefreshSiem, AUTO_REFRESH_MS);
+  startSentinelsCycleTimer();
 }
 
 function stopAutoRefresh() {
   clearInterval(sentinelsTimer);
   clearInterval(siemTimer);
+  stopSentinelsCycleTimer();
   sentinelsTimer = null;
   siemTimer = null;
 }
@@ -255,6 +296,7 @@ function registerIpc() {
       }
     }
     backend.saveConfig(current);
+    startSentinelsCycleTimer();
     setTimeout(() => {
       autoRefreshSentinels();
       autoRefreshSiem();
@@ -264,6 +306,24 @@ function registerIpc() {
 
   ipcMain.handle("app:open", (_event, module) => {
     showWindow(String(module || "overview"));
+    return true;
+  });
+
+  ipcMain.handle("app:version", () => app.getVersion());
+
+  ipcMain.handle("window:fit-sentinels", (event, height) => {
+    const window = windows.get("sentinels");
+    if (!window || window.isDestroyed() ||
+        window.webContents !== event.sender || window.isMaximized()) {
+      return false;
+    }
+    const numeric = Math.round(Number(height));
+    if (!Number.isFinite(numeric)) return false;
+    const [width] = window.getContentSize();
+    const display = screen.getDisplayMatching(window.getBounds());
+    const maxHeight = Math.floor(display.workArea.height * 0.92);
+    const target = Math.max(620, Math.min(numeric, maxHeight));
+    window.setContentSize(width, target);
     return true;
   });
 

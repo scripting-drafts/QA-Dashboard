@@ -44,7 +44,6 @@
             <p id="overview-malware" class="muted">No scan in this session.</p>
             <div class="card-actions">
               <button data-open="malware">Open Malware Scan</button>
-              <button class="ghost" data-action="malware-focus">Scan a file</button>
             </div>
           </article>
           <article class="card">
@@ -56,14 +55,13 @@
             </div>
           </article>
         </div>
+        <p id="app-version" class="app-version muted"></p>
       </section>
 
       <section id="view-sentinels" class="view">
         <div class="toolbar">
-          <button data-sen="cycle">Run cycle</button>
           <button data-sen="findings">Findings</button>
           <button id="sen-logs">Logs</button>
-          <button id="sen-cancel" class="danger" disabled>Stop</button>
         </div>
         <div id="sen-status" class="status-grid">
           <p class="muted">Waiting for sentinel status.</p>
@@ -72,7 +70,6 @@
 
       <section id="view-logs" class="view">
         <div class="panel logs-panel">
-          <h3>Live logs</h3>
           <pre id="logs-output" class="console"></pre>
         </div>
       </section>
@@ -86,15 +83,15 @@
           </div>
           <div class="check-grid">
             <label><input id="mal-all" type="checkbox" checked> Scan every regular file</label>
-            <label><input id="mal-deep" type="checkbox"> Deep scan middle of large files</label>
-            <label><input id="mal-quarantine" type="checkbox"> Quarantine infected files</label>
-            <label><input id="mal-steg" type="checkbox"> Enable LSB steganalysis</label>
+            <label><input id="mal-deep" type="checkbox" checked> Deep scan middle of large files</label>
+            <label><input id="mal-quarantine" type="checkbox" checked> Quarantine infected files</label>
+            <label><input id="mal-steg" type="checkbox" checked> Enable LSB steganalysis</label>
           </div>
           <details class="details">
             <summary>External engines</summary>
             <div class="check-grid">
-              <label>ClamAV <input id="mal-clamav" type="text" placeholder="auto, clamdscan, or empty"></label>
-              <label>YARA <input id="mal-yara" type="text" placeholder="yara executable"></label>
+              <label>ClamAV <input id="mal-clamav" type="text" value="auto" placeholder="auto, clamdscan, or empty"></label>
+              <label>YARA <input id="mal-yara" type="text" value="yara" placeholder="yara executable"></label>
               <label>YARA rules <input id="mal-yara-rules" type="text" placeholder="rules file"></label>
             </div>
           </details>
@@ -133,12 +130,12 @@
           <p class="muted">Connect to read SIEM state.</p>
         </div>
         <div class="panel">
-          <h3>Open alerts</h3>
-          <div id="siem-alerts" class="list"><p class="muted">No alerts loaded.</p></div>
-        </div>
-        <div class="panel">
           <h3>Recent events</h3>
           <div id="siem-events" class="list"><p class="muted">No events loaded.</p></div>
+        </div>
+        <div class="panel">
+          <h3>Open alerts</h3>
+          <div id="siem-alerts" class="list"><p class="muted">No alerts loaded.</p></div>
         </div>
       </section>
     </main>
@@ -149,6 +146,7 @@
       <h2 id="settings-title">Settings</h2>
       <label data-settings-module="sentinels">Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect"></label>
       <label data-settings-module="sentinels">Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
+      <label data-settings-module="sentinels">Cycle interval (minutes) <input id="set-sentinels-cycle" type="text" placeholder="10"></label>
       <label data-settings-module="malware">Malware Scan command <input id="set-malware-bin" type="text" placeholder="auto-detect"></label>
       <label data-settings-module="siem">SIEM URL <input id="set-siem-url" type="text"></label>
       <label data-settings-module="siem">SIEM token file <input id="set-siem-token" type="text"></label>
