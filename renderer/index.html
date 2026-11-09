@@ -147,7 +147,7 @@
       <section id="view-rules" class="view">
         <div class="panel">
           <h3>Issue lifecycle</h3>
-          <p class="muted rules-note">Drafts are generated automatically for every issue grouped by vendor and signature. Nothing is submitted without a human. Every staged ticket records its path in the <code>Issue's Lifecycle</code> section of <code>ticket.md</code>.</p>
+          <p class="muted rules-note">Drafts are generated automatically for every issue grouped by vendor and signature. Nothing is submitted without a human.</p>
           <div class="rules-flow">
             <div class="flow-node">
               <strong>drafts/</strong>
@@ -216,8 +216,8 @@
                 </tr>
                 <tr>
                   <td class="state">standby/</td><td class="state">raise/</td>
-                  <td>The checks pass again.</td>
-                  <td><code>reactivated: viability checks passed again</code>.</td>
+                  <td>Further reproduction passes the viability checks.</td>
+                  <td><code>further reproduction passes the viability checks</code>.</td>
                 </tr>
                 <tr>
                   <td class="state">standby/</td><td class="state">rejected/</td>
@@ -226,13 +226,13 @@
                 </tr>
                 <tr>
                   <td class="state">rejected/</td><td class="state">raise/</td>
-                  <td>The checks pass again.</td>
-                  <td><code>cleared</code> plus the previous rejection reason.</td>
+                  <td>A new reproduction passes the viability checks.</td>
+                  <td><code>cleared; a new reproduction passes the viability checks</code>.</td>
                 </tr>
                 <tr>
                   <td class="state">rejected/</td><td class="state">standby/</td>
-                  <td>No draft reproduces the issue, or another check fails.</td>
-                  <td>The failing check detail; otherwise <code>no current draft reproduces this ticket</code>.</td>
+                  <td>A new reproduction of the previously rejected issue appears, but it is not yet viable.</td>
+                  <td><code>new reproduction of the previously rejected issue</code> plus the failing check detail. Rejections do not move without a reproduction, and further reproduction that passes the checks moves the ticket to <code>raise/</code>.</td>
                 </tr>
                 <tr>
                   <td class="state">any bucket</td><td class="state">one bucket</td>
