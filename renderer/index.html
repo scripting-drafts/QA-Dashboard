@@ -61,6 +61,7 @@
       <section id="view-sentinels" class="view">
         <div class="toolbar">
           <button id="sen-findings">Findings</button>
+          <button id="sen-rules">Rules</button>
           <button id="sen-logs">Logs</button>
         </div>
         <div id="sen-status" class="status-grid">
@@ -139,6 +140,142 @@
             </div>
             <pre id="mal-sandbox-output" class="console"></pre>
           </div>
+        </div>
+      </section>
+
+
+      <section id="view-rules" class="view">
+        <div class="panel">
+          <h3>Issue lifecycle</h3>
+          <p class="muted rules-note">Drafts are generated automatically for every issue grouped by vendor and signature. Nothing is submitted without a human.</p>
+          <div class="rules-flow">
+            <div class="flow-node">
+              <strong>drafts/</strong>
+              <span>Issue detected; draft written, never posted.</span>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">&rarr;</div>
+            <div class="flow-node gate">
+              <strong>Viability gate</strong>
+              <span>reproducible &middot; attributed &middot; substantiated &middot; fresh &middot; actionable &middot; build-current</span>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">&rarr;</div>
+            <div class="flow-dest">
+              <div class="flow-node ok">
+                <strong>raise/</strong>
+                <span>Viable now; ready for a human to post.</span>
+              </div>
+              <div class="flow-node warn">
+                <strong>rejected/</strong>
+                <span>Crash explained by a held, outdated package.</span>
+              </div>
+              <div class="flow-node idle">
+                <strong>standby/</strong>
+                <span>Not viable now; kept for later examination.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Moves and recorded reasons</h3>
+          <div class="table-wrap">
+            <table class="rules-table">
+              <thead>
+                <tr><th>From</th><th>To</th><th>When</th><th>Reason recorded</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="state">issue</td><td class="state">drafts/</td>
+                  <td>Each cycle, one draft per vendor and signature.</td>
+                  <td>Draft generated; never submitted automatically.</td>
+                </tr>
+                <tr>
+                  <td class="state">drafts/</td><td class="state">raise/</td>
+                  <td>All six viability checks pass.</td>
+                  <td>Viability checks passed.</td>
+                </tr>
+                <tr>
+                  <td class="state">drafts/</td><td class="state">rejected/</td>
+                  <td>The crash matches a held, outdated package.</td>
+                  <td><code>held-outdated package(s): pkg installed -&gt; candidate</code>.</td>
+                </tr>
+                <tr>
+                  <td class="state">drafts/</td><td class="state">standby/</td>
+                  <td>Any other check fails.</td>
+                  <td>The failing check detail, e.g. <code>owner is local</code> or <code>no current evidence reproduces this draft</code>.</td>
+                </tr>
+                <tr>
+                  <td class="state">raise/</td><td class="state">standby/</td>
+                  <td>A recheck fails, or the issue no longer reproduces.</td>
+                  <td>The failing check detail; otherwise <code>no current draft reproduces this ticket</code>.</td>
+                </tr>
+                <tr>
+                  <td class="state">raise/</td><td class="state">rejected/</td>
+                  <td>A recheck shows the hold now explains the crash.</td>
+                  <td>The held-outdated package detail.</td>
+                </tr>
+                <tr>
+                  <td class="state">standby/</td><td class="state">raise/</td>
+                  <td>The checks pass again.</td>
+                  <td><code>reactivated: viability checks passed again</code>.</td>
+                </tr>
+                <tr>
+                  <td class="state">standby/</td><td class="state">rejected/</td>
+                  <td>A held, outdated build now explains the crash.</td>
+                  <td>The held-outdated package detail.</td>
+                </tr>
+                <tr>
+                  <td class="state">rejected/</td><td class="state">raise/</td>
+                  <td>The checks pass again.</td>
+                  <td><code>cleared</code> plus the previous rejection reason.</td>
+                </tr>
+                <tr>
+                  <td class="state">rejected/</td><td class="state">standby/</td>
+                  <td>No draft reproduces the issue, or another check fails.</td>
+                  <td>The failing check detail; otherwise <code>no current draft reproduces this ticket</code>.</td>
+                </tr>
+                <tr>
+                  <td class="state">any bucket</td><td class="state">one bucket</td>
+                  <td>The same signature appears in several buckets or views.</td>
+                  <td><code>duplicate &lt;bucket&gt;/&lt;name&gt;</code>; the older copy is parked under <code>evidence/prior-*</code>.</td>
+                </tr>
+                <tr>
+                  <td class="state">raise/</td><td class="state">raised/</td>
+                  <td>A human posts the ticket to the vendor tracker.</td>
+                  <td>Manual step; <code>raised/</code>, <code>fixed/</code> and <code>solved/</code> are legacy archives.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Viability checks</h3>
+          <div class="table-wrap">
+            <table class="rules-table">
+              <thead>
+                <tr><th>Check</th><th>Passes when</th><th>Recorded when it fails</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="state">reproducible</td><td>The current evidence still produces the issue key.</td><td><code>no current evidence reproduces this draft</code></td></tr>
+                <tr><td class="state">attributed</td><td>The owner is a real vendor, not <code>local</code>.</td><td><code>owner is local</code></td></tr>
+                <tr><td class="state">substantiated</td><td>At least <code>RAISE_MIN_COUNT</code> occurrences, or at least one crash row.</td><td><code>N occurrence(s), M crash row(s); need &gt;= N or 1 crash</code></td></tr>
+                <tr><td class="state">fresh</td><td>The last evidence is within <code>RAISE_MAX_AGE_DAYS</code>.</td><td><code>last evidence N day(s) old; limit N</code></td></tr>
+                <tr><td class="state">actionable</td><td>Not benign or environmental, and there is a critical, crash or correlation signal.</td><td><code>benign per classifier</code>, <code>environmental/network/permission failure</code>, or <code>no critical, crash or correlation signal</code></td></tr>
+                <tr><td class="state">build-current</td><td>No matching held-outdated package and no owner-family mass hold.</td><td><code>held-outdated package(s): ...</code>, <code>system-wide hold: ...</code>, or <code>no held, outdated package matches this crash</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Ticket kinds</h3>
+          <p class="muted rules-note">When several views describe the same signature, one directory survives: <code>raise/</code> wins, then correlation over crash over event, then the newest manifest.</p>
+          <ul class="rules-kinds">
+            <li><strong>correlation</strong> &mdash; carries silent-stop context from preceding events.</li>
+            <li><strong>crash</strong> &mdash; carries a stack; a single crash satisfies substantiation.</li>
+            <li><strong>event</strong> &mdash; the weakest form; needs volume or another signal.</li>
+          </ul>
         </div>
       </section>
 

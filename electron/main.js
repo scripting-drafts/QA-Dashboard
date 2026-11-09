@@ -10,12 +10,13 @@ const {
 const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
-const MODULES = new Set(["overview", "sentinels", "logs", "malware", "siem"]);
+const MODULES = new Set(["overview", "sentinels", "rules", "logs", "malware", "siem"]);
 const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
   sentinels: "QA Sentinels",
+  rules: "Ticket Rules",
   logs: "Sentinels Logs",
   malware: "Malware Scan",
   siem: "QA SIEM",
@@ -24,6 +25,7 @@ const WINDOW_TITLES = {
 const WINDOW_SIZES = {
   overview: { width: 980, height: 640 },
   sentinels: { width: 1020, height: 760 },
+  rules: { width: 1020, height: 780 },
   logs: { width: 980, height: 680 },
   malware: { width: 1080, height: 820 },
   siem: { width: 1080, height: 820 },

@@ -6,6 +6,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const TITLES = {
   overview: ["QA Dashboard", "All three QA tools in one local dashboard."],
   sentinels: ["Sentinels", "Monitoring, findings and live logs."],
+  rules: ["Ticket Rules", "How issues move between ticket states, and why."],
   logs: ["Sentinels Logs", "Live sentinel log stream."],
   malware: ["Malware Scan", "Bounded scanning with live findings and coverage status."],
   siem: ["SIEM", "Health, alerts and events from the local QA SIEM API."],
@@ -624,6 +625,7 @@ function bind() {
       toast(String(error.message || error), true);
     }
   });
+  $("#sen-rules").addEventListener("click", () => window.qa.openModule("rules"));
   $("#sen-logs").addEventListener("click", () => window.qa.openModule("logs"));
 
   $("#mal-start").addEventListener("click", startMalware);
