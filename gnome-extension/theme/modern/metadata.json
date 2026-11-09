@@ -1,0 +1,7 @@
+{
+  "uuid": "qa-dashboard-theme@local",
+  "name": "QA Dashboard Theme Icon",
+  "description": "Switch the QA Dashboard favourite between its light and dark icons.",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
+  "version": 1
+}

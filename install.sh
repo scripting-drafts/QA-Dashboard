@@ -11,6 +11,8 @@ AUTOSTART="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 LEGACY_EXT_UUID="qa-dashboard@local"
 LEGACY_EXT_DIR="$DATA/gnome-shell/extensions/$LEGACY_EXT_UUID"
+THEME_EXT_UUID="qa-dashboard-theme@local"
+THEME_EXT_DIR="$DATA/gnome-shell/extensions/$THEME_EXT_UUID"
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
     echo "QA Dashboard requires Node.js and npm." >&2
@@ -39,6 +41,10 @@ fi
 install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
 install -m 0644 "$ROOT/assets/qa-dashboard-256.png" "$ICONS/256x256/apps/qa-dashboard.png"
 install -m 0644 "$ROOT/assets/qa-dashboard-512.png" "$ICONS/512x512/apps/qa-dashboard.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-256.png" "$ICONS/256x256/apps/qa-dashboard-dark.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-512.png" "$ICONS/512x512/apps/qa-dashboard-dark.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-light-256.png" "$ICONS/256x256/apps/qa-dashboard-light.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-light-512.png" "$ICONS/512x512/apps/qa-dashboard-light.png"
 rm -f "$ICONS/scalable/apps/qa-dashboard.svg"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "$ICONS" >/dev/null 2>&1 || true
@@ -105,6 +111,36 @@ if command -v gsettings >/dev/null 2>&1; then
         gsettings set org.gnome.shell disabled-extensions "$UPDATED_DISABLED" 2>/dev/null || true
     fi
 fi
+# Keep the favourite/dock icon in sync with the chosen appearance. This is a
+# hidden Shell extension; it does not add anything to the top bar.
+SHELL_MAJOR=""
+if command -v gnome-shell >/dev/null 2>&1; then
+    SHELL_MAJOR="$(gnome-shell --version 2>/dev/null | awk '{print $3}' | cut -d. -f1)"
+fi
+if [ -n "$SHELL_MAJOR" ] && [ "$SHELL_MAJOR" -ge 45 ] 2>/dev/null; then
+    THEME_EXT_SRC="$ROOT/gnome-extension/theme/modern"
+else
+    THEME_EXT_SRC="$ROOT/gnome-extension/theme/legacy"
+fi
+rm -rf "$THEME_EXT_DIR"
+install -d -m 0755 "$THEME_EXT_DIR"
+cp -a "$THEME_EXT_SRC/." "$THEME_EXT_DIR/"
+
+THEME_NEEDS_RELOGIN=0
+if command -v gnome-extensions >/dev/null 2>&1; then
+    gnome-extensions disable "$THEME_EXT_UUID" >/dev/null 2>&1 || true
+    if ! gnome-extensions enable "$THEME_EXT_UUID" >/dev/null 2>&1; then
+        THEME_NEEDS_RELOGIN=1
+        ENABLED="$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null || true)"
+        case "$ENABLED" in
+            *"$THEME_EXT_UUID"*) ;;
+            "@as []"|"[]") ENABLED="['$THEME_EXT_UUID']" ;;
+            *) ENABLED="$(printf '%s' "$ENABLED" | sed "s/]$/, '$THEME_EXT_UUID']/")" ;;
+        esac
+        gsettings set org.gnome.shell enabled-extensions "$ENABLED" 2>/dev/null || true
+    fi
+fi
+
 rm -f "$AUTOSTART/qa-desktop-tray.desktop" \
       "$AUTOSTART/qa-dashboard-tray.desktop"
 
@@ -127,6 +163,9 @@ fi
 
 if [ "$LAUNCHER_NEEDS_RELOGIN" -eq 1 ]; then
     echo "Sign out and back in once to refresh GNOME's launcher cursor." >&2
+fi
+if [ "$THEME_NEEDS_RELOGIN" -eq 1 ]; then
+    echo "Sign out and back in once to activate the theme-aware favourite icon." >&2
 fi
 
 cat <<EOF

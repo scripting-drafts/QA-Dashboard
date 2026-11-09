@@ -64,8 +64,10 @@ launcher click starts a fresh instance.
 
 The brand mark is the brush-enso artwork, converted to a transparent alpha mask
 at `assets/qa-dashboard-enso.png`. CSS tints it for the active light or dark
-theme and for the Overview gradient. `assets/qa-dashboard-256.png` and the 512
-and 1024 exports are the dark rounded app icons and the Electron window icon.
+theme and for the Overview gradient. The favourite/dock icon has full-colour
+light and dark tile variants. A hidden `qa-dashboard-theme@local` Shell
+extension switches the dock favourite with the chosen appearance and adds no
+top-bar item.
 
 ## Settings and auto-refresh
 
