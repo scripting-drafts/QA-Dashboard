@@ -56,9 +56,13 @@ test("status output parses colon-delimited values", () => {
 test("config round-trips with private permissions", () => {
   const previous = process.env.XDG_CONFIG_HOME;
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-dashboard-config-"));
+  const root = path.join(temp, "sentinels");
+  fs.mkdirSync(path.join(root, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(root, "bin", "qa"), "", { mode: 0o755 });
   process.env.XDG_CONFIG_HOME = temp;
   try {
     const cfg = backend.loadConfig();
+    cfg.sentinelsRoot = root;
     assert.equal(cfg.sentinelsCycleMinutes, "10");
     cfg.siemUrl = "http://127.0.0.1:9999/";
     cfg.sentinelsBin = "/opt/qa";
@@ -70,6 +74,89 @@ test("config round-trips with private permissions", () => {
     assert.equal(loaded.sentinelsCycleMinutes, "2");
     const mode = fs.statSync(backend.configPath()).mode & 0o777;
     assert.equal(mode, 0o600);
+  } finally {
+    if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = previous;
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("sentinels settings normalize defaults and reject bad values", () => {
+  assert.deepEqual(backend.normalizeSentinelsSettings({}), {
+    sentinelsCycleHours: "1",
+    sentinelsDraftsRetentionDays: "30",
+    sentinelsRaiseLookbackDays: "30",
+    sentinelsEventRetentionDays: "0",
+    sentinelsSamplesRetentionDays: "0",
+    sentinelsProcRetentionDays: "0",
+    sentinelsInventoryRetentionDays: "0",
+  });
+  const custom = backend.normalizeSentinelsSettings({
+    sentinelsCycleHours: "2.5",
+    sentinelsRaiseLookbackDays: "45",
+    sentinelsEventRetentionDays: "30",
+  });
+  assert.equal(custom.sentinelsCycleHours, "2.5");
+  assert.equal(custom.sentinelsRaiseLookbackDays, "45");
+  assert.equal(custom.sentinelsEventRetentionDays, "30");
+  assert.throws(
+    () => backend.normalizeSentinelsSettings({ sentinelsEventRetentionDays: "abc" }),
+    /Events retention/,
+  );
+  assert.throws(
+    () => backend.normalizeSentinelsSettings({ sentinelsSamplesRetentionDays: "1.5" }),
+    /whole number/,
+  );
+  assert.throws(
+    () => backend.normalizeSentinelsSettings({ sentinelsCycleHours: "0" }),
+    /Cycle cadence/,
+  );
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "qa-settings-empty-"));
+  try {
+    fs.mkdirSync(path.join(tempRoot, "bin"));
+    fs.writeFileSync(path.join(tempRoot, "bin", "qa"), "", { mode: 0o755 });
+    assert.deepEqual(
+      backend.loadSentinelsSettings({ sentinelsRoot: tempRoot }), {});
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("sentinels settings mirror to the engine root", () => {
+  const previous = process.env.XDG_CONFIG_HOME;
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-dashboard-settings-"));
+  const root = path.join(temp, "sentinels");
+  fs.mkdirSync(path.join(root, "bin"), { recursive: true });
+  const qa = path.join(root, "bin", "qa");
+  fs.writeFileSync(qa, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  process.env.XDG_CONFIG_HOME = path.join(temp, "config");
+  try {
+    const cfg = backend.loadConfig();
+    cfg.sentinelsRoot = root;
+    cfg.sentinelsCycleHours = "2";
+    cfg.sentinelsDraftsRetentionDays = "14";
+    cfg.sentinelsRaiseLookbackDays = "21";
+    cfg.sentinelsEventRetentionDays = "30";
+    cfg.sentinelsSamplesRetentionDays = "7";
+    cfg.sentinelsProcRetentionDays = "3";
+    cfg.sentinelsInventoryRetentionDays = "90";
+    backend.saveConfig(cfg);
+
+    const settingsPath = path.join(root, "config", "settings.json");
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    assert.equal(settings.QA_CYCLE_RAISE_HOURS, "2");
+    assert.equal(settings.QA_DRAFTS_RETENTION_DAYS, "14");
+    assert.equal(settings.QA_RAISE_LOOKBACK_DAYS, "21");
+    assert.equal(settings.QA_EVENT_RETENTION_DAYS, "30");
+    assert.equal(settings.QA_SAMPLE_RETENTION_DAYS, "7");
+    assert.equal(settings.QA_PROC_RETENTION_DAYS, "3");
+    assert.equal(settings.QA_INVENTORY_RETENTION_DAYS, "90");
+    assert.equal(fs.statSync(settingsPath).mode & 0o777, 0o600);
+
+    const loaded = backend.loadConfig();
+    assert.equal(loaded.sentinelsDraftsRetentionDays, "14");
+    assert.equal(loaded.sentinelsEventRetentionDays, "30");
+    assert.equal(loaded.sentinelsCycleHours, "2");
   } finally {
     if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
     else process.env.XDG_CONFIG_HOME = previous;

@@ -6,6 +6,37 @@ const path = require("node:path");
 const { execFile, spawn } = require("node:child_process");
 const readline = require("node:readline");
 
+const SENTINELS_SETTING_KEYS = {
+  sentinelsCycleHours: {
+    env: "QA_CYCLE_RAISE_HOURS", default: "1",
+    label: "Cycle cadence", min: 0.1, max: 8760, decimal: true,
+  },
+  sentinelsDraftsRetentionDays: {
+    env: "QA_DRAFTS_RETENTION_DAYS", default: "30",
+    label: "Drafts retention", min: 0, max: 3650,
+  },
+  sentinelsRaiseLookbackDays: {
+    env: "QA_RAISE_LOOKBACK_DAYS", default: "30",
+    label: "Raise gate lookback", min: 1, max: 3650,
+  },
+  sentinelsEventRetentionDays: {
+    env: "QA_EVENT_RETENTION_DAYS", default: "0",
+    label: "Events retention", min: 0, max: 3650,
+  },
+  sentinelsSamplesRetentionDays: {
+    env: "QA_SAMPLE_RETENTION_DAYS", default: "0",
+    label: "Samples retention", min: 0, max: 3650,
+  },
+  sentinelsProcRetentionDays: {
+    env: "QA_PROC_RETENTION_DAYS", default: "0",
+    label: "proc_snap retention", min: 0, max: 3650,
+  },
+  sentinelsInventoryRetentionDays: {
+    env: "QA_INVENTORY_RETENTION_DAYS", default: "0",
+    label: "Inventory retention", min: 0, max: 3650,
+  },
+};
+
 const DEFAULT_CONFIG = {
   sentinelsBin: "",
   sentinelsRoot: "",
@@ -14,12 +45,86 @@ const DEFAULT_CONFIG = {
   siemTokenFile: "",
   sentinelsCycleMinutes: "10",
 };
+for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
+  DEFAULT_CONFIG[key] = spec.default;
+}
 
 const MAX_HTTP_BODY = 8 * 1024 * 1024;
 
 function configPath() {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
   return path.join(base, "qa-desktop", "config.json");
+}
+
+function sentinelsSettingsPath(cfg) {
+  const root = resolveSentinelsRoot(cfg);
+  return root ? path.join(root, "config", "settings.json") : "";
+}
+
+function readSentinelsSettings(cfg) {
+  const target = sentinelsSettingsPath(cfg);
+  if (!target) return {};
+  try {
+    const data = JSON.parse(fs.readFileSync(target, "utf8"));
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function normalizeSentinelsSettings(cfg) {
+  const out = {};
+  for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
+    const raw = String(cfg[key] ?? "").trim();
+    const text = raw === "" ? spec.default : raw;
+    const value = Number(text);
+    if (!Number.isFinite(value) || value < spec.min || value > spec.max ||
+        (!spec.decimal && !Number.isInteger(value))) {
+      const kind = spec.decimal ? "a number" : "a whole number";
+      throw new Error(
+        `${spec.label} must be ${kind} between ${spec.min} and ${spec.max}`);
+    }
+    out[key] = String(value);
+  }
+  return out;
+}
+
+function loadSentinelsSettings(cfg) {
+  const data = readSentinelsSettings(cfg);
+  const out = {};
+  for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
+    const raw = String(data[spec.env] ?? "").trim();
+    if (!raw) continue;
+    const value = Number(raw);
+    if (Number.isFinite(value) && value >= spec.min && value <= spec.max &&
+        (spec.decimal || Number.isInteger(value))) {
+      out[key] = String(value);
+    }
+  }
+  return out;
+}
+
+function saveSentinelsSettings(cfg, normalized) {
+  const target = sentinelsSettingsPath(cfg);
+  if (!target) return "";
+  let data = {};
+  try {
+    const existing = JSON.parse(fs.readFileSync(target, "utf8"));
+    if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+      data = existing;
+    }
+  } catch (_error) {
+    // A missing or malformed file is replaced with a fresh one.
+  }
+  for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
+    data[spec.env] = normalized[key];
+  }
+  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  const tmp = `${target}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", { mode: 0o600 });
+  fs.renameSync(tmp, target);
+  fs.chmodSync(target, 0o600);
+  return target;
 }
 
 function loadConfig() {
@@ -33,21 +138,25 @@ function loadConfig() {
     // Missing or invalid configuration falls back to defaults.
   }
   cfg.siemUrl = (cfg.siemUrl || DEFAULT_CONFIG.siemUrl).replace(/\/+$/, "");
+  Object.assign(cfg, loadSentinelsSettings(cfg));
   return cfg;
 }
 
 function saveConfig(cfg) {
+  const normalized = normalizeSentinelsSettings(cfg);
   const target = configPath();
   fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
   const payload = {};
   for (const key of Object.keys(DEFAULT_CONFIG)) {
     payload[key] = typeof cfg[key] === "string" ? cfg[key].trim() : "";
   }
+  Object.assign(payload, normalized);
   if (!payload.siemUrl) payload.siemUrl = DEFAULT_CONFIG.siemUrl;
   const tmp = `${target}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2) + "\n", { mode: 0o600 });
   fs.renameSync(tmp, target);
   fs.chmodSync(target, 0o600);
+  saveSentinelsSettings(payload, normalized);
 }
 
 function expand(value) {
@@ -182,6 +291,7 @@ function configView(cfg) {
     resolved: {
       sentinelsBin: resolveSentinelsBin(cfg),
       sentinelsRoot: resolveSentinelsRoot(cfg),
+      sentinelsSettings: sentinelsSettingsPath(cfg),
       malwareBin: resolveMalwareBin(cfg),
       siemTokenFile: resolveSiemTokenFile(cfg),
       siemTokenAvailable: Boolean(readToken(resolveSiemTokenFile(cfg))),
@@ -432,7 +542,12 @@ module.exports = {
   resolveSiemTokenFile,
   runCapture,
   saveConfig,
+  SENTINELS_SETTING_KEYS,
+  loadSentinelsSettings,
+  normalizeSentinelsSettings,
+  saveSentinelsSettings,
   sentinelsArgs,
+  sentinelsSettingsPath,
   shellEnv,
   siemAck,
   siemSnapshot,

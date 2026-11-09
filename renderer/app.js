@@ -547,6 +547,13 @@ function fillSettings(view) {
   $("#set-sentinels-bin").value = view.sentinelsBin || "";
   $("#set-sentinels-root").value = view.sentinelsRoot || "";
   $("#set-sentinels-cycle").value = view.sentinelsCycleMinutes || "10";
+  $("#set-sen-cycle-hours").value = view.sentinelsCycleHours || "1";
+  $("#set-sen-drafts-days").value = view.sentinelsDraftsRetentionDays || "30";
+  $("#set-sen-lookback-days").value = view.sentinelsRaiseLookbackDays || "30";
+  $("#set-sen-events-days").value = view.sentinelsEventRetentionDays || "0";
+  $("#set-sen-samples-days").value = view.sentinelsSamplesRetentionDays || "0";
+  $("#set-sen-proc-days").value = view.sentinelsProcRetentionDays || "0";
+  $("#set-sen-inventory-days").value = view.sentinelsInventoryRetentionDays || "0";
   $("#set-malware-bin").value = view.malwareBin || "";
   $("#set-siem-url").value = view.siemUrl || "";
   $("#set-siem-token").value = view.siemTokenFile || "";
@@ -559,7 +566,7 @@ function fillSettings(view) {
     $("#settings-resolved").textContent =
       `Detected: qa=${resolved.sentinelsBin || "missing"} · ` +
       `root=${resolved.sentinelsRoot || "missing"} · ` +
-      `cycle=${view.sentinelsCycleMinutes || "10"}m`;
+      `settings=${resolved.sentinelsSettings || "not found"}`;
   } else if (settingsModule === "malware") {
     $("#settings-resolved").textContent =
       `Detected: malware-scan=${resolved.malwareBin || "missing"}`;
@@ -589,6 +596,13 @@ async function saveSettings(event) {
     payload.sentinelsBin = $("#set-sentinels-bin").value;
     payload.sentinelsRoot = $("#set-sentinels-root").value;
     payload.sentinelsCycleMinutes = $("#set-sentinels-cycle").value;
+    payload.sentinelsCycleHours = $("#set-sen-cycle-hours").value;
+    payload.sentinelsDraftsRetentionDays = $("#set-sen-drafts-days").value;
+    payload.sentinelsRaiseLookbackDays = $("#set-sen-lookback-days").value;
+    payload.sentinelsEventRetentionDays = $("#set-sen-events-days").value;
+    payload.sentinelsSamplesRetentionDays = $("#set-sen-samples-days").value;
+    payload.sentinelsProcRetentionDays = $("#set-sen-proc-days").value;
+    payload.sentinelsInventoryRetentionDays = $("#set-sen-inventory-days").value;
   } else if (settingsModule === "malware") {
     payload.malwareBin = $("#set-malware-bin").value;
   } else if (settingsModule === "siem") {
