@@ -313,11 +313,14 @@ function registerIpc() {
   });
 
   ipcMain.handle("app:open-tickets", async () => {
-    const tickets = path.join(os.homedir(),
-      "Quality-Assurance-Sentinels", "tickets");
-    const error = await shell.openPath(tickets);
+    const bases = ["QA-Sentinels", "Quality-Assurance-Sentinels"];
+    const found = bases
+      .map((name) => path.join(os.homedir(), name, "tickets"))
+      .find((candidate) => fs.existsSync(candidate));
+    if (!found) throw new Error("tickets directory not found");
+    const error = await shell.openPath(found);
     if (error) throw new Error(error);
-    return tickets;
+    return found;
   });
 
   ipcMain.handle("app:version", () => app.getVersion());

@@ -199,7 +199,9 @@ function resolveSentinelsRoot(cfg) {
   const envRoot = expand(process.env.QA_SENTINELS_ROOT || "");
   if (envRoot && fs.existsSync(path.join(envRoot, "bin", "qa"))) return envRoot;
   for (const candidate of [
+    path.join(os.homedir(), "QA-Sentinels"),
     path.join(os.homedir(), "Quality-Assurance-Sentinels"),
+    "/opt/QA-Sentinels",
     "/opt/Quality-Assurance-Sentinels",
   ]) {
     if (fs.existsSync(path.join(candidate, "bin", "qa"))) return candidate;
