@@ -89,8 +89,6 @@ write_desktop qa-dashboard "QA Dashboard" \
     "Local QA operations dashboard" "overview" "qa-dashboard"
 write_desktop qa-sentinels "QA Sentinels" \
     "Evidence collection and failure correlation" "sentinels" "qa-dashboard"
-write_desktop qa-malware-scan "Malware Scan" \
-    "Scan files and folders for malware indicators" "malware" "qa-dashboard"
 write_desktop qa-siem "QA SIEM" \
     "Local QA SIEM dashboard and alerts" "siem" "qa-dashboard"
 
@@ -171,6 +169,6 @@ fi
 cat <<EOF
 Installed QA Dashboard to $PREFIX
   dashboard : $APPS/qa-dashboard.desktop
-  modules   : QA Sentinels, Malware Scan, QA SIEM launchers
+  modules   : QA Sentinels, QA SIEM launchers
   no tray   : use the favourite or standalone launchers
 EOF

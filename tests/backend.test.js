@@ -9,32 +9,6 @@ const { test } = require("node:test");
 
 const backend = require("../electron/backend");
 
-test("malware arguments keep the target as one argument after --", () => {
-  const target = "/tmp/a file;touch injected.js";
-  const args = backend.buildMalwareArgs("/usr/bin/malware-scan", target, {
-    allFiles: true,
-    deep: true,
-    quarantine: true,
-    steg: true,
-    clamav: "auto",
-    yara: "/usr/bin/yara",
-    yaraRules: "/tmp/rules.yar",
-  });
-  assert.deepEqual(args.slice(-2), ["--", target]);
-  assert.ok(args.includes("--all-files"));
-  assert.ok(args.includes("--deep"));
-  assert.ok(args.includes("--quarantine"));
-  assert.ok(args.includes("--steg"));
-  assert.equal(args[args.indexOf("--clamav") + 1], "auto");
-});
-
-test("malware target is required", () => {
-  assert.throws(
-    () => backend.buildMalwareArgs("/usr/bin/malware-scan", " "),
-    /choose a file/,
-  );
-});
-
 test("sentinels actions map to fixed argv", () => {
   assert.deepEqual(backend.sentinelsArgs("status"), ["status"]);
   assert.deepEqual(backend.sentinelsArgs("logs"),

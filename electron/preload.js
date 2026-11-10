@@ -26,12 +26,6 @@ contextBridge.exposeInMainWorld("qa", {
     logsStart: () => ipcRenderer.invoke("sentinels:logs"),
     logsStop: () => ipcRenderer.invoke("sentinels:stopLogs"),
   },
-  malware: {
-    scan: (options) => ipcRenderer.invoke("malware:scan", options),
-    cancel: () => ipcRenderer.invoke("malware:cancel"),
-    list: () => ipcRenderer.invoke("malware:list"),
-    sandbox: (options) => ipcRenderer.invoke("malware:sandbox", options),
-  },
   siem: {
     refresh: () => ipcRenderer.invoke("siem:refresh"),
     ack: (id) => ipcRenderer.invoke("siem:ack", id),

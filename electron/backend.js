@@ -40,7 +40,6 @@ const SENTINELS_SETTING_KEYS = {
 const DEFAULT_CONFIG = {
   sentinelsBin: "",
   sentinelsRoot: "",
-  malwareBin: "",
   siemUrl: "http://127.0.0.1:8088",
   siemTokenFile: "",
   sentinelsCycleMinutes: "10",
@@ -362,47 +361,6 @@ function ticketPath(root, bucket, name) {
   return { dir: ticketDir, file: "" };
 }
 
-function resolveMalwareBin(cfg) {
-  const configured = executable(cfg.malwareBin);
-  if (configured) return configured;
-  const envBin = executable(process.env.MALWARE_SCAN_BIN || "");
-  if (envBin) return envBin;
-  const fromPath = executable("malware-scan");
-  if (fromPath) return fromPath;
-  for (const candidate of [
-    path.join(os.homedir(), "malware-scan", "build", "malware-scan"),
-    path.join(os.homedir(), ".local", "bin", "malware-scan"),
-  ]) {
-    if (fs.existsSync(candidate)) {
-      const found = executable(candidate);
-      if (found) return found;
-    }
-  }
-  return "";
-}
-
-function resolveSandboxBin(cfg) {
-  const envBin = executable(process.env.MALWARE_SCAN_SANDBOX_BIN || "");
-  if (envBin) return envBin;
-  const malware = resolveMalwareBin(cfg);
-  if (malware) {
-    const sibling = executable(path.join(path.dirname(malware), "malware-scan-sandbox"));
-    if (sibling) return sibling;
-  }
-  const fromPath = executable("malware-scan-sandbox");
-  if (fromPath) return fromPath;
-  for (const candidate of [
-    path.join(os.homedir(), "malware-scan", "scripts", "malware-scan-sandbox"),
-    path.join(os.homedir(), ".local", "bin", "malware-scan-sandbox"),
-  ]) {
-    if (fs.existsSync(candidate)) {
-      const found = executable(candidate);
-      if (found) return found;
-    }
-  }
-  return "";
-}
-
 function resolveSiemTokenFile(cfg) {
   const configured = expand(cfg.siemTokenFile);
   if (configured) return configured;
@@ -434,7 +392,6 @@ function configView(cfg) {
       sentinelsBin: resolveSentinelsBin(cfg),
       sentinelsRoot: resolveSentinelsRoot(cfg),
       sentinelsSettings: sentinelsSettingsPath(cfg),
-      malwareBin: resolveMalwareBin(cfg),
       siemTokenFile: resolveSiemTokenFile(cfg),
       siemTokenAvailable: Boolean(readToken(resolveSiemTokenFile(cfg))),
     },
@@ -496,28 +453,6 @@ function queryArgs(options = {}) {
   if (severity) args.push("--severity", severity);
   if (status) args.push("--status", status);
   if (since) args.push("--since", since);
-  return args;
-}
-
-function buildMalwareArgs(binary, target, options = {}) {
-  if (!binary) throw new Error("malware-scan executable is not configured");
-  const pathValue = expand(String(target || "").trim());
-  if (!pathValue) throw new Error("choose a file or folder to scan");
-  const args = ["scan", "--json", "--fail-on", "none"];
-  if (options.allFiles) args.push("--all-files");
-  if (options.deep) args.push("--deep");
-  if (options.quarantine) args.push("--quarantine");
-  if (options.steg) args.push("--steg");
-  if (options.clamav && options.clamav.trim()) {
-    args.push("--clamav", expand(options.clamav.trim()));
-  }
-  if (options.yara && options.yara.trim()) {
-    args.push("--yara", expand(options.yara.trim()));
-  }
-  if (options.yaraRules && options.yaraRules.trim()) {
-    args.push("--yara-rules", expand(options.yaraRules.trim()));
-  }
-  args.push("--", pathValue);
   return args;
 }
 
@@ -708,7 +643,6 @@ async function siemAck(cfg, id) {
 module.exports = {
   DEFAULT_CONFIG,
   TICKET_BUCKETS,
-  buildMalwareArgs,
   cancelProcess,
   configPath,
   configView,
@@ -716,8 +650,6 @@ module.exports = {
   listTickets,
   loadConfig,
   parseStatus,
-  resolveMalwareBin,
-  resolveSandboxBin,
   resolveSentinelsBin,
   resolveSentinelsRoot,
   resolveSiemTokenFile,

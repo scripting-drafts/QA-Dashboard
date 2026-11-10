@@ -4,19 +4,17 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
-  overview: ["QA Dashboard", "All three QA tools in one local dashboard."],
+  overview: ["QA Dashboard", "QA Sentinels and QA SIEM in one local dashboard."],
   sentinels: ["QA Sentinels Database", "Read-only sentinels.db query engine with filters and SQL."],
   "sen-overview": ["QA Sentinels Overview", "Status, scheduling and live sentinel state."],
   rules: ["Ticket Rules", "How issues move between ticket states, and why."],
   logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
-  malware: ["Malware Scan", "Bounded scanning with live findings and coverage status."],
   siem: ["SIEM", "Click an alert or event for a preview; double-click for the full record."],
   record: ["SIEM Record", "Full alert or event record."],
 };
 
 const SETTINGS_TITLES = {
   sentinels: "QA Sentinels settings",
-  malware: "Malware Scan settings",
   siem: "SIEM settings",
 };
 
@@ -47,9 +45,6 @@ let logsReady = false;
 let logsLastSeq = 0;
 let logsPending = [];
 let settingsModule = "";
-let malwareBusy = false;
-let malwareFindings = 0;
-let malwareView = "raw";
 const expandedSiemRows = new Set();
 let toastTimer = null;
 
@@ -124,7 +119,7 @@ function setView(view) {
   $("#view-title").textContent = title;
   $("#view-subtitle").textContent = subtitle;
   const pill = $(".status-pill");
-  if (pill && ["malware", "logs"].includes(view) &&
+  if (pill && view === "logs" &&
       $("#sidebar-status").textContent === "Ready") {
     pill.hidden = true;
   }
@@ -868,185 +863,6 @@ async function startSentinelLogs() {
   }
 }
 
-function setMalwareBusy(busy) {
-  malwareBusy = busy;
-  $("#mal-start").disabled = busy;
-  $("#mal-stop").disabled = !busy;
-  $("#mal-folder").disabled = busy;
-  $("#mal-file").disabled = busy;
-  $("#mal-sandbox-run").disabled = busy;
-  $("#mal-sandbox-target").disabled = busy;
-}
-
-function resetMalware() {
-  malwareFindings = 0;
-  $("#mal-findings").replaceChildren(muted("No findings yet."));
-  $("#mal-output").textContent = "";
-  $$("[data-mal]").forEach((node) => { node.textContent = "-"; });
-}
-
-function addFinding(event) {
-  if (malwareFindings >= 500) return;
-  malwareFindings += 1;
-  const box = document.createElement("div");
-  box.className = "finding";
-  const head = document.createElement("div");
-  head.className = "finding-head";
-  const verdict = String(event.verdict || "unknown").toLowerCase();
-  const badge = document.createElement("span");
-  badge.className = `badge badge-${verdict}`;
-  badge.textContent = verdict;
-  const path = document.createElement("span");
-  path.className = "finding-path";
-  path.textContent = event.path || "";
-  path.title = event.path || "";
-  head.append(badge, path);
-  const reasons = document.createElement("div");
-  reasons.className = "finding-reasons";
-  reasons.textContent = (event.reasons || []).join("; ");
-  box.append(head, reasons);
-  const list = $("#mal-findings");
-  if (list.firstElementChild?.classList.contains("muted")) clear(list);
-  list.append(box);
-}
-
-function renderMalwareSummary(summary) {
-  for (const key of ["scanned", "clean", "suspicious", "infected", "errors",
-                     "partial", "seconds"]) {
-    const node = document.querySelector(`[data-mal="${key}"]`);
-    if (!node) continue;
-    let value = summary[key];
-    if (key === "seconds" && value != null) {
-      value = Number(value).toFixed(2);
-    }
-    node.textContent = value == null ? "-" : String(value);
-  }
-  const parts = [];
-  for (const key of ["scanned", "clean", "suspicious", "infected", "partial"]) {
-    if (summary[key] != null) parts.push(`${key} ${summary[key]}`);
-  }
-  $("#overview-malware").textContent = parts.join(" · ") || "Scan finished.";
-}
-
-function setMalwareView(view) {
-  malwareView = ["raw", "quarantine", "sandbox"].includes(view) ? view : "raw";
-  $$("[data-mal-view]").forEach((button) => {
-    const active = button.dataset.malView === malwareView;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-  $("#mal-raw-pane").hidden = malwareView !== "raw";
-  $("#mal-quarantine-pane").hidden = malwareView !== "quarantine";
-  $("#mal-sandbox-pane").hidden = malwareView !== "sandbox";
-  $("#mal-view-title").textContent = {
-    raw: "Raw output",
-    quarantine: "Quarantine list",
-    sandbox: "Sandbox",
-  }[malwareView];
-  if (malwareView === "quarantine") showQuarantine();
-}
-
-async function startMalware() {
-  if (malwareBusy) return;
-  const target = $("#mal-path").value.trim();
-  if (!target) {
-    toast("Choose a file or folder to scan.", true);
-    return;
-  }
-  setMalwareView("raw");
-  resetMalware();
-  setMalwareBusy(true);
-  append($("#mal-output"), "starting scan…");
-  try {
-    await window.qa.malware.scan({
-      target,
-      allFiles: $("#mal-all").checked,
-      deep: $("#mal-deep").checked,
-      quarantine: $("#mal-quarantine").checked,
-      steg: $("#mal-steg").checked,
-      clamav: $("#mal-clamav").value,
-      yara: $("#mal-yara").value,
-      yaraRules: $("#mal-yara-rules").value,
-    });
-  } catch (error) {
-    setMalwareBusy(false);
-    toast(String(error.message || error), true);
-  }
-}
-
-function renderQuarantine(result) {
-  const node = $("#mal-quarantine-list");
-  clear(node);
-  let rows = 0;
-  for (const line of String(result.output || "").split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    const match = line.match(/^(\S+)\s+(\S+)\s+(\d+)\s+(.*)$/);
-    if (!match) {
-      if (!/^No quarantined files\.$/.test(line.trim())) node.append(muted(line));
-      continue;
-    }
-    const [, id, verdict, size, original] = match;
-    const row = document.createElement("div");
-    row.className = "row";
-    const head = document.createElement("div");
-    head.className = "row-head";
-    const badge = document.createElement("span");
-    badge.className = `badge badge-${verdict}`;
-    badge.textContent = verdict;
-    const title = document.createElement("span");
-    title.className = "row-title";
-    title.textContent = id;
-    const button = document.createElement("button");
-    button.textContent = "Sandbox";
-    button.addEventListener("click", () => {
-      $("#mal-sandbox-target").value = id;
-      runSandbox(id, false);
-    });
-    head.append(badge, title, button);
-    const detail = document.createElement("div");
-    detail.className = "row-detail";
-    detail.textContent = `${Number(size).toLocaleString()} bytes · ${original}`;
-    row.append(head, detail);
-    node.append(row);
-    rows += 1;
-  }
-  if (!rows) node.append(muted("No quarantined files."));
-  if (result.code !== 0) toast("Quarantine list failed.", true);
-}
-
-async function showQuarantine() {
-  try {
-    renderQuarantine(await window.qa.malware.list());
-  } catch (error) {
-    toast(String(error.message || error), true);
-  }
-}
-
-async function runSandbox(targetOverride, fileOverride) {
-  if (malwareBusy) return;
-  const target = String(targetOverride ||
-    $("#mal-sandbox-target").value || "").trim();
-  if (!target) {
-    toast("Choose a quarantine ID or file.", true);
-    return;
-  }
-  const asFile = fileOverride !== undefined
-    ? fileOverride
-    : target.includes("/") || target.startsWith("~");
-  setMalwareView("sandbox");
-  $("#mal-sandbox-target").value = target;
-  const output = $("#mal-sandbox-output");
-  output.textContent = "";
-  append(output, `sandbox ${asFile ? "file" : "quarantine"}: ${target}`);
-  setMalwareBusy(true);
-  try {
-    await window.qa.malware.sandbox({ target, file: asFile });
-  } catch (error) {
-    setMalwareBusy(false);
-    toast(String(error.message || error), true);
-  }
-}
-
 function severityBadge(severity) {
   const value = String(severity || "info").toLowerCase();
   const badge = document.createElement("span");
@@ -1293,7 +1109,6 @@ function fillSettings(view) {
   $("#set-sen-samples-days").value = view.sentinelsSamplesRetentionDays || "0";
   $("#set-sen-proc-days").value = view.sentinelsProcRetentionDays || "0";
   $("#set-sen-inventory-days").value = view.sentinelsInventoryRetentionDays || "0";
-  $("#set-malware-bin").value = view.malwareBin || "";
   $("#set-siem-url").value = view.siemUrl || "";
   $("#set-siem-token").value = view.siemTokenFile || "";
   $$("[data-settings-module]").forEach((label) => {
@@ -1328,8 +1143,6 @@ async function saveSettings(event) {
     payload.sentinelsSamplesRetentionDays = $("#set-sen-samples-days").value;
     payload.sentinelsProcRetentionDays = $("#set-sen-proc-days").value;
     payload.sentinelsInventoryRetentionDays = $("#set-sen-inventory-days").value;
-  } else if (settingsModule === "malware") {
-    payload.malwareBin = $("#set-malware-bin").value;
   } else if (settingsModule === "siem") {
     payload.siemUrl = $("#set-siem-url").value;
     payload.siemTokenFile = $("#set-siem-token").value;
@@ -1404,32 +1217,6 @@ function bind() {
   $("#findings-refresh").addEventListener("click", loadFindings);
   $("#findings-open-folder").addEventListener("click", openTicketsFolder);
 
-  $("#mal-start").addEventListener("click", startMalware);
-  $("#mal-stop").addEventListener("click", async () => {
-    await window.qa.malware.cancel();
-    const output = malwareView === "sandbox"
-      ? $("#mal-sandbox-output") : $("#mal-output");
-    append(output, "stop requested");
-  });
-  $$("[data-mal-view]").forEach((button) => {
-    button.addEventListener("click", () => setMalwareView(button.dataset.malView));
-  });
-  $("#mal-sandbox-run").addEventListener("click", () => runSandbox());
-  $("#mal-sandbox-target").addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      runSandbox();
-    }
-  });
-  $("#mal-folder").addEventListener("click", async () => {
-    const selected = await window.qa.pickPath("folder");
-    if (selected) $("#mal-path").value = selected;
-  });
-  $("#mal-file").addEventListener("click", async () => {
-    const selected = await window.qa.pickPath("file");
-    if (selected) $("#mal-path").value = selected;
-  });
-
   $("#siem-open").addEventListener("click", async () => {
     try { await window.qa.siem.open(); } catch (error) {
       toast(String(error.message || error), true);
@@ -1487,34 +1274,6 @@ function bind() {
     }
     if (payload.scope === "record" && payload.type === "show") {
       renderRecord(payload.data);
-    }
-    if (payload.scope === "sandbox") {
-      if (payload.type === "line") {
-        append($("#mal-sandbox-output"), payload.line);
-      }
-      if (payload.type === "done") {
-        setMalwareBusy(false);
-        append($("#mal-sandbox-output"), `sandbox exit ${payload.code}`);
-        if (payload.code !== 0) {
-          toast(`Sandbox exited with ${payload.code}.`, true);
-        }
-      }
-    }
-    if (payload.scope === "malware") {
-      if (payload.type === "line") {
-        append($("#mal-output"), payload.line);
-        let event = null;
-        try { event = JSON.parse(payload.line); } catch (_error) { /* text */ }
-        if (event && event.event === "finding") addFinding(event);
-        if (event && event.event === "summary") renderMalwareSummary(event);
-      }
-      if (payload.type === "done") {
-        setMalwareBusy(false);
-        append($("#mal-output"), `scan exit ${payload.code}`);
-        if (payload.code !== 0 && payload.code !== 1) {
-          toast(`Malware Scan exited with ${payload.code}.`, true);
-        }
-      }
     }
   });
 }

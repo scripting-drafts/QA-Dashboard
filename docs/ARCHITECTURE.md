@@ -1,6 +1,6 @@
 # Architecture
 
-QA Dashboard is an Electron application with a narrow IPC boundary. The three
+QA Dashboard is an Electron application with a narrow IPC boundary. The two
 engines stay independent: the dashboard only invokes their CLI or local API.
 
 ## Process boundaries
@@ -57,16 +57,6 @@ live lines, so closing and reopening the window never restarts the command.
 Output streams to that window over `event` messages. Arbitrary commands are not
 exposed; SQL is passed as one argv item and validated by the Sentinels process.
 
-## Malware Scan
-
-The renderer sends scan options. The backend builds an argument vector with
-`--json`, `--fail-on none`, and a final `--` before the target. Child output is
-streamed line by line; the renderer parses JSONL findings and summaries. Process
-groups are terminated on Stop. The Malware window switches between raw scan
-output and the quarantine list. The Malware Scan package also installs
-`malware-scan-sandbox`, which inspects quarantined samples inside a read-only,
-no-network bubblewrap sandbox.
-
 ## SIEM
 
 `electron/backend.js` reads the token file and requests `/healthz`,
@@ -79,8 +69,8 @@ posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
 Overview and is also the desktop favourite; `install.sh` migrates an existing
 QA Sentinels favourite to it. Per-app `.desktop` files call
-`qa-dashboard --module=sentinels`, `--module=malware`, or `--module=siem` for
-standalone module buttons.
+`qa-dashboard --module=sentinels` or `--module=siem` for standalone module
+buttons.
 
 All launches share one Electron instance. A second launch forwards its module
 argument to the running process; an existing window is restored and focused,
@@ -100,8 +90,8 @@ appearance and adds no top-bar item.
 ## Settings and auto-refresh
 
 Settings open from a module window and are scoped to that module: Sentinels
-command and root, Malware Scan command, or SIEM URL and token file. Saving one
-module leaves the other configuration keys untouched.
+command and root, or SIEM URL and token file. Saving one module leaves the
+other configuration keys untouched.
 
 The main process refreshes Sentinels status and the SIEM snapshot every 10
 seconds and broadcasts the results to the Overview and the relevant module
@@ -124,5 +114,4 @@ the HTTP client. Electron smoke screenshots can be produced with:
 npm start -- --module=overview --screenshot=/tmp/qa-overview.png
 npm start -- --module=sentinels --screenshot=/tmp/qa-sentinels.png
 npm start -- --module=sen-overview --screenshot=/tmp/qa-sen-overview.png
-npm start -- --module=malware --screenshot=/tmp/qa-malware.png
 ```

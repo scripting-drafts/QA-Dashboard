@@ -11,7 +11,7 @@ const backend = require("./backend");
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set([
   "overview", "sentinels", "sen-overview", "findings", "rules", "logs",
-  "malware", "siem", "record",
+  "siem", "record",
 ]);
 const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
 
@@ -21,7 +21,6 @@ const WINDOW_TITLES = {
   "sen-overview": "QA Sentinels Overview",
   rules: "Ticket Rules",
   logs: "QA Sentinels Logs",
-  malware: "Malware Scan",
   siem: "QA SIEM",
   record: "SIEM Record",
 };
@@ -32,7 +31,6 @@ const WINDOW_SIZES = {
   "sen-overview": { width: 1180, height: 820 },
   rules: { width: 1020, height: 780 },
   logs: { width: 980, height: 680 },
-  malware: { width: 1080, height: 820 },
   siem: { width: 1080, height: 820 },
   record: { width: 900, height: 720 },
 };
@@ -40,7 +38,6 @@ const WINDOW_SIZES = {
 const windows = new Map();
 let activeSentinels = null;
 let activeLogs = null;
-let activeMalware = null;
 let logsRestartTimer = null;
 let logsRunId = 0;
 let logsSeq = 0;
@@ -153,7 +150,6 @@ function createWindow(module = "overview", show = true, tab = "") {
   window.on("closed", () => {
     windows.delete(module);
     if (module === "sentinels") backend.cancelProcess(activeSentinels);
-    if (module === "malware") backend.cancelProcess(activeMalware);
     if (module === "record") recordPayload = null;
   });
   window.webContents.setWindowOpenHandler(({ url: target }) => {
@@ -568,60 +564,6 @@ function registerIpc() {
 
   ipcMain.handle("sentinels:stopLogs", () => true);
 
-  ipcMain.handle("malware:scan", async (event, options) => {
-    if (activeMalware) throw new Error("a scan is already running");
-    const cfg = backend.loadConfig();
-    const binary = backend.resolveMalwareBin(cfg);
-    if (!binary) throw new Error("malware-scan executable not found");
-    const args = backend.buildMalwareArgs(binary, options?.target, options || {});
-    const sender = event.sender;
-    activeMalware = backend.startStream(binary, args, {
-      onLine: (line) => sendEvent(sender, { scope: "malware", type: "line", line }),
-      onDone: (code) => {
-        activeMalware = null;
-        sendEvent(sender, { scope: "malware", type: "done", code });
-      },
-    });
-    return { started: Boolean(activeMalware) };
-  });
-
-  ipcMain.handle("malware:cancel", () => {
-    backend.cancelProcess(activeMalware);
-    activeMalware = null;
-    return true;
-  });
-
-  ipcMain.handle("malware:list", async () => {
-    const cfg = backend.loadConfig();
-    const binary = backend.resolveMalwareBin(cfg);
-    if (!binary) throw new Error("malware-scan executable not found");
-    return backend.runCapture(binary, ["list"], { timeout: 30000 });
-  });
-
-  ipcMain.handle("malware:sandbox", async (event, options) => {
-    if (activeMalware) throw new Error("a malware task is already running");
-    const target = String(options?.target || "").trim();
-    const asFile = Boolean(options?.file);
-    if (!target) throw new Error("choose a quarantine ID or file");
-    if (!asFile && (!/^[A-Za-z0-9._-]+$/.test(target) ||
-                    target.includes(".."))) {
-      throw new Error("invalid quarantine ID");
-    }
-    const cfg = backend.loadConfig();
-    const binary = backend.resolveSandboxBin(cfg);
-    if (!binary) throw new Error("malware-scan-sandbox executable not found");
-    const args = asFile ? ["--file", target] : ["--quarantine", target];
-    const sender = event.sender;
-    activeMalware = backend.startStream(binary, args, {
-      onLine: (line) => sendEvent(sender, { scope: "sandbox", type: "line", line }),
-      onDone: (code) => {
-        activeMalware = null;
-        sendEvent(sender, { scope: "sandbox", type: "done", code });
-      },
-    });
-    return { started: Boolean(activeMalware) };
-  });
-
   ipcMain.handle("siem:refresh", async () => backend.siemSnapshot(backend.loadConfig()));
   ipcMain.handle("siem:ack", async (_event, id) => {
     const numeric = Number(id);
@@ -697,6 +639,5 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
     stopAutoRefresh();
     stopBackgroundLogs();
     backend.cancelProcess(activeSentinels);
-    backend.cancelProcess(activeMalware);
   });
 }

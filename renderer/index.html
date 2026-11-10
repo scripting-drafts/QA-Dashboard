@@ -17,7 +17,7 @@
           <div class="brand-mark" aria-hidden="true"></div>
           <div>
             <h2 id="view-title">QA Dashboard</h2>
-            <p id="view-subtitle">All three QA tools in one local dashboard.</p>
+            <p id="view-subtitle">QA Sentinels and QA SIEM in one local dashboard.</p>
           </div>
         </div>
         <div class="top-actions">
@@ -37,14 +37,6 @@
             <div class="card-actions">
               <button data-open="sen-overview">Overview</button>
               <button data-open="sentinels" class="ghost">Database</button>
-            </div>
-          </article>
-          <article class="card">
-            <span class="kicker">Detection</span>
-            <h3>Malware Scan</h3>
-            <p id="overview-malware" class="muted">No scan in this session.</p>
-            <div class="card-actions">
-              <button data-open="malware">Open Malware Scan</button>
             </div>
           </article>
           <article class="card">
@@ -216,75 +208,6 @@
           <pre id="logs-output" class="console"></pre>
         </div>
       </section>
-
-      <section id="view-malware" class="view">
-        <div class="panel">
-          <div class="path-row">
-            <input id="mal-path" type="text" placeholder="File or folder to scan">
-            <button id="mal-folder">Folder…</button>
-            <button id="mal-file">File…</button>
-          </div>
-          <div class="check-grid">
-            <label><input id="mal-all" type="checkbox" checked> Scan every regular file</label>
-            <label><input id="mal-deep" type="checkbox" checked> Deep scan middle of large files</label>
-            <label><input id="mal-quarantine" type="checkbox" checked> Quarantine infected files</label>
-            <label><input id="mal-steg" type="checkbox" checked> Enable LSB steganalysis</label>
-          </div>
-          <details class="details">
-            <summary>External engines</summary>
-            <div class="check-grid">
-              <label>ClamAV <input id="mal-clamav" type="text" value="auto" placeholder="auto, clamdscan, or empty"></label>
-              <label>YARA-X <input id="mal-yara" type="text" placeholder="yr executable (optional)"></label>
-              <label>YARA rules <input id="mal-yara-rules" type="text" placeholder="rules file"></label>
-            </div>
-          </details>
-          <div class="toolbar">
-            <button id="mal-start">Start scan</button>
-            <button id="mal-stop" class="danger" disabled>Stop</button>
-          </div>
-        </div>
-        <div class="summary-grid" id="mal-summary">
-          <div class="metric"><span>Scanned</span><strong data-mal="scanned">-</strong></div>
-          <div class="metric"><span>Clean</span><strong data-mal="clean">-</strong></div>
-          <div class="metric"><span>Suspicious</span><strong data-mal="suspicious">-</strong></div>
-          <div class="metric"><span>Infected</span><strong data-mal="infected">-</strong></div>
-          <div class="metric"><span>Errors</span><strong data-mal="errors">-</strong></div>
-          <div class="metric"><span>Partial</span><strong data-mal="partial">-</strong></div>
-          <div class="metric"><span>Seconds</span><strong data-mal="seconds">-</strong></div>
-        </div>
-        <div class="panel">
-          <h3>Findings</h3>
-          <div id="mal-findings" class="findings">
-            <p class="muted">No findings yet.</p>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-head">
-            <h3 id="mal-view-title">Raw output</h3>
-            <div class="segmented" role="tablist" aria-label="Malware output view">
-              <button id="mal-view-raw" data-mal-view="raw" class="active" role="tab" aria-selected="true">Raw output</button>
-              <button id="mal-view-quarantine" data-mal-view="quarantine" role="tab" aria-selected="false">Quarantine list</button>
-              <button id="mal-view-sandbox" data-mal-view="sandbox" role="tab" aria-selected="false">Sandbox</button>
-            </div>
-          </div>
-          <div id="mal-raw-pane" class="mal-pane">
-            <pre id="mal-output" class="console"></pre>
-          </div>
-          <div id="mal-quarantine-pane" class="mal-pane" hidden>
-            <div id="mal-quarantine-list" class="list">
-              <p class="muted">No quarantined files.</p>
-            </div>
-          </div>
-          <div id="mal-sandbox-pane" class="mal-pane" hidden>
-            <div class="sandbox-run">
-              <input id="mal-sandbox-target" type="text" placeholder="Quarantine ID or file path">
-              <button id="mal-sandbox-run">Run sandbox</button>
-            </div>
-            <pre id="mal-sandbox-output" class="console"></pre>
-          </div>
-        </div>
-      </section>
-
 
       <section id="view-rules" class="view">
         <div class="panel">
@@ -468,7 +391,6 @@
       <label data-settings-module="sentinels">Samples retention (days) <input id="set-sen-samples-days" type="text" inputmode="numeric" placeholder="0"></label>
       <label data-settings-module="sentinels">proc_snap retention (days) <input id="set-sen-proc-days" type="text" inputmode="numeric" placeholder="0"></label>
       <label data-settings-module="sentinels">Inventory retention (days) <input id="set-sen-inventory-days" type="text" inputmode="numeric" placeholder="0"></label>
-      <label data-settings-module="malware">Malware Scan command <input id="set-malware-bin" type="text" placeholder="auto-detect"></label>
       <label data-settings-module="siem">SIEM URL <input id="set-siem-url" type="text"></label>
       <label data-settings-module="siem">SIEM token file <input id="set-siem-token" type="text"></label>
       <div class="dialog-actions">
