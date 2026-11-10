@@ -110,7 +110,7 @@ button, or the optional SQL statement is run.
 
 ## Configuration
 
-`~/.config/qa-desktop/config.json` stores command overrides, repository roots,
+`~/.config/qa-dashboard/config.json` stores command overrides, repository roots,
 the SIEM URL, token-file path, and the Sentinel fallback cycle interval. It is
 written mode `0600`. Tokens are read at request time and are never written to
 this file or exposed to the renderer.

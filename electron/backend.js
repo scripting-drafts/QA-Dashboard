@@ -61,7 +61,7 @@ const QUERY_MAX_ROWS = 1000;
 
 function configPath() {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return path.join(base, "qa-desktop", "config.json");
+  return path.join(base, "qa-dashboard", "config.json");
 }
 
 function sentinelsSettingsPath(cfg) {
