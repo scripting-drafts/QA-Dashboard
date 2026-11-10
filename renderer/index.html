@@ -35,7 +35,8 @@
             <h3>QA Sentinels</h3>
             <p id="overview-sentinels" class="muted">Not loaded yet.</p>
             <div class="card-actions">
-              <button data-open="sentinels">Open QA Sentinels</button>
+              <button data-open="sen-overview">Overview</button>
+              <button data-open="sentinels" class="ghost">Database</button>
             </div>
           </article>
           <article class="card">
@@ -59,13 +60,154 @@
       </section>
 
       <section id="view-sentinels" class="view">
-        <div class="toolbar">
-          <button id="sen-findings">Findings</button>
-          <button id="sen-rules">Rules</button>
-          <button id="sen-logs">Logs</button>
+        <div class="toolbar query-toolbar" role="toolbar"
+             aria-label="Sentinels query categories">
+          <button data-query-category="findings" class="active">Findings</button>
+          <button data-query-category="errors">Errors</button>
+          <button data-query-category="cycles">Cycles</button>
+          <button data-query-category="new-findings">New findings</button>
+          <button data-query-category="events">Events</button>
+          <button data-query-category="crashes">Crashes</button>
+          <button data-query-category="boots">Boots</button>
+          <button data-query-category="samples">Samples</button>
+          <button data-query-category="inventory">Inventory</button>
+          <button data-query-category="hardware">Hardware</button>
+          <button data-query-category="lsm">LSM</button>
+          <button data-query-category="correlations">Correlations</button>
+          <button data-query-category="tickets">Tickets</button>
+          <button data-query-category="deep">Deep runs</button>
+          <button data-query-category="bundles">Bundles</button>
+          <button data-query-category="runs">Runs</button>
         </div>
-        <div id="sen-status" class="status-grid">
-          <p class="muted">Waiting for sentinel status.</p>
+
+        <div class="panel query-panel">
+          <div class="panel-head query-head">
+            <div>
+              <h3 id="query-title">Inbox</h3>
+              <p id="query-meta" class="muted mono">Read-only · sentinels.db</p>
+            </div>
+            <div class="query-actions">
+              <label class="query-limit">Limit
+                <select id="query-limit">
+                  <option value="100">100</option>
+                  <option value="200" selected>200</option>
+                  <option value="500">500</option>
+                  <option value="1000">1000</option>
+                </select>
+              </label>
+              <button id="query-refresh" class="ghost">Refresh</button>
+            </div>
+          </div>
+
+          <label class="query-sql-label" for="query-sql">Optional SQL statement</label>
+          <textarea id="query-sql" class="query-sql" spellcheck="false"
+                    placeholder="SELECT id, ts, severity, rule, subject, detail FROM findings LIMIT 50"></textarea>
+          <div class="query-actions query-run-row">
+            <button id="query-run">Run SQL</button>
+            <button id="query-clear" class="ghost">Clear</button>
+            <span class="muted">One read-only SELECT, WITH or EXPLAIN statement. Ctrl+Enter runs it.</span>
+          </div>
+
+          <div id="query-filters" class="query-filters">
+            <input id="query-search" type="search"
+                   placeholder="Search rule, subject, detail or fingerprint">
+            <div class="query-filter-group">
+              <span>Severity</span>
+              <div id="query-severity-group" class="filter-toggle-group"
+                   role="group" aria-label="Severity filters">
+                <button type="button" data-filter-value="critical" aria-pressed="false">Critical</button>
+                <button type="button" data-filter-value="error" aria-pressed="false">Error</button>
+                <button type="button" data-filter-value="warning" aria-pressed="false">Warning</button>
+                <button type="button" data-filter-value="info" aria-pressed="false">Info</button>
+              </div>
+            </div>
+            <div class="query-filter-group">
+              <span>Status</span>
+              <div id="query-status-group" class="filter-toggle-group"
+                   role="group" aria-label="Status filters">
+                <button type="button" data-filter-value="open" aria-pressed="false">Open</button>
+                <button type="button" data-filter-value="investigating" aria-pressed="false">Investigating</button>
+                <button type="button" data-filter-value="resolved" aria-pressed="false">Resolved</button>
+                <button type="button" data-filter-value="dismissed" aria-pressed="false">Dismissed</button>
+              </div>
+            </div>
+            <label>Since
+              <input id="query-since" type="text"
+                     placeholder="optional UTC time">
+            </label>
+            <button id="query-filter-clear" class="ghost">Clear filters</button>
+          </div>
+          <p id="query-filter-note" class="muted query-filter-note"></p>
+          <p id="query-error" class="query-error" hidden></p>
+
+          <div id="query-results" class="query-results"></div>
+
+          <div id="query-detail" class="query-detail" hidden>
+            <div class="panel-head">
+              <h3 id="query-detail-title">Row detail</h3>
+              <button id="query-detail-close" class="ghost">Close</button>
+            </div>
+            <pre id="query-detail-json" class="console"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-sen-overview" class="view">
+        <div class="toolbar sen-tabs" role="tablist" aria-label="QA Sentinels views">
+          <button id="sen-tab-overview" data-sen-tab="overview" class="active"
+                  role="tab" aria-selected="true">Overview</button>
+          <button id="sen-tab-tickets" data-sen-tab="tickets"
+                  role="tab" aria-selected="false">Tickets</button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button id="sen-overview-rules" class="ghost">Rules</button>
+          <button id="sen-overview-logs" class="ghost">Logs</button>
+        </div>
+
+        <div id="sen-panel-overview" class="sen-tab-panel active" role="tabpanel">
+          <div id="sen-status" class="status-grid">
+            <p class="muted status-loading"><span class="spinner" aria-hidden="true"></span>Waiting for sentinel status.</p>
+          </div>
+        </div>
+
+        <div id="sen-panel-tickets" class="sen-tab-panel" role="tabpanel" hidden>
+          <div class="toolbar">
+            <button id="findings-refresh">Refresh</button>
+            <button id="findings-open-folder">Open tickets folder</button>
+          </div>
+          <div class="bucket-columns">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Raise</h3><span class="muted mono" data-bucket-count="raise">0</span>
+              </div>
+              <div id="findings-raise" class="list" data-bucket-list="raise">
+                <p class="muted status-loading"><span class="spinner" aria-hidden="true"></span>Loading tickets…</p>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Raised</h3><span class="muted mono" data-bucket-count="raised">0</span>
+              </div>
+              <div id="findings-raised" class="list" data-bucket-list="raised">
+                <p class="muted status-loading"><span class="spinner" aria-hidden="true"></span>Loading tickets…</p>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Rejected</h3><span class="muted mono" data-bucket-count="rejected">0</span>
+              </div>
+              <div id="findings-rejected" class="list" data-bucket-list="rejected">
+                <p class="muted status-loading"><span class="spinner" aria-hidden="true"></span>Loading tickets…</p>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Standby</h3><span class="muted mono" data-bucket-count="standby">0</span>
+              </div>
+              <div id="findings-standby" class="list" data-bucket-list="standby">
+                <p class="muted status-loading"><span class="spinner" aria-hidden="true"></span>Loading tickets…</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -299,6 +441,16 @@
           </div>
         </div>
       </section>
+
+      <section id="view-record" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <h3 id="record-title">SIEM record</h3>
+            <span id="record-subtitle" class="muted mono"></span>
+          </div>
+          <pre id="record-json" class="console record-console"></pre>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -307,7 +459,7 @@
       <h2 id="settings-title">Settings</h2>
       <label data-settings-module="sentinels">QA Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect"></label>
       <label data-settings-module="sentinels">QA Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
-      <label data-settings-module="sentinels">Dashboard cycle (minutes) <input id="set-sentinels-cycle" type="text" placeholder="10"></label>
+      <label data-settings-module="sentinels">Fallback cycle (minutes) <input id="set-sentinels-cycle" type="text" placeholder="10"></label>
       <p data-settings-module="sentinels" class="settings-group">Cycle and retention</p>
       <label data-settings-module="sentinels">Cycle cadence (hours) <input id="set-sen-cycle-hours" type="text" inputmode="decimal" placeholder="1"></label>
       <label data-settings-module="sentinels">Drafts retention (days) <input id="set-sen-drafts-days" type="text" inputmode="numeric" placeholder="30"></label>

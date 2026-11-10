@@ -20,6 +20,10 @@ in the main process.
 
 The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
+The main Dashboard window uses its default 980x640 size. The content column
+uses the full window width; maximizing a window expands its tables, card grid,
+and module panels to the available work area. Only the Database window shows
+the `sentinels.db` state pill in the top-right; all other windows hide it.
 The visual language is a TaiG-inspired teal palette. The light variant uses
 flat white surfaces without shadows or glows; the dark variant keeps the cyan
 edge glows, glassy gradients, and layered shadows. Both follow the desktop color
@@ -28,12 +32,30 @@ setting, including the native window decoration.
 ## QA Sentinels
 
 The main process resolves `qa` and its repository root, then runs fixed actions:
-`status`, `cycle`, and `findings`. A cycle runs automatically at the interval
-stored in `sentinelsCycleMinutes` (10 minutes by default); there is no manual
-cycle button. The Logs button opens a dedicated window that runs
-`qa logs --all-layers --follow`, so the stream follows file rotation
-continuously. Output streams to that window over `event` messages. Arbitrary
-commands are not exposed.
+`status`, `cycle`, `findings`, and `query`. The QA Sentinels Database window queries `sentinels.db`: buttons select the categories defined by
+`sentinels/query.py`, and an optional SQL box runs one read-only
+`SELECT`/`WITH`/`EXPLAIN` statement. Findings and Errors expose search plus
+toggleable severity and status chips and a since filter. Database category buttons are independent toggles. One or more can be active;
+each active category renders its own result panel, and the shared filters apply
+where the category supports them. With no category active, the unfiltered
+all-findings base is shown. Findings starts selected; the Inbox preset remains
+available to the CLI only. The newest cycle with new findings is loaded
+silently to mark NEW rows; full cycle summaries remain in the Cycles category.
+The QA Sentinels engine enforces the read-only rule and row limit; the dashboard
+only builds an argument vector and never opens the database itself. The
+Overview window contains the status grid and the ticket board as tabs; it is
+opened from the QA Dashboard Overview card. The Database window exposes only
+the query categories, filters, SQL box, and result panels. A cycle runs
+automatically only as a fallback: when the installed Sentinel systemd timer or
+user cron block is absent, `sentinelsCycleMinutes` (10 minutes by default)
+drives it. When a Sentinel scheduler is present, that scheduler owns the cycle.
+There is no manual cycle button. A single `qa logs --all-layers
+--follow` process runs in the background for the lifetime of the dashboard and
+fills a bounded in-memory buffer. The Overview window's Logs button only opens
+or focuses its viewer; opening it replays the buffered tail and then follows
+live lines, so closing and reopening the window never restarts the command.
+Output streams to that window over `event` messages. Arbitrary commands are not
+exposed; SQL is passed as one argv item and validated by the Sentinels process.
 
 ## Malware Scan
 
@@ -83,14 +105,15 @@ module leaves the other configuration keys untouched.
 
 The main process refreshes Sentinels status and the SIEM snapshot every 10
 seconds and broadcasts the results to the Overview and the relevant module
-windows. There are no Refresh buttons.
+windows. The Database window is query-driven and refreshes when a category, the Refresh
+button, or the optional SQL statement is run.
 
 ## Configuration
 
 `~/.config/qa-desktop/config.json` stores command overrides, repository roots,
-the SIEM URL, token-file path, and the Sentinel cycle interval. It is written
-mode `0600`. Tokens are read at request time and are never written to this file
-or exposed to the renderer.
+the SIEM URL, token-file path, and the Sentinel fallback cycle interval. It is
+written mode `0600`. Tokens are read at request time and are never written to
+this file or exposed to the renderer.
 
 ## Testing
 
@@ -99,5 +122,7 @@ the HTTP client. Electron smoke screenshots can be produced with:
 
 ```bash
 npm start -- --module=overview --screenshot=/tmp/qa-overview.png
+npm start -- --module=sentinels --screenshot=/tmp/qa-sentinels.png
+npm start -- --module=sen-overview --screenshot=/tmp/qa-sen-overview.png
 npm start -- --module=malware --screenshot=/tmp/qa-malware.png
 ```

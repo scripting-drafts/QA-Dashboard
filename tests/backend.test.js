@@ -43,6 +43,36 @@ test("sentinels actions map to fixed argv", () => {
   assert.throws(() => backend.sentinelsArgs("evidence"), /unknown/);
 });
 
+test("query arguments cover categories, SQL and limits", () => {
+  assert.deepEqual(backend.queryArgs({ category: "inbox", limit: 25 }),
+    ["query", "--json", "--category", "inbox", "--limit", "25"]);
+  assert.deepEqual(backend.queryArgs({ sql: " SELECT 1 ", limit: 10 }),
+    ["query", "--json", "--sql", "SELECT 1", "--limit", "10"]);
+  assert.deepEqual(backend.queryArgs({ category: "findings", limit: 5000 }),
+    ["query", "--json", "--category", "findings", "--limit", "1000"]);
+  assert.deepEqual(backend.queryArgs({ latest: true }),
+    ["query", "--json", "--latest-cycle"]);
+  assert.deepEqual(backend.queryArgs({
+    category: "findings", search: "systemd.service_start",
+    severity: "error", status: "open", since: "2026-11-10T08:00:00Z",
+  }), [
+    "query", "--json", "--category", "findings", "--limit", "200",
+    "--search", "systemd.service_start", "--severity", "error",
+    "--status", "open", "--since", "2026-11-10T08:00:00Z",
+  ]);
+  assert.throws(
+    () => backend.queryArgs({ sql: "SELECT 1", search: "x" }),
+    /filters apply to categories/);
+  assert.ok(backend.QUERY_CATEGORIES.includes("cycles"));
+  assert.ok(backend.QUERY_CATEGORIES.includes("new-findings"));
+  assert.throws(() => backend.queryArgs({ category: "sqlite_master" }),
+    /unknown query category/);
+  assert.throws(() => backend.queryArgs({ sql: "SELECT\u00001" }), /NUL/);
+  assert.ok(backend.QUERY_CATEGORIES.includes("inbox"));
+  assert.ok(backend.QUERY_CATEGORIES.includes("errors"));
+  assert.ok(backend.QUERY_CATEGORIES.includes("crashes"));
+});
+
 test("status output parses colon-delimited values", () => {
   const values = backend.parseStatus(
     "Quality Assurance Sentinels status\n" +
@@ -193,5 +223,93 @@ test("HTTP client handles auth and errors", async () => {
     );
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("ticket buckets list titles and legacy folders", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-tickets-"));
+  const root = path.join(temp, "tickets");
+  try {
+    for (const bucket of backend.TICKET_BUCKETS) {
+      fs.mkdirSync(path.join(root, bucket), { recursive: true });
+    }
+    const ticketDir = path.join(root, "raise", "demo-ticket");
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(path.join(ticketDir, "ticket.md"),
+      "# Demo crash title\n\nBody.\n");
+    fs.mkdirSync(path.join(root, "raised", "legacy"));
+    fs.writeFileSync(path.join(root, "raised", "legacy", "comment.txt"), "x");
+    fs.mkdirSync(path.join(root, "standby", ".hidden"));
+
+    const data = backend.listTickets(root);
+    assert.equal(data.root, root);
+    assert.deepEqual(data.buckets.map((bucket) => bucket.bucket),
+      backend.TICKET_BUCKETS);
+
+    const raise = data.buckets.find((bucket) => bucket.bucket === "raise");
+    assert.equal(raise.count, 1);
+    assert.equal(raise.tickets[0].title, "Demo crash title");
+    assert.match(raise.tickets[0].preview, /^# Demo crash title/m);
+    assert.equal(raise.tickets[0].ticketMd, true);
+    assert.ok(raise.tickets[0].updated);
+
+    const raised = data.buckets.find((bucket) => bucket.bucket === "raised");
+    assert.equal(raised.count, 1);
+    assert.equal(raised.tickets[0].ticketMd, false);
+    assert.equal(raised.tickets[0].title, "legacy");
+
+    const standby = data.buckets.find((bucket) => bucket.bucket === "standby");
+    assert.equal(standby.count, 0);
+
+    assert.equal(
+      backend.ticketPath(root, "raise", "demo-ticket").file,
+      fs.realpathSync(path.join(ticketDir, "ticket.md")),
+    );
+    assert.equal(backend.ticketPath(root, "raised", "legacy").file, "");
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("ticket paths stay inside their bucket", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-tickets-safe-"));
+  const root = path.join(temp, "tickets");
+  try {
+    fs.mkdirSync(path.join(root, "raise", "demo-ticket"), { recursive: true });
+    fs.mkdirSync(path.join(temp, "outside"));
+    fs.symlinkSync(path.join(temp, "outside"),
+      path.join(root, "raise", "escape"), "dir");
+
+    assert.throws(() => backend.ticketPath(root, "raise", ".."),
+      /invalid ticket name/);
+    assert.throws(() => backend.ticketPath(root, "raise", "../raise"),
+      /invalid ticket name/);
+    assert.throws(() => backend.ticketPath(root, "raise", "/etc"),
+      /invalid ticket name/);
+    assert.throws(() => backend.ticketPath(root, "../raise", "demo-ticket"),
+      /invalid ticket bucket/);
+    assert.throws(() => backend.ticketPath(root, "raise", "escape"),
+      /outside its bucket/);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("sentinels scheduler detection prefers the installed timer", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-scheduler-"));
+  const timer = path.join(temp, "qa-sentinel.timer");
+  try {
+    assert.equal(backend.sentinelsSchedulerPresent({ timerPath: timer }), false);
+    fs.writeFileSync(timer, "");
+    assert.equal(backend.sentinelsSchedulerPresent({ timerPath: timer }), true);
+    assert.equal(backend.sentinelsSchedulerPresent({
+      timerPath: path.join(temp, "missing"),
+      cronText: "*/1 * * * * /opt/qa cycle # >>> qa-sentinels >>>",
+    }), true);
+    assert.equal(backend.sentinelsSchedulerPresent({
+      timerPath: path.join(temp, "missing"), cronText: "",
+    }), false);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
   }
 });

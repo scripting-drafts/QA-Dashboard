@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { execFile, spawn } = require("node:child_process");
+const { execFile, execFileSync, spawn } = require("node:child_process");
 const readline = require("node:readline");
 
 const SENTINELS_SETTING_KEYS = {
@@ -50,6 +50,14 @@ for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
 }
 
 const MAX_HTTP_BODY = 8 * 1024 * 1024;
+const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
+const QUERY_CATEGORIES = [
+  "inbox", "errors", "findings", "cycles", "new-findings", "events", "crashes",
+  "boots", "samples", "inventory", "hardware", "lsm", "correlations", "tickets",
+  "deep", "bundles", "runs",
+];
+const QUERY_MAX_SQL = 20000;
+const QUERY_MAX_ROWS = 1000;
 
 function configPath() {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
@@ -59,6 +67,23 @@ function configPath() {
 function sentinelsSettingsPath(cfg) {
   const root = resolveSentinelsRoot(cfg);
   return root ? path.join(root, "config", "settings.json") : "";
+}
+
+function sentinelsSchedulerPresent(options = {}) {
+  const timer = options.timerPath ||
+    "/etc/systemd/system/timers.target.wants/qa-sentinel.timer";
+  if (fs.existsSync(timer)) return true;
+  if (typeof options.cronText === "string") {
+    return options.cronText.includes(">>> qa-sentinels >>>");
+  }
+  try {
+    const out = execFileSync("crontab", ["-l"], {
+      encoding: "utf8", timeout: 2000, stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.includes(">>> qa-sentinels >>>");
+  } catch (_error) {
+    return false;
+  }
 }
 
 function readSentinelsSettings(cfg) {
@@ -222,6 +247,121 @@ function resolveSentinelsBin(cfg) {
   return executable("qa");
 }
 
+function ticketsRoot() {
+  for (const name of ["QA-Sentinels", "Quality-Assurance-Sentinels"]) {
+    const candidate = path.join(os.homedir(), name, "tickets");
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return "";
+}
+
+function ticketHeading(file) {
+  try {
+    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const match = line.match(/^#\s+(.+?)\s*#*\s*$/);
+      if (match) return match[1];
+    }
+  } catch (_error) {
+    // The directory name is a usable fallback.
+  }
+  return "";
+}
+
+function ticketPreview(file, limit = 1600) {
+  try {
+    const stat = fs.statSync(file);
+    if (!stat.isFile()) return "";
+    const length = Math.min(stat.size, limit + 4);
+    const buffer = Buffer.alloc(length);
+    const fd = fs.openSync(file, "r");
+    let read = 0;
+    try {
+      read = fs.readSync(fd, buffer, 0, length, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    let text = buffer.subarray(0, read).toString("utf8");
+    if (stat.size > read) text = `${text.replace(/\uFFFD$/, "").trimEnd()}\n…`;
+    return text;
+  } catch (_error) {
+    return "";
+  }
+}
+
+function listTickets(root = ticketsRoot()) {
+  if (!root) throw new Error("tickets directory not found");
+  const buckets = TICKET_BUCKETS.map((bucket) => {
+    const dir = path.join(root, bucket);
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_error) {
+      // A missing bucket is displayed as empty.
+    }
+    const tickets = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const ticketDir = path.join(dir, entry.name);
+      const ticketFile = path.join(ticketDir, "ticket.md");
+      let updated = null;
+      let hasTicket = false;
+      try {
+        const stat = fs.statSync(ticketFile);
+        if (stat.isFile()) {
+          hasTicket = true;
+          updated = stat.mtime;
+        }
+      } catch (_error) {
+        // Legacy tickets can keep their payload in sibling files.
+      }
+      if (!updated) {
+        try {
+          updated = fs.statSync(ticketDir).mtime;
+        } catch (_error) {
+          continue;
+        }
+      }
+      tickets.push({
+        bucket,
+        name: entry.name,
+        title: (hasTicket && ticketHeading(ticketFile)) || entry.name,
+        preview: hasTicket ? ticketPreview(ticketFile) : "",
+        ticketMd: hasTicket,
+        updated: updated.toISOString(),
+      });
+    }
+    tickets.sort((a, b) => b.updated.localeCompare(a.updated) ||
+      a.title.localeCompare(b.title));
+    return { bucket, count: tickets.length, tickets };
+  });
+  return { root, buckets };
+}
+
+function ticketPath(root, bucket, name) {
+  if (!root) throw new Error("tickets directory not found");
+  if (!TICKET_BUCKETS.includes(bucket)) throw new Error("invalid ticket bucket");
+  if (typeof name !== "string" || !name || name === "." || name === ".." ||
+      name.includes("\0") || path.basename(name) !== name) {
+    throw new Error("invalid ticket name");
+  }
+  const bucketDir = fs.realpathSync(path.join(root, bucket));
+  const ticketDir = fs.realpathSync(path.join(bucketDir, name));
+  if (!ticketDir.startsWith(bucketDir + path.sep)) {
+    throw new Error("ticket is outside its bucket");
+  }
+  const ticketFile = path.join(ticketDir, "ticket.md");
+  try {
+    const real = fs.realpathSync(ticketFile);
+    if (!real.startsWith(bucketDir + path.sep)) {
+      throw new Error("ticket is outside its bucket");
+    }
+    if (fs.statSync(real).isFile()) return { dir: ticketDir, file: real };
+  } catch (error) {
+    if (error.message === "ticket is outside its bucket") throw error;
+  }
+  return { dir: ticketDir, file: "" };
+}
+
 function resolveMalwareBin(cfg) {
   const configured = executable(cfg.malwareBin);
   if (configured) return configured;
@@ -320,6 +460,43 @@ function sentinelsArgs(action) {
     ];
     default: throw new Error("unknown sentinels action");
   }
+}
+
+function queryArgs(options = {}) {
+  const rawLimit = Number(options.limit);
+  const limit = Number.isInteger(rawLimit)
+    ? Math.max(1, Math.min(QUERY_MAX_ROWS, rawLimit))
+    : 200;
+  if (options.latest) return ["query", "--json", "--latest-cycle"];
+  const sql = typeof options.sql === "string" ? options.sql.trim() : "";
+  if (sql.includes("\0")) throw new Error("query contains a NUL byte");
+  if (sql.length > QUERY_MAX_SQL) {
+    throw new Error(`query is longer than ${QUERY_MAX_SQL} characters`);
+  }
+  const search = typeof options.search === "string" ? options.search.trim() : "";
+  if (search.includes("\0")) throw new Error("search contains a NUL byte");
+  if (search.length > 200) throw new Error("search is longer than 200 characters");
+  const severity = typeof options.severity === "string"
+    ? options.severity.trim() : "";
+  const status = typeof options.status === "string"
+    ? options.status.trim() : "";
+  const since = typeof options.since === "string" ? options.since.trim() : "";
+  const filtered = Boolean(search || severity || status || since);
+  if (sql) {
+    if (filtered) throw new Error("filters apply to categories, not custom SQL");
+    return ["query", "--json", "--sql", sql, "--limit", String(limit)];
+  }
+  const category = String(options.category || "inbox").toLowerCase();
+  if (!QUERY_CATEGORIES.includes(category)) {
+    throw new Error("unknown query category");
+  }
+  const args = ["query", "--json", "--category", category,
+    "--limit", String(limit)];
+  if (search) args.push("--search", search);
+  if (severity) args.push("--severity", severity);
+  if (status) args.push("--status", status);
+  if (since) args.push("--since", since);
+  return args;
 }
 
 function buildMalwareArgs(binary, target, options = {}) {
@@ -530,11 +707,13 @@ async function siemAck(cfg, id) {
 
 module.exports = {
   DEFAULT_CONFIG,
+  TICKET_BUCKETS,
   buildMalwareArgs,
   cancelProcess,
   configPath,
   configView,
   httpJson,
+  listTickets,
   loadConfig,
   parseStatus,
   resolveMalwareBin,
@@ -547,11 +726,18 @@ module.exports = {
   SENTINELS_SETTING_KEYS,
   loadSentinelsSettings,
   normalizeSentinelsSettings,
+  queryArgs,
+  QUERY_CATEGORIES,
+  QUERY_MAX_ROWS,
+  QUERY_MAX_SQL,
   saveSentinelsSettings,
   sentinelsArgs,
+  sentinelsSchedulerPresent,
   sentinelsSettingsPath,
   shellEnv,
   siemAck,
   siemSnapshot,
   startStream,
+  ticketPath,
+  ticketsRoot,
 };

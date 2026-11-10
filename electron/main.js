@@ -1,7 +1,6 @@
 "use strict";
 
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
@@ -10,31 +9,45 @@ const {
 const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
-const MODULES = new Set(["overview", "sentinels", "rules", "logs", "malware", "siem"]);
+const MODULES = new Set([
+  "overview", "sentinels", "sen-overview", "findings", "rules", "logs",
+  "malware", "siem", "record",
+]);
 const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
-  sentinels: "QA Sentinels",
+  sentinels: "QA Sentinels Database",
+  "sen-overview": "QA Sentinels Overview",
   rules: "Ticket Rules",
   logs: "QA Sentinels Logs",
   malware: "Malware Scan",
   siem: "QA SIEM",
+  record: "SIEM Record",
 };
 
 const WINDOW_SIZES = {
   overview: { width: 980, height: 640 },
-  sentinels: { width: 1020, height: 760 },
+  sentinels: { width: 1180, height: 820 },
+  "sen-overview": { width: 1180, height: 820 },
   rules: { width: 1020, height: 780 },
   logs: { width: 980, height: 680 },
   malware: { width: 1080, height: 820 },
   siem: { width: 1080, height: 820 },
+  record: { width: 900, height: 720 },
 };
 
 const windows = new Map();
 let activeSentinels = null;
 let activeLogs = null;
 let activeMalware = null;
+let logsRestartTimer = null;
+let logsRunId = 0;
+let logsSeq = 0;
+let logsQuitting = false;
+let logsError = "";
+const LOG_BUFFER_MAX = 4000;
+const logBuffer = [];
 let startupModule = "overview";
 let screenshotPath = "";
 let allMinimized = false;
@@ -45,6 +58,7 @@ let sentinelsCycleTimer = null;
 let sentinelsRefreshing = false;
 let siemRefreshing = false;
 let sentinelsCycleRunning = false;
+let recordPayload = null;
 
 const AUTO_REFRESH_MS = 10000;
 
@@ -80,7 +94,19 @@ function parseArgs(argv) {
   return { module, screenshot };
 }
 
-function createWindow(module = "overview", show = true) {
+function normalizeModule(module, tab = "") {
+  let name = MODULES.has(module) ? module : "overview";
+  if (name === "findings") {
+    return { module: "sen-overview", tab: tab || "tickets" };
+  }
+  if (name === "sen-overview") {
+    return { module: name, tab: tab === "tickets" ? "tickets" : "overview" };
+  }
+  return { module: name, tab: "" };
+}
+
+function createWindow(module = "overview", show = true, tab = "") {
+  ({ module, tab } = normalizeModule(module, tab));
   if (!MODULES.has(module)) module = "overview";
   const existing = windows.get(module);
   if (existing && !existing.isDestroyed()) {
@@ -119,6 +145,7 @@ function createWindow(module = "overview", show = true) {
   });
   const url = pathToFileURL(path.join(__dirname, "..", "renderer", "index.html"));
   url.searchParams.set("module", module);
+  if (tab) url.searchParams.set("tab", tab);
   window.loadURL(url.toString());
   window.once("ready-to-show", () => {
     if (show) window.show();
@@ -126,11 +153,8 @@ function createWindow(module = "overview", show = true) {
   window.on("closed", () => {
     windows.delete(module);
     if (module === "sentinels") backend.cancelProcess(activeSentinels);
-    if (module === "logs") {
-      backend.cancelProcess(activeLogs);
-      activeLogs = null;
-    }
     if (module === "malware") backend.cancelProcess(activeMalware);
+    if (module === "record") recordPayload = null;
   });
   window.webContents.setWindowOpenHandler(({ url: target }) => {
     if (/^https?:\/\//i.test(target)) shell.openExternal(target);
@@ -158,9 +182,16 @@ function createWindow(module = "overview", show = true) {
   return window;
 }
 
-function showWindow(module = "overview") {
-  if (!MODULES.has(module)) module = "overview";
-  const window = createWindow(module, true);
+function showWindow(module = "overview", tab = "") {
+  const normalized = normalizeModule(module, tab);
+  if (!MODULES.has(normalized.module)) normalized.module = "overview";
+  const existing = windows.get(normalized.module);
+  const window = createWindow(normalized.module, true, normalized.tab);
+  if (existing && !existing.isDestroyed() && normalized.tab) {
+    sendEvent(window.webContents, {
+      scope: "sen-tabs", type: "select", tab: normalized.tab,
+    });
+  }
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
@@ -201,16 +232,128 @@ async function sentinelsStatus() {
   };
 }
 
+function appendLogLine(line) {
+  const text = String(line ?? "");
+  logsSeq += 1;
+  logBuffer.push({ line: text, seq: logsSeq });
+  if (logBuffer.length > LOG_BUFFER_MAX) {
+    logBuffer.splice(0, logBuffer.length - LOG_BUFFER_MAX);
+  }
+  broadcastTo(["logs"], {
+    scope: "sentinels", type: "line", line: text, seq: logsSeq,
+  });
+}
+
+function scheduleLogsRestart() {
+  if (logsQuitting || logsRestartTimer) return;
+  logsRestartTimer = setTimeout(() => {
+    logsRestartTimer = null;
+    startBackgroundLogs();
+  }, 5000);
+  logsRestartTimer.unref?.();
+}
+
+function startBackgroundLogs() {
+  if (logsQuitting || activeLogs) return;
+  const cfg = backend.loadConfig();
+  const binary = backend.resolveSentinelsBin(cfg);
+  if (!binary) {
+    logsError = "qa command not found";
+    return;
+  }
+  const root = backend.resolveSentinelsRoot(cfg);
+  const runId = ++logsRunId;
+  logsError = "";
+  const child = backend.startStream(binary, backend.sentinelsArgs("logs"), {
+    cwd: root || undefined,
+    env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
+    onLine: (line) => {
+      if (runId === logsRunId) appendLogLine(line);
+    },
+    onDone: (code) => {
+      if (runId !== logsRunId) return;
+      activeLogs = null;
+      if (logsQuitting) return;
+      logsError = `log stream exited (${code}); restarting`;
+      appendLogLine(`[dashboard] ${logsError}`);
+      scheduleLogsRestart();
+    },
+  });
+  if (runId !== logsRunId) {
+    backend.cancelProcess(child);
+    return;
+  }
+  activeLogs = child || null;
+  if (!child) {
+    logsError = "log stream failed to start";
+    scheduleLogsRestart();
+  }
+}
+
+function restartBackgroundLogs() {
+  logsRunId += 1;
+  if (logsRestartTimer) {
+    clearTimeout(logsRestartTimer);
+    logsRestartTimer = null;
+  }
+  backend.cancelProcess(activeLogs);
+  activeLogs = null;
+  logsError = "";
+  startBackgroundLogs();
+}
+
+function stopBackgroundLogs() {
+  logsQuitting = true;
+  logsRunId += 1;
+  if (logsRestartTimer) {
+    clearTimeout(logsRestartTimer);
+    logsRestartTimer = null;
+  }
+  backend.cancelProcess(activeLogs);
+  activeLogs = null;
+}
+
+async function sentinelsQuery(options = {}) {
+  const cfg = backend.loadConfig();
+  const binary = backend.resolveSentinelsBin(cfg);
+  if (!binary) throw new Error("qa command not found");
+  const root = backend.resolveSentinelsRoot(cfg);
+  const args = backend.queryArgs(options);
+  const result = await backend.runCapture(binary, args, {
+    cwd: root || undefined,
+    env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
+    timeout: 20000,
+  });
+  let data;
+  try {
+    data = JSON.parse(result.output);
+  } catch (_error) {
+    throw new Error(result.output.trim().slice(0, 500) || "query returned no output");
+  }
+  if (data && data.error) throw new Error(String(data.error));
+  if (result.code !== 0) {
+    throw new Error(`query failed with exit ${result.code}`);
+  }
+  if (data && (Object.hasOwn(data, "latest") ||
+               Object.hasOwn(data, "last_new"))) {
+    return data;
+  }
+  if (!data || !Array.isArray(data.columns) || !Array.isArray(data.rows)) {
+    throw new Error("query returned an unexpected result");
+  }
+  return data;
+}
+
 async function autoRefreshSentinels() {
   if (sentinelsRefreshing) return;
-  if (!windows.has("overview") && !windows.has("sentinels")) return;
+  if (!windows.has("overview") && !windows.has("sen-overview")) return;
   sentinelsRefreshing = true;
   try {
-    broadcastTo(["overview", "sentinels"], {
+    broadcastTo(["overview", "sen-overview"], {
       scope: "sentinels", type: "status", data: await sentinelsStatus(),
     });
   } catch (error) {
-    broadcastTo(["overview", "sentinels"], {
+    broadcastTo(["overview", "sen-overview"], {
       scope: "sentinels", type: "status", error: String(error.message || error),
     });
   } finally {
@@ -273,12 +416,21 @@ function stopSentinelsCycleTimer() {
   sentinelsCycleTimer = null;
 }
 
+// The installed Sentinel scheduler (systemd timer or user cron) owns the
+// routine cycle. Keep the in-process timer only as a fallback for a host with
+// the dashboard alone.
+function refreshSentinelsCycleTimer() {
+  stopSentinelsCycleTimer();
+  if (backend.sentinelsSchedulerPresent()) return;
+  startSentinelsCycleTimer();
+}
+
 function startAutoRefresh() {
   clearInterval(sentinelsTimer);
   clearInterval(siemTimer);
   sentinelsTimer = setInterval(autoRefreshSentinels, AUTO_REFRESH_MS);
   siemTimer = setInterval(autoRefreshSiem, AUTO_REFRESH_MS);
-  startSentinelsCycleTimer();
+  refreshSentinelsCycleTimer();
 }
 
 function stopAutoRefresh() {
@@ -299,7 +451,8 @@ function registerIpc() {
       }
     }
     backend.saveConfig(current);
-    startSentinelsCycleTimer();
+    refreshSentinelsCycleTimer();
+    restartBackgroundLogs();
     setTimeout(() => {
       autoRefreshSentinels();
       autoRefreshSiem();
@@ -307,26 +460,54 @@ function registerIpc() {
     return backend.configView(backend.loadConfig());
   });
 
-  ipcMain.handle("app:open", (_event, module) => {
-    showWindow(String(module || "overview"));
+  ipcMain.handle("app:open", (_event, module, tab) => {
+    showWindow(
+      String(module || "overview"),
+      tab ? String(tab) : "");
     return true;
   });
 
   ipcMain.handle("app:open-tickets", async () => {
-    const bases = ["QA-Sentinels", "Quality-Assurance-Sentinels"];
-    const found = bases
-      .map((name) => path.join(os.homedir(), name, "tickets"))
-      .find((candidate) => fs.existsSync(candidate));
+    const found = backend.ticketsRoot();
     if (!found) throw new Error("tickets directory not found");
     const error = await shell.openPath(found);
     if (error) throw new Error(error);
     return found;
   });
 
+  ipcMain.handle("tickets:list", () => backend.listTickets());
+
+  ipcMain.handle("tickets:open", async (_event, bucket, name) => {
+    const target = backend.ticketPath(
+      backend.ticketsRoot(), String(bucket || ""), String(name || ""));
+    const pathToOpen = target.file || target.dir;
+    const error = await shell.openPath(pathToOpen);
+    if (error) throw new Error(error);
+    return { path: pathToOpen, ticketMd: Boolean(target.file) };
+  });
+
+  ipcMain.handle("record:open", (_event, record) => {
+    let text = "";
+    try {
+      text = JSON.stringify(record);
+    } catch (_error) {
+      throw new Error("invalid record");
+    }
+    if (!text || text.length > 1024 * 1024) throw new Error("invalid record");
+    recordPayload = JSON.parse(text);
+    const window = showWindow("record");
+    window.webContents.send("event", {
+      scope: "record", type: "show", data: recordPayload,
+    });
+    return true;
+  });
+
+  ipcMain.handle("record:get", () => recordPayload);
+
   ipcMain.handle("app:version", () => app.getVersion());
 
   ipcMain.handle("window:fit-sentinels", (event, height) => {
-    const window = windows.get("sentinels");
+    const window = windows.get("sen-overview");
     if (!window || window.isDestroyed() ||
         window.webContents !== event.sender || window.isMaximized()) {
       return false;
@@ -342,6 +523,8 @@ function registerIpc() {
   });
 
   ipcMain.handle("sentinels:status", async () => sentinelsStatus());
+  ipcMain.handle("sentinels:query", async (_event, options) =>
+    sentinelsQuery(options));
 
   ipcMain.handle("sentinels:run", async (event, action) => {
     if (activeSentinels) throw new Error("a sentinel command is already running");
@@ -373,30 +556,17 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle("sentinels:logs", async (event) => {
-    if (activeLogs) return { started: false };
-    const cfg = backend.loadConfig();
-    const binary = backend.resolveSentinelsBin(cfg);
-    if (!binary) throw new Error("qa command not found");
-    const root = backend.resolveSentinelsRoot(cfg);
-    const sender = event.sender;
-    activeLogs = backend.startStream(binary, backend.sentinelsArgs("logs"), {
-      cwd: root || undefined,
-      env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
-      onLine: (line) => sendEvent(sender, { scope: "sentinels", type: "line", line }),
-      onDone: (code) => {
-        activeLogs = null;
-        sendEvent(sender, { scope: "sentinels", type: "done", code });
-      },
-    });
-    return { started: Boolean(activeLogs) };
+  ipcMain.handle("sentinels:logs", async () => {
+    if (!activeLogs && !logsRestartTimer) startBackgroundLogs();
+    return {
+      started: Boolean(activeLogs),
+      lines: logBuffer.map((entry) => entry.line),
+      total: logsSeq,
+      error: logsError,
+    };
   });
 
-  ipcMain.handle("sentinels:stopLogs", () => {
-    backend.cancelProcess(activeLogs);
-    activeLogs = null;
-    return true;
-  });
+  ipcMain.handle("sentinels:stopLogs", () => true);
 
   ipcMain.handle("malware:scan", async (event, options) => {
     if (activeMalware) throw new Error("a scan is already running");
@@ -504,6 +674,7 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
     registerIpc();
     nativeTheme.on("updated", syncWindowBackgrounds);
     startAutoRefresh();
+    startBackgroundLogs();
     const window = createWindow(startupModule, true);
     if (screenshotPath) {
       window.webContents.once("did-finish-load", () => {
@@ -524,8 +695,8 @@ if (!app.requestSingleInstanceLock({ module: initial.module })) {
 
   app.on("before-quit", () => {
     stopAutoRefresh();
+    stopBackgroundLogs();
     backend.cancelProcess(activeSentinels);
-    backend.cancelProcess(activeLogs);
     backend.cancelProcess(activeMalware);
   });
 }
