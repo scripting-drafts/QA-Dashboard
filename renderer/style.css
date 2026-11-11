@@ -687,6 +687,16 @@ select {
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
+.query-toolbar .query-source {
+  margin-left: 5px;
+  font-family: "Adwaita Mono", "Noto Sans Mono", monospace;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.68;
+}
+
+.query-toolbar button.active .query-source { opacity: 0.85; }
+
 .sen-tab-panel[hidden] { display: none; }
 
 .query-panel { padding: 18px; }

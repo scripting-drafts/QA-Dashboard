@@ -34,7 +34,8 @@ setting, including the native window decoration.
 The main process resolves `qa` and its repository root, then runs fixed actions:
 `status`, `cycle`, `findings`, and `query`. The QA Sentinels Database window queries `sentinels.db`: its buttons are built from
 `qa query --list-categories`, the same catalog in `sentinels/query.py` that
-covers every data table, and an optional SQL box runs one read-only
+covers every data table, and each button shows the SQL source variable when it
+differs from the button name. An optional SQL box runs one read-only
 `SELECT`/`WITH`/`EXPLAIN` statement. Findings and Errors expose search plus
 toggleable severity and status chips and a since filter. Database category buttons are independent toggles. One or more can be active;
 each active category renders its own result panel, and the shared filters apply

@@ -31,32 +31,32 @@ const QUERY_FILTERABLE = new Set([
 // Inbox stays a CLI preset; the Database opens on the complete findings view.
 const HIDDEN_QUERY_CATEGORIES = new Set(["inbox"]);
 const FALLBACK_QUERY_CATEGORIES = [
-  ["findings", "Findings"],
-  ["errors", "Errors"],
-  ["cycles", "Cycles"],
-  ["new-findings", "New findings"],
-  ["events", "Events"],
-  ["crashes", "Crashes"],
-  ["boots", "Boots"],
-  ["samples", "Samples"],
-  ["processes", "Process snapshots"],
-  ["inventory", "Inventory runs"],
-  ["inventory-items", "Inventory items"],
-  ["inventory-diffs", "Inventory changes"],
-  ["hardware", "Hardware runs"],
-  ["hardware-items", "Hardware items"],
-  ["lsm", "LSM runs"],
-  ["correlations", "Correlations"],
-  ["tickets", "Ticket drafts"],
-  ["deep", "Deep runs"],
-  ["bundles", "Bundles"],
-  ["runs", "Runs"],
-  ["core2", "Core 2 cases"],
-  ["crosschecks", "Crosschecks"],
-  ["notifications", "Notifications"],
-  ["reports", "Reports"],
-  ["meta", "Metadata"],
-].map(([id, label]) => ({ id, label }));
+  ["findings", "Findings", "findings"],
+  ["errors", "Errors", "findings"],
+  ["cycles", "Cycles", "runs"],
+  ["new-findings", "New findings", "cycle_findings"],
+  ["events", "Events", "events"],
+  ["crashes", "Crashes", "crashes"],
+  ["boots", "Boots", "boots"],
+  ["samples", "Samples", "samples"],
+  ["processes", "Process snapshots", "proc_snap"],
+  ["inventory", "Inventory runs", "inventory_runs"],
+  ["inventory-items", "Inventory items", "inventory"],
+  ["inventory-diffs", "Inventory changes", "inventory_diffs"],
+  ["hardware", "Hardware runs", "hardware_runs"],
+  ["hardware-items", "Hardware items", "hardware_items"],
+  ["lsm", "LSM runs", "lsm_runs"],
+  ["correlations", "Correlations", "correlations"],
+  ["tickets", "Ticket drafts", "ticket_drafts"],
+  ["deep", "Deep runs", "deep_runs"],
+  ["bundles", "Bundles", "bundles"],
+  ["runs", "Runs", "runs"],
+  ["core2", "Core 2 cases", "core2_cases"],
+  ["crosschecks", "Crosschecks", "crosschecks"],
+  ["notifications", "Notifications", "notifications"],
+  ["reports", "Reports", "reports"],
+  ["meta", "Metadata", "meta"],
+].map(([id, label, source]) => ({ id, label, source }));
 const CLICK_DELAY = 220;
 
 let config = null;
@@ -259,7 +259,15 @@ function renderQueryCategories(categories) {
     button.dataset.queryCategory = category.id;
     button.textContent = category.label || category.id;
     button.setAttribute("aria-pressed", "false");
-    if (category.description) button.title = category.description;
+    if (category.source && category.source !== category.id) {
+      const source = document.createElement("span");
+      source.className = "query-source";
+      source.textContent = category.source;
+      button.append(" ", source);
+    }
+    const title = [category.description, category.source
+      ? `SQL source: ${category.source}` : ""].filter(Boolean).join(" · ");
+    if (title) button.title = title;
     toolbar.append(button);
   }
   setActiveCategories(activeCategories);
