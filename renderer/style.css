@@ -678,7 +678,6 @@ select {
   background: var(--line);
 }
 
-.query-toolbar button.active,
 .sen-tabs button.active {
   background: var(--accent);
   border-color: var(--accent);
@@ -686,16 +685,6 @@ select {
   font-weight: 700;
   box-shadow: 0 0 20px var(--accent-glow);
 }
-
-.query-toolbar .query-source {
-  margin-left: 5px;
-  font-family: "Adwaita Mono", "Noto Sans Mono", monospace;
-  font-size: 10px;
-  font-weight: 400;
-  opacity: 0.68;
-}
-
-.query-toolbar button.active .query-source { opacity: 0.85; }
 
 .sen-tab-panel[hidden] { display: none; }
 

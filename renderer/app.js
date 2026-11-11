@@ -28,34 +28,6 @@ const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
 const QUERY_FILTERABLE = new Set([
   "inbox", "errors", "findings", "events", "crashes",
 ]);
-// Derived presets stay in the CLI; the Database lists the tables themselves.
-const HIDDEN_QUERY_CATEGORIES = new Set([
-  "inbox", "errors", "cycles", "findings",
-]);
-const FALLBACK_QUERY_CATEGORIES = [
-  ["new-findings", "Cycle findings", "cycle_findings"],
-  ["events", "Events", "events"],
-  ["crashes", "Crashes", "crashes"],
-  ["boots", "Boots", "boots"],
-  ["samples", "Samples", "samples"],
-  ["processes", "Process snapshots", "proc_snap"],
-  ["inventory", "Inventory runs", "inventory_runs"],
-  ["inventory-items", "Inventory items", "inventory"],
-  ["inventory-diffs", "Inventory changes", "inventory_diffs"],
-  ["hardware", "Hardware runs", "hardware_runs"],
-  ["hardware-items", "Hardware items", "hardware_items"],
-  ["lsm", "LSM runs", "lsm_runs"],
-  ["correlations", "Correlations", "correlations"],
-  ["tickets", "Ticket drafts", "ticket_drafts"],
-  ["deep", "Deep runs", "deep_runs"],
-  ["bundles", "Bundles", "bundles"],
-  ["runs", "Runs", "runs"],
-  ["core2", "Core 2 cases", "core2_cases"],
-  ["crosschecks", "Crosschecks", "crosschecks"],
-  ["notifications", "Notifications", "notifications"],
-  ["reports", "Reports", "reports"],
-  ["meta", "Metadata", "meta"],
-].map(([id, label, source]) => ({ id, label, source }));
 const CLICK_DELAY = 220;
 
 let config = null;
@@ -64,7 +36,6 @@ let sentinelsBusy = false;
 let sentinelsAction = "";
 let senTab = "overview";
 let queryBusy = false;
-let activeCategories = ["findings"];
 let queryLast = { categories: ["findings"], filters: {} };
 let queryResults = [];
 let queryMode = "categories";
@@ -227,85 +198,25 @@ async function runSentinels(action) {
   }
 }
 
-function currentCategories() {
-  return activeCategories.length ? activeCategories : ["findings"];
-}
-
-function setActiveCategories(categories) {
-  activeCategories = [...new Set(categories)];
-  const selected = new Set(activeCategories);
-  $$("[data-query-category]").forEach((button) => {
-    const active = selected.has(button.dataset.queryCategory);
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
-  });
-}
-
-function renderQueryCategories(categories) {
-  const toolbar = $("#query-categories");
-  clear(toolbar);
-  const visible = categories.filter((category) =>
-    category && category.id && !HIDDEN_QUERY_CATEGORIES.has(category.id));
-  if (!visible.length) {
-    toolbar.append(muted("No categories available."));
-    return;
-  }
-  for (const category of visible) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.queryCategory = category.id;
-    button.textContent = category.label || category.id;
-    button.setAttribute("aria-pressed", "false");
-    if (category.source && category.source !== category.id) {
-      const source = document.createElement("span");
-      source.className = "query-source";
-      source.textContent = category.source;
-      button.append(" ", source);
-    }
-    const title = [category.description, category.source
-      ? `SQL source: ${category.source}` : ""].filter(Boolean).join(" · ");
-    if (title) button.title = title;
-    toolbar.append(button);
-  }
-  setActiveCategories(activeCategories);
-}
-
-async function loadQueryCategories() {
-  try {
-    const data = await window.qa.sentinels.query({ catalog: true });
-    const categories = Array.isArray(data?.categories) ? data.categories : [];
-    renderQueryCategories(categories);
-  } catch (_error) {
-    renderQueryCategories(FALLBACK_QUERY_CATEGORIES);
-  }
-}
-
 function setQueryFiltersEnabled() {
-  const categories = queryMode === "sql" ? [] : currentCategories();
-  const filterable = categories.some((category) => QUERY_FILTERABLE.has(category));
-  const finding = categories.some((category) =>
-    ["inbox", "errors", "findings"].includes(category));
-  const event = categories.includes("events");
-  const enabled = filterable && !queryBusy;
+  const enabled = queryMode === "categories" && !queryBusy;
   $("#query-search").disabled = !enabled;
   $("#query-since").disabled = !enabled;
   $$("#query-severity-group button").forEach((button) => {
-    button.disabled = !((finding || event) && !queryBusy);
+    button.disabled = !enabled;
   });
   $$("#query-status-group button").forEach((button) => {
-    button.disabled = !(finding && !queryBusy);
+    button.disabled = !enabled;
   });
-  $("#query-severity-group").classList.toggle(
-    "disabled", !((finding || event) && !queryBusy));
-  $("#query-status-group").classList.toggle(
-    "disabled", !(finding && !queryBusy));
+  $("#query-severity-group").classList.toggle("disabled", !enabled);
+  $("#query-status-group").classList.toggle("disabled", !enabled);
   $("#query-filter-clear").disabled = !enabled;
-  $("#query-filters").classList.toggle("disabled", !filterable);
+  $("#query-filters").classList.toggle("disabled", !enabled);
 }
 
 function setQueryBusy(busy) {
   queryBusy = busy;
-  $$("[data-query-category], #query-run, #query-refresh, #query-clear, #query-limit")
+  $$("#query-run, #query-refresh, #query-clear, #query-limit")
     .forEach((node) => { node.disabled = busy; });
   setQueryFiltersEnabled();
 }
@@ -671,7 +582,6 @@ async function runSqlView(sql) {
   const limit = Number($("#query-limit").value) || 200;
   queryMode = "sql";
   queryLast = { sql };
-  setActiveCategories([]);
   setQueryBusy(true);
   try {
     const result = await window.qa.sentinels.query({ sql, limit });
@@ -684,32 +594,13 @@ async function runSqlView(sql) {
   }
 }
 
-function selectCategory(category) {
-  setActiveCategories([category]);
-  runCategoryView([category], false);
-}
-
-function toggleQueryCategory(category) {
-  if (queryBusy) return;
-  if (queryMode === "sql") {
-    selectCategory(category);
-    return;
-  }
-  const next = new Set(activeCategories);
-  if (next.has(category)) next.delete(category);
-  else next.add(category);
-  const categories = [...next];
-  setActiveCategories(categories);
-  runCategoryView(categories, categories.length === 0);
-}
-
 function refreshActiveQuery() {
   if (queryMode === "sql") {
     const sql = $("#query-sql").value.trim();
     if (sql) runSqlView(sql);
     return;
   }
-  runCategoryView(activeCategories, activeCategories.length === 0);
+  runCategoryView([], true);
 }
 
 function runQuerySql() {
@@ -732,6 +623,12 @@ function refreshQuery() {
 
 function clearQuerySql() {
   $("#query-sql").value = "";
+  if (queryMode === "sql") {
+    queryMode = "categories";
+    queryLast = { categories: [], base: true, filters: readQueryFilters() };
+    runCategoryView([], true);
+    return;
+  }
   $("#query-sql").focus();
 }
 
@@ -1237,11 +1134,6 @@ function bind() {
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
-  $("#query-categories").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-query-category]");
-    if (!button || button.disabled) return;
-    toggleQueryCategory(button.dataset.queryCategory);
-  });
   $("#query-run").addEventListener("click", runQuerySql);
   $("#query-refresh").addEventListener("click", refreshQuery);
   $("#query-clear").addEventListener("click", clearQuerySql);
@@ -1371,8 +1263,6 @@ async function init() {
     loadSentinelsStatus();
     loadSiem();
   } else if (initial === "sentinels") {
-    await loadQueryCategories();
-    setActiveCategories([]);
     loadLatestCycle();
     runCategoryView([], true);
   } else if (initial === "sen-overview") {
