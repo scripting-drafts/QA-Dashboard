@@ -921,6 +921,27 @@ select {
   background: var(--panel-solid);
   border-bottom: 1px solid var(--line-strong);
   white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.query-table th:hover { color: var(--text); }
+
+.query-table th:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.query-table th .sort-indicator {
+  margin-left: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  vertical-align: 1px;
+}
+
+.query-table th[aria-sort="ascending"] .sort-indicator,
+.query-table th[aria-sort="descending"] .sort-indicator {
+  color: var(--accent);
 }
 
 .query-table td {

@@ -330,6 +330,9 @@ const QUERY_WRAP_COLUMNS = new Set([
   "value", "path", "exe",
 ]);
 const QUERY_TABLE_CELL_CHARS = 240;
+const QUERY_SORTER = new Intl.Collator(undefined, {
+  numeric: true, sensitivity: "base",
+});
 
 function isNewCycleFinding(row, columns, cycle) {
   if (!cycle) return false;
@@ -349,18 +352,82 @@ function isNewCycleFinding(row, columns, cycle) {
   return found >= cycleTs - 15 * 60 * 1000 && found <= cycleTs + 60 * 1000;
 }
 
+function compareQueryValues(left, right) {
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+  const leftText = String(left);
+  const rightText = String(right);
+  const leftNumber = Number(leftText);
+  const rightNumber = Number(rightText);
+  if (leftText.trim() !== "" && rightText.trim() !== "" &&
+      Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+  return QUERY_SORTER.compare(leftText, rightText);
+}
+
+function sortQueryColumn(result, table, columnIndex) {
+  const direction = result.sortColumn === columnIndex &&
+    result.sortDirection === "asc" ? "desc" : "asc";
+  result.sortColumn = columnIndex;
+  result.sortDirection = direction;
+  const rows = (result.rows || []).map((row, index) => ({ row, index }));
+  rows.sort((left, right) => {
+    const leftValue = left.row[columnIndex];
+    const rightValue = right.row[columnIndex];
+    const leftEmpty = leftValue === null || leftValue === undefined ||
+      leftValue === "";
+    const rightEmpty = rightValue === null || rightValue === undefined ||
+      rightValue === "";
+    if (leftEmpty || rightEmpty) {
+      if (leftEmpty && rightEmpty) return left.index - right.index;
+      return leftEmpty ? 1 : -1;
+    }
+    const comparison = compareQueryValues(leftValue, rightValue);
+    return (direction === "asc" ? comparison : -comparison) ||
+      left.index - right.index;
+  });
+  result.rows = rows.map((item) => item.row);
+  clear(table);
+  renderResultTable(result, table);
+}
+
 function renderResultTable(result, table) {
   const head = document.createElement("thead");
   const body = document.createElement("tbody");
   table.append(head, body);
   const columns = result.columns || [];
   const rows = result.rows || [];
+  const sortColumn = Number.isInteger(result.sortColumn)
+    ? result.sortColumn : -1;
+  const sortDirection = result.sortDirection === "desc" ? "desc" : "asc";
   const headRow = document.createElement("tr");
-  for (const column of columns) {
+  columns.forEach((column, position) => {
     const th = document.createElement("th");
     th.textContent = column;
+    th.tabIndex = 0;
+    th.title = `Sort by ${column}`;
+    th.setAttribute("aria-sort", position === sortColumn
+      ? (sortDirection === "asc" ? "ascending" : "descending") : "none");
+    const indicator = document.createElement("span");
+    indicator.className = "sort-indicator";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.textContent = position === sortColumn
+      ? (sortDirection === "asc" ? "\u25b2" : "\u25bc") : "\u2195";
+    th.append(indicator);
+    const activate = () => {
+      if (!rows.length) return;
+      sortQueryColumn(result, table, position);
+    };
+    th.addEventListener("click", activate);
+    th.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      activate();
+    });
     headRow.append(th);
-  }
+  });
   head.append(headRow);
   if (!columns.length) {
     const tr = document.createElement("tr");

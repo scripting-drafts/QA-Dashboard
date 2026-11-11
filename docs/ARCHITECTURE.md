@@ -37,8 +37,8 @@ a read-only SQL console over `sentinels.db`. It opens on the all-findings base
 view, with search, severity, status, and since filters. Status is single-select,
 while multiple severity choices are alternatives. The SQL box runs one
 read-only `SELECT`/`WITH`/`EXPLAIN` statement; Clear returns
-to the base view.
-Category presets remain available to the CLI only. The newest cycle with new
+to the base view. Result column headers sort the loaded rows in place without
+re-running the query. Category presets remain available to the CLI only. The newest cycle with new
 findings is loaded silently to mark NEW rows; full cycle summaries remain in
 the Runs category. The QA Sentinels engine enforces the read-only rule and row
 limit; the dashboard only builds an argument vector and never opens the
