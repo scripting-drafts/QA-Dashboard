@@ -10,7 +10,7 @@ const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set([
-  "overview", "sentinels", "sen-overview", "findings", "rules", "logs",
+  "overview", "sentinels", "sen-overview", "findings", "logs",
   "siem", "record",
 ]);
 const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
@@ -19,7 +19,6 @@ const WINDOW_TITLES = {
   overview: "QA Dashboard",
   sentinels: "QA Sentinels Database",
   "sen-overview": "QA Sentinels Overview",
-  rules: "Ticket Rules",
   logs: "QA Sentinels Logs",
   siem: "QA SIEM",
   record: "SIEM Record",
@@ -29,7 +28,6 @@ const WINDOW_SIZES = {
   overview: { width: 980, height: 640 },
   sentinels: { width: 1180, height: 820 },
   "sen-overview": { width: 1180, height: 820 },
-  rules: { width: 1020, height: 780 },
   logs: { width: 980, height: 680 },
   siem: { width: 1080, height: 820 },
   record: { width: 900, height: 720 },
@@ -462,6 +460,13 @@ function registerIpc() {
       String(module || "overview"),
       tab ? String(tab) : "");
     return true;
+  });
+
+  ipcMain.handle("app:open-rules", async () => {
+    const target = path.join(__dirname, "..", "renderer", "rules.html");
+    const error = await shell.openPath(target);
+    if (error) throw new Error(error);
+    return target;
   });
 
   ipcMain.handle("app:open-tickets", async () => {

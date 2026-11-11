@@ -7,7 +7,6 @@ const TITLES = {
   overview: ["QA Dashboard", "QA Sentinels and QA SIEM in one local dashboard."],
   sentinels: ["QA Sentinels Database", "Read-only sentinels.db query engine with filters and SQL."],
   "sen-overview": ["QA Sentinels Overview", "Status, scheduling and live sentinel state."],
-  rules: ["Ticket Rules", "How issues move between ticket states, and why."],
   logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
   siem: ["SIEM", "Click an alert or event for a preview; double-click for the full record."],
   record: ["SIEM Record", "Full alert or event record."],
@@ -1327,8 +1326,13 @@ function bind() {
   $$("[data-sen-tab]").forEach((button) => {
     button.addEventListener("click", () => setSenTab(button.dataset.senTab));
   });
-  $("#sen-overview-rules").addEventListener(
-    "click", () => window.qa.openModule("rules"));
+  $("#sen-overview-rules").addEventListener("click", async () => {
+    try {
+      await window.qa.openRules();
+    } catch (error) {
+      toast(String(error.message || error), true);
+    }
+  });
   $("#sen-overview-logs").addEventListener(
     "click", () => window.qa.openModule("logs"));
 

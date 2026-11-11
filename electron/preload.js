@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("qa", {
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   pickPath: (kind) => ipcRenderer.invoke("dialog:pick", kind),
   openModule: (module, tab) => ipcRenderer.invoke("app:open", module, tab),
+  openRules: () => ipcRenderer.invoke("app:open-rules"),
   openTickets: () => ipcRenderer.invoke("app:open-tickets"),
   tickets: {
     list: () => ipcRenderer.invoke("tickets:list"),

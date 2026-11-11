@@ -67,6 +67,9 @@ exposed; SQL is passed as one argv item and validated by the Sentinels process.
 posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
 `shell.openExternal`.
 
+The Rules button opens `renderer/rules.html` in the system browser; Ticket
+Rules is a standalone document rather than an application window.
+
 ## Launchers and single instance
 
 There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
