@@ -83,6 +83,14 @@ input[type="text"]:focus, input[type="search"]:focus {
   mask: url("../assets/qa-dashboard-enso.png") center / contain no-repeat;
 }
 
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
 .dot {
   width: 8px;
   height: 8px;
