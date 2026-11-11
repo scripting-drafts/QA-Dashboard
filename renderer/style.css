@@ -1397,7 +1397,7 @@ dialog::backdrop {
   body.overview-mode .topbar::before { display: none; }
 
   body.overview-mode .topbar-title .brand-mark {
-    background: linear-gradient(145deg, #093f47 0%, #0e7e89 30%, #2db9c6 66%, #8ff5f8 100%);
+    background: var(--accent);
     filter: none;
   }
 
