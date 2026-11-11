@@ -28,13 +28,11 @@ const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
 const QUERY_FILTERABLE = new Set([
   "inbox", "errors", "findings", "events", "crashes",
 ]);
-// Inbox stays a CLI preset; the Database opens on the complete findings view.
-const HIDDEN_QUERY_CATEGORIES = new Set(["inbox"]);
+// Derived presets stay in the CLI; the Database lists the tables themselves.
+const HIDDEN_QUERY_CATEGORIES = new Set(["inbox", "errors", "cycles"]);
 const FALLBACK_QUERY_CATEGORIES = [
   ["findings", "Findings", "findings"],
-  ["errors", "Errors", "findings"],
-  ["cycles", "Cycles", "runs"],
-  ["new-findings", "New findings", "cycle_findings"],
+  ["new-findings", "Cycle findings", "cycle_findings"],
   ["events", "Events", "events"],
   ["crashes", "Crashes", "crashes"],
   ["boots", "Boots", "boots"],
