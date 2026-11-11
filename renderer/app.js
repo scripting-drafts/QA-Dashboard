@@ -511,7 +511,7 @@ function renderResults(entries, options = {}) {
     if (filters.since) applied.since = filters.since;
   }
   const severity = applied.severity.join(",");
-  const status = applied.status.join(",");
+  const status = applied.status.join(" AND ");
   const filterBits = [];
   if (applied.search) filterBits.push(`search "${applied.search}"`);
   if (severity) filterBits.push(`severity ${severity}`);
