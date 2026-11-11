@@ -40,9 +40,9 @@ differs from the button name. An optional SQL box runs one read-only
 severity and status chips and a since filter. Database category buttons are independent toggles. One or more can be active;
 each active category renders its own result panel, and the shared filters apply
 where the category supports them. With no category active, the unfiltered
-all-findings base is shown. Findings starts selected; the Inbox, Errors and
-Cycles presets remain available to the CLI only, while the Database lists the
-table-backed categories. The newest cycle with new findings is loaded
+all-findings base is shown, and the Database opens on that base view. Inbox,
+Errors, and Cycles remain CLI-only presets; Findings has no button because the
+base view already covers it. The newest cycle with new findings is loaded
 silently to mark NEW rows; full cycle summaries remain in the Runs category.
 The QA Sentinels engine enforces the read-only rule and row limit; the dashboard
 only builds an argument vector and never opens the database itself. The

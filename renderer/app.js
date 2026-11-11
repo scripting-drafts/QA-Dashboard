@@ -29,9 +29,10 @@ const QUERY_FILTERABLE = new Set([
   "inbox", "errors", "findings", "events", "crashes",
 ]);
 // Derived presets stay in the CLI; the Database lists the tables themselves.
-const HIDDEN_QUERY_CATEGORIES = new Set(["inbox", "errors", "cycles"]);
+const HIDDEN_QUERY_CATEGORIES = new Set([
+  "inbox", "errors", "cycles", "findings",
+]);
 const FALLBACK_QUERY_CATEGORIES = [
-  ["findings", "Findings", "findings"],
   ["new-findings", "Cycle findings", "cycle_findings"],
   ["events", "Events", "events"],
   ["crashes", "Crashes", "crashes"],
@@ -249,8 +250,6 @@ function renderQueryCategories(categories) {
     toolbar.append(muted("No categories available."));
     return;
   }
-  const findings = visible.findIndex((category) => category.id === "findings");
-  if (findings > 0) visible.unshift(visible.splice(findings, 1)[0]);
   for (const category of visible) {
     const button = document.createElement("button");
     button.type = "button";
@@ -1373,9 +1372,9 @@ async function init() {
     loadSiem();
   } else if (initial === "sentinels") {
     await loadQueryCategories();
-    setActiveCategories(["findings"]);
+    setActiveCategories([]);
     loadLatestCycle();
-    runCategoryView(["findings"], false);
+    runCategoryView([], true);
   } else if (initial === "sen-overview") {
     setSenTab(initialTab || "overview", false);
     loadSentinelsStatus();
