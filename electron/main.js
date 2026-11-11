@@ -13,7 +13,10 @@ const MODULES = new Set([
   "overview", "sentinels", "sen-overview", "findings", "logs",
   "siem", "record",
 ]);
-const APP_ICON = path.join(__dirname, "..", "assets", "qa-dashboard-256.png");
+const APP_ICON_LIGHT = path.join(
+  __dirname, "..", "assets", "qa-dashboard-light-256.png");
+const APP_ICON_DARK = path.join(
+  __dirname, "..", "assets", "qa-dashboard-256.png");
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
@@ -61,10 +64,17 @@ function windowBackground() {
   return nativeTheme.shouldUseDarkColors ? "#0b1418" : "#ffffff";
 }
 
+function windowIcon() {
+  return nativeTheme.shouldUseDarkColors ? APP_ICON_DARK : APP_ICON_LIGHT;
+}
+
 function syncWindowBackgrounds() {
   const color = windowBackground();
+  const icon = windowIcon();
   for (const window of windows.values()) {
-    if (!window.isDestroyed()) window.setBackgroundColor(color);
+    if (window.isDestroyed()) continue;
+    window.setBackgroundColor(color);
+    window.setIcon(icon);
   }
 }
 
@@ -129,7 +139,7 @@ function createWindow(module = "overview", show = true, tab = "") {
     minHeight: module === "overview" ? 540 : 620,
     show: false,
     title: WINDOW_TITLES[module],
-    icon: APP_ICON,
+    icon: windowIcon(),
     backgroundColor: windowBackground(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

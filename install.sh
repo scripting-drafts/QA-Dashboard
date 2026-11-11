@@ -39,8 +39,8 @@ else
     (cd "$LIB" && npm ci --no-audit --no-fund >/dev/null)
 fi
 install -m 0755 "$ROOT/bin/qa-dashboard" "$BIN"
-install -m 0644 "$ROOT/assets/qa-dashboard-256.png" "$ICONS/256x256/apps/qa-dashboard.png"
-install -m 0644 "$ROOT/assets/qa-dashboard-512.png" "$ICONS/512x512/apps/qa-dashboard.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-light-256.png" "$ICONS/256x256/apps/qa-dashboard.png"
+install -m 0644 "$ROOT/assets/qa-dashboard-light-512.png" "$ICONS/512x512/apps/qa-dashboard.png"
 install -m 0644 "$ROOT/assets/qa-dashboard-256.png" "$ICONS/256x256/apps/qa-dashboard-dark.png"
 install -m 0644 "$ROOT/assets/qa-dashboard-512.png" "$ICONS/512x512/apps/qa-dashboard-dark.png"
 install -m 0644 "$ROOT/assets/qa-dashboard-light-256.png" "$ICONS/256x256/apps/qa-dashboard-light.png"
