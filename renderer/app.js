@@ -256,8 +256,10 @@ function setFilterGroup(groupId, value) {
   const values = Array.isArray(value) ? value : String(value || "").split(",");
   const selected = new Set(
     values.map((item) => String(item).trim()).filter(Boolean));
+  const effective = groupId === "query-status-group"
+    ? new Set([...selected].slice(0, 1)) : selected;
   $$(`#${groupId} button`).forEach((button) => {
-    const active = selected.has(button.dataset.filterValue);
+    const active = effective.has(button.dataset.filterValue);
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
@@ -1140,16 +1142,30 @@ function bind() {
   $("#query-filter-clear").addEventListener("click", clearQueryFilters);
   $("#query-detail-close").addEventListener("click", closeQueryDetail);
   $("#query-limit").addEventListener("change", refreshQuery);
-  $$("#query-severity-group button, #query-status-group button")
-    .forEach((button) => {
-      button.addEventListener("click", () => {
-        if (button.disabled) return;
-        const active = !button.classList.contains("active");
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", active ? "true" : "false");
-        refreshActiveQuery();
-      });
+  $$("#query-severity-group button").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      const active = !button.classList.contains("active");
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+      refreshActiveQuery();
     });
+  });
+  $$("#query-status-group button").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      const active = !button.classList.contains("active");
+      $$("#query-status-group button").forEach((node) => {
+        node.classList.remove("active");
+        node.setAttribute("aria-pressed", "false");
+      });
+      if (active) {
+        button.classList.add("active");
+        button.setAttribute("aria-pressed", "true");
+      }
+      refreshActiveQuery();
+    });
+  });
   for (const selector of ["#query-search", "#query-since"]) {
     $(selector).addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;

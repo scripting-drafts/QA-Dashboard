@@ -34,9 +34,9 @@ setting, including the native window decoration.
 The main process resolves `qa` and its repository root, then runs fixed actions:
 `status`, `cycle`, `findings`, and `query`. The QA Sentinels Database window is
 a read-only SQL console over `sentinels.db`. It opens on the all-findings base
-view, with search, severity, status, and since filters. Multiple status
-choices are conjunctive, while multiple severity choices are alternatives. The
-SQL box runs one read-only `SELECT`/`WITH`/`EXPLAIN` statement; Clear returns
+view, with search, severity, status, and since filters. Status is single-select,
+while multiple severity choices are alternatives. The SQL box runs one
+read-only `SELECT`/`WITH`/`EXPLAIN` statement; Clear returns
 to the base view.
 Category presets remain available to the CLI only. The newest cycle with new
 findings is loaded silently to mark NEW rows; full cycle summaries remain in
