@@ -23,7 +23,9 @@ test("query arguments cover categories, SQL and limits", () => {
   assert.deepEqual(backend.queryArgs({ sql: " SELECT 1 ", limit: 10 }),
     ["query", "--json", "--sql", "SELECT 1", "--limit", "10"]);
   assert.deepEqual(backend.queryArgs({ category: "findings", limit: 5000 }),
-    ["query", "--json", "--category", "findings", "--limit", "1000"]);
+    ["query", "--json", "--category", "findings", "--limit", "5000"]);
+  assert.deepEqual(backend.queryArgs({ category: "findings", limit: 50000 }),
+    ["query", "--json", "--category", "findings", "--limit", "10000"]);
   assert.deepEqual(backend.queryArgs({ latest: true }),
     ["query", "--json", "--latest-cycle"]);
   assert.deepEqual(backend.queryArgs({ catalog: true }),

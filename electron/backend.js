@@ -58,7 +58,7 @@ const QUERY_CATEGORIES = [
   "reports", "meta",
 ];
 const QUERY_MAX_SQL = 20000;
-const QUERY_MAX_ROWS = 1000;
+const QUERY_MAX_ROWS = 10000;
 
 function configPath() {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
