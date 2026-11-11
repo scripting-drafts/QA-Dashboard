@@ -84,6 +84,7 @@ input[type="text"]:focus, input[type="search"]:focus {
 }
 
 .brand-logo {
+  display: block;
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
