@@ -86,42 +86,34 @@ export default class QADashboardThemeExtension extends Extension {
         return null;
     }
 
-    _dashes() {
-        const dashes = [];
-        if (Main.overview && Main.overview.dash)
-            dashes.push(Main.overview.dash);
-        try {
-            const ubuntuDock = Main.extensionManager.lookup(
-                "ubuntu-dock@ubuntu.com");
-            const dock = ubuntuDock && ubuntuDock.stateObj &&
-                ubuntuDock.stateObj.dockManager &&
-                ubuntuDock.stateObj.dockManager.mainDock &&
-                ubuntuDock.stateObj.dockManager.mainDock.dash;
-            if (dock && !dashes.includes(dock))
-                dashes.push(dock);
-        } catch (_error) {
-            // Stock GNOME or a different dash implementation.
-        }
-        return dashes;
+    _appIcons() {
+        const icons = [];
+        const seen = new Set();
+        const walk = (actor, depth) => {
+            if (!actor || depth > 12)
+                return;
+            if (actor.app && actor.icon &&
+                typeof actor.app.get_id === "function" &&
+                APP_IDS.includes(actor.app.get_id()) &&
+                !seen.has(actor)) {
+                seen.add(actor);
+                icons.push(actor);
+            }
+            if (typeof actor.get_children === "function") {
+                for (const child of actor.get_children())
+                    walk(child, depth + 1);
+            }
+        };
+        walk(Main.uiGroup, 0);
+        return icons;
     }
 
     _setDockIcon() {
-        const dashes = this._dashes();
-        if (!dashes.length)
-            return;
-
         const gicon = new Gio.ThemedIcon({ name: this._iconName() });
-        for (const dash of dashes) {
-            if (typeof dash.getAppIcons !== "function")
-                continue;
-            for (const appIcon of dash.getAppIcons()) {
-                if (!appIcon.app || !APP_IDS.includes(appIcon.app.get_id()))
-                    continue;
-
-                const texture = this._findIconTexture(appIcon);
-                if (texture)
-                    texture.set_gicon(gicon);
-            }
+        for (const appIcon of this._appIcons()) {
+            const texture = this._findIconTexture(appIcon);
+            if (texture)
+                texture.set_gicon(gicon);
         }
     }
 }

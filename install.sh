@@ -124,6 +124,12 @@ rm -rf "$THEME_EXT_DIR"
 install -d -m 0755 "$THEME_EXT_DIR"
 cp -a "$THEME_EXT_SRC/." "$THEME_EXT_DIR/"
 
+if command -v gsettings >/dev/null 2>&1 &&
+   [ "$(gsettings get org.gnome.shell disable-user-extensions 2>/dev/null || true)" = "true" ]; then
+    echo "GNOME user extensions are disabled; the theme-aware favourite icon cannot run." >&2
+    echo "Enable them with: gsettings set org.gnome.shell disable-user-extensions false" >&2
+fi
+
 THEME_NEEDS_RELOGIN=0
 if command -v gnome-extensions >/dev/null 2>&1; then
     gnome-extensions disable "$THEME_EXT_UUID" >/dev/null 2>&1 || true

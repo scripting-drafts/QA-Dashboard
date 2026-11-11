@@ -42,42 +42,34 @@ function findIconTexture(actor, depth) {
     return null;
 }
 
-function dashes() {
-    const found = [];
-    if (Main.overview && Main.overview.dash)
-        found.push(Main.overview.dash);
-    try {
-        const ubuntuDock = Main.extensionManager.lookup(
-            "ubuntu-dock@ubuntu.com");
-        const dock = ubuntuDock && ubuntuDock.stateObj &&
-            ubuntuDock.stateObj.dockManager &&
-            ubuntuDock.stateObj.dockManager.mainDock &&
-            ubuntuDock.stateObj.dockManager.mainDock.dash;
-        if (dock && found.indexOf(dock) < 0)
-            found.push(dock);
-    } catch (error) {
-        // Stock GNOME or a different dash implementation.
+function appIcons() {
+    const icons = [];
+    const seen = new Set();
+    function walk(actor, depth) {
+        if (!actor || depth > 12)
+            return;
+        if (actor.app && actor.icon &&
+            typeof actor.app.get_id === "function" &&
+            APP_IDS.indexOf(actor.app.get_id()) >= 0 &&
+            !seen.has(actor)) {
+            seen.add(actor);
+            icons.push(actor);
+        }
+        if (typeof actor.get_children === "function") {
+            for (const child of actor.get_children())
+                walk(child, depth + 1);
+        }
     }
-    return found;
+    walk(Main.uiGroup, 0);
+    return icons;
 }
 
 function setDockIcon() {
-    const found = dashes();
-    if (!found.length)
-        return;
-
     const gicon = new Gio.ThemedIcon({ name: iconName() });
-    for (const dash of found) {
-        if (typeof dash.getAppIcons !== "function")
-            continue;
-        for (const appIcon of dash.getAppIcons()) {
-            if (!appIcon.app || !APP_IDS.includes(appIcon.app.get_id()))
-                continue;
-
-            const texture = findIconTexture(appIcon, 0);
-            if (texture)
-                texture.set_gicon(gicon);
-        }
+    for (const appIcon of appIcons()) {
+        const texture = findIconTexture(appIcon, 0);
+        if (texture)
+            texture.set_gicon(gicon);
     }
 }
 
