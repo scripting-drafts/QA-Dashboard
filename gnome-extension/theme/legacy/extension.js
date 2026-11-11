@@ -42,19 +42,42 @@ function findIconTexture(actor, depth) {
     return null;
 }
 
+function dashes() {
+    const found = [];
+    if (Main.overview && Main.overview.dash)
+        found.push(Main.overview.dash);
+    try {
+        const ubuntuDock = Main.extensionManager.lookup(
+            "ubuntu-dock@ubuntu.com");
+        const dock = ubuntuDock && ubuntuDock.stateObj &&
+            ubuntuDock.stateObj.dockManager &&
+            ubuntuDock.stateObj.dockManager.mainDock &&
+            ubuntuDock.stateObj.dockManager.mainDock.dash;
+        if (dock && found.indexOf(dock) < 0)
+            found.push(dock);
+    } catch (error) {
+        // Stock GNOME or a different dash implementation.
+    }
+    return found;
+}
+
 function setDockIcon() {
-    const dash = Main.overview && Main.overview.dash;
-    if (!dash || typeof dash.getAppIcons !== "function")
+    const found = dashes();
+    if (!found.length)
         return;
 
     const gicon = new Gio.ThemedIcon({ name: iconName() });
-    for (const appIcon of dash.getAppIcons()) {
-        if (!appIcon.app || !APP_IDS.includes(appIcon.app.get_id()))
+    for (const dash of found) {
+        if (typeof dash.getAppIcons !== "function")
             continue;
+        for (const appIcon of dash.getAppIcons()) {
+            if (!appIcon.app || !APP_IDS.includes(appIcon.app.get_id()))
+                continue;
 
-        const texture = findIconTexture(appIcon, 0);
-        if (texture)
-            texture.set_gicon(gicon);
+            const texture = findIconTexture(appIcon, 0);
+            if (texture)
+                texture.set_gicon(gicon);
+        }
     }
 }
 
