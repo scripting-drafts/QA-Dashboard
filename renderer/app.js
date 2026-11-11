@@ -587,7 +587,7 @@ function renderResults(entries, options = {}) {
   if (status) filterBits.push(`status ${status}`);
   if (applied.since) filterBits.push(`since ${applied.since}`);
   $("#query-filter-note").textContent = filterBits.length
-    ? `Filters: ${filterBits.join(" · ")}`
+    ? `Filters ${filterBits.join(" · ")}`
     : "";
 
   $("#query-sql").value = entries[0]?.result.sql || "";
