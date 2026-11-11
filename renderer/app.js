@@ -414,7 +414,7 @@ function renderResultTable(result, table) {
     indicator.className = "sort-indicator";
     indicator.setAttribute("aria-hidden", "true");
     indicator.textContent = position === sortColumn
-      ? (sortDirection === "asc" ? "\u25b2" : "\u25bc") : "\u2195";
+      ? (sortDirection === "asc" ? "\u25b2" : "\u25bc") : "";
     th.append(indicator);
     const activate = () => {
       if (!rows.length) return;
@@ -587,7 +587,7 @@ function renderResults(entries, options = {}) {
   if (status) filterBits.push(`status ${status}`);
   if (applied.since) filterBits.push(`since ${applied.since}`);
   $("#query-filter-note").textContent = filterBits.length
-    ? `Filters ${filterBits.join(" · ")}`
+    ? `Filters: ${filterBits.join(" · ")}`
     : "";
 
   $("#query-sql").value = entries[0]?.result.sql || "";
