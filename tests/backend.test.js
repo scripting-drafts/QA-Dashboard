@@ -28,6 +28,8 @@ test("query arguments cover categories, SQL and limits", () => {
     ["query", "--json", "--category", "findings", "--limit", "10000"]);
   assert.deepEqual(backend.queryArgs({ latest: true }),
     ["query", "--json", "--latest-cycle"]);
+  assert.deepEqual(backend.queryArgs({ schema: true }),
+    ["query", "--json", "--schema"]);
   assert.deepEqual(backend.queryArgs({
     category: "findings", search: "systemd.service_start",
     severity: "error", status: "open", since: "2026-11-10T08:00:00Z",

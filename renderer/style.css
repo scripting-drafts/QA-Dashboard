@@ -688,6 +688,78 @@ select {
 
 .sen-tab-panel[hidden] { display: none; }
 
+.database-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.database-layout .panel { margin-bottom: 0; }
+
+.database-sidebar {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px);
+  padding: 14px;
+}
+
+.schema-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.schema-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 7px 9px;
+  text-align: left;
+  background: var(--panel-alt);
+  box-shadow: none;
+}
+
+.schema-item:hover { border-color: var(--line-strong); }
+
+.schema-item.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+.schema-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schema-rows {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.schema-columns {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: "Adwaita Mono", "Noto Sans Mono", monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1000px) {
+  .database-layout { grid-template-columns: minmax(0, 1fr); }
+  .database-sidebar { position: static; max-height: none; }
+  .schema-list { max-height: 240px; }
+}
+
 .query-panel { padding: 18px; }
 
 .query-filters {

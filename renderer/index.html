@@ -52,7 +52,18 @@
       </section>
 
       <section id="view-sentinels" class="view">
-        <div class="panel query-panel">
+        <div class="database-layout">
+          <aside class="panel database-sidebar" aria-label="Database tables">
+            <div class="panel-head">
+              <h3>Tables</h3>
+              <span id="schema-count" class="muted mono"></span>
+            </div>
+            <div id="schema-list" class="schema-list">
+              <p class="muted">Loading schema…</p>
+            </div>
+          </aside>
+
+          <div class="panel query-panel">
           <div class="panel-head query-head">
             <div>
               <h3 id="query-title">All findings</h3>
@@ -129,6 +140,7 @@
               <button id="query-detail-close" class="ghost">Close</button>
             </div>
             <pre id="query-detail-json" class="console"></pre>
+          </div>
           </div>
         </div>
       </section>

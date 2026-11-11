@@ -422,6 +422,7 @@ function sentinelsArgs(action) {
 }
 
 function queryArgs(options = {}) {
+  if (options.schema) return ["query", "--json", "--schema"];
   const rawLimit = Number(options.limit);
   const limit = Number.isInteger(rawLimit)
     ? Math.max(1, Math.min(QUERY_MAX_ROWS, rawLimit))

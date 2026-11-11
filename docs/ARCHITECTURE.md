@@ -38,13 +38,15 @@ view, with search, severity, status, and since filters. Status is single-select,
 while multiple severity choices are alternatives. The SQL box runs one
 read-only `SELECT`/`WITH`/`EXPLAIN` statement; Clear returns
 to the base view. Result column headers sort the loaded rows in place without
-re-running the query. Category presets remain available to the CLI only. The newest cycle with new
+re-running the query. The table sidebar lists every database table with its
+row count and columns; selecting one loads and runs a limited `SELECT *`.
+Category presets remain available to the CLI only. The newest cycle with new
 findings is loaded silently to mark NEW rows; full cycle summaries remain in
 the Runs category. The QA Sentinels engine enforces the read-only rule and row
 limit; the dashboard only builds an argument vector and never opens the
 database itself. The Overview window contains the status grid and the ticket
 board as tabs; it is opened from the QA Dashboard Overview card. The Database
-window exposes only the filters, SQL box, and result panels. A cycle runs
+window exposes the table sidebar, filters, SQL box, and result panels. A cycle runs
 automatically only as a fallback: when the installed Sentinel systemd timer or
 user cron block is absent, `sentinelsCycleMinutes` (10 minutes by default)
 drives it. When a Sentinel scheduler is present, that scheduler owns the cycle.

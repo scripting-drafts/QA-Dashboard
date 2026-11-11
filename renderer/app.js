@@ -214,9 +214,54 @@ function setQueryFiltersEnabled() {
   $("#query-filters").classList.toggle("disabled", !enabled);
 }
 
+function renderQuerySchema(tables) {
+  const node = $("#schema-list");
+  clear(node);
+  $("#schema-count").textContent = tables.length
+    ? `${tables.length} tables` : "";
+  if (!tables.length) {
+    node.append(muted("No tables."));
+    return;
+  }
+  for (const table of tables) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "schema-item";
+    button.dataset.table = table.name;
+    button.title = `Query ${table.name}`;
+    const name = document.createElement("span");
+    name.className = "schema-name";
+    name.textContent = table.name;
+    const rows = document.createElement("span");
+    rows.className = "schema-rows";
+    const count = Number(table.rows);
+    rows.textContent = Number.isFinite(count) ? count.toLocaleString() : "—";
+    const columns = document.createElement("span");
+    columns.className = "schema-columns";
+    const names = (table.columns || []).map((column) =>
+      typeof column === "string" ? column : column.name);
+    columns.textContent = names.join(", ");
+    columns.title = names.join(", ");
+    button.append(name, rows, columns);
+    node.append(button);
+  }
+}
+
+async function loadQuerySchema() {
+  try {
+    const data = await window.qa.sentinels.query({ schema: true });
+    renderQuerySchema(Array.isArray(data?.tables) ? data.tables : []);
+  } catch (_error) {
+    const node = $("#schema-list");
+    clear(node);
+    node.append(muted("Schema unavailable."));
+    $("#schema-count").textContent = "";
+  }
+}
+
 function setQueryBusy(busy) {
   queryBusy = busy;
-  $$("#query-run, #query-refresh, #query-clear, #query-limit")
+  $$("#query-run, #query-refresh, #query-clear, #query-limit, #schema-list .schema-item")
     .forEach((node) => { node.disabled = busy; });
   setQueryFiltersEnabled();
 }
@@ -1203,6 +1248,19 @@ function bind() {
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
+  $("#schema-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-table]");
+    if (!button || button.disabled || queryBusy) return;
+    $$("#schema-list .schema-item").forEach((item) => {
+      item.classList.toggle("active", item === button);
+    });
+    const table = String(button.dataset.table || "");
+    if (!table) return;
+    const escaped = table.replace(/"/g, '""');
+    const limit = Number($("#query-limit").value) || 200;
+    $("#query-sql").value = `SELECT * FROM "${escaped}" LIMIT ${limit}`;
+    runQuerySql();
+  });
   $("#query-run").addEventListener("click", runQuerySql);
   $("#query-refresh").addEventListener("click", refreshQuery);
   $("#query-clear").addEventListener("click", clearQuerySql);
@@ -1346,6 +1404,7 @@ async function init() {
     loadSentinelsStatus();
     loadSiem();
   } else if (initial === "sentinels") {
+    loadQuerySchema();
     loadLatestCycle();
     runCategoryView([], true);
   } else if (initial === "sen-overview") {
