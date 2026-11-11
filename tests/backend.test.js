@@ -26,6 +26,8 @@ test("query arguments cover categories, SQL and limits", () => {
     ["query", "--json", "--category", "findings", "--limit", "1000"]);
   assert.deepEqual(backend.queryArgs({ latest: true }),
     ["query", "--json", "--latest-cycle"]);
+  assert.deepEqual(backend.queryArgs({ catalog: true }),
+    ["query", "--json", "--list-categories"]);
   assert.deepEqual(backend.queryArgs({
     category: "findings", search: "systemd.service_start",
     severity: "error", status: "open", since: "2026-11-10T08:00:00Z",
@@ -45,6 +47,12 @@ test("query arguments cover categories, SQL and limits", () => {
   assert.ok(backend.QUERY_CATEGORIES.includes("inbox"));
   assert.ok(backend.QUERY_CATEGORIES.includes("errors"));
   assert.ok(backend.QUERY_CATEGORIES.includes("crashes"));
+  for (const category of [
+    "processes", "inventory-items", "inventory-diffs", "hardware-items",
+    "core2", "crosschecks", "notifications", "reports", "meta",
+  ]) {
+    assert.ok(backend.QUERY_CATEGORIES.includes(category), category);
+  }
 });
 
 test("status output parses colon-delimited values", () => {

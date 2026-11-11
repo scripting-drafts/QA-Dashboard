@@ -28,6 +28,35 @@ const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
 const QUERY_FILTERABLE = new Set([
   "inbox", "errors", "findings", "events", "crashes",
 ]);
+// Inbox stays a CLI preset; the Database opens on the complete findings view.
+const HIDDEN_QUERY_CATEGORIES = new Set(["inbox"]);
+const FALLBACK_QUERY_CATEGORIES = [
+  ["findings", "Findings"],
+  ["errors", "Errors"],
+  ["cycles", "Cycles"],
+  ["new-findings", "New findings"],
+  ["events", "Events"],
+  ["crashes", "Crashes"],
+  ["boots", "Boots"],
+  ["samples", "Samples"],
+  ["processes", "Process snapshots"],
+  ["inventory", "Inventory runs"],
+  ["inventory-items", "Inventory items"],
+  ["inventory-diffs", "Inventory changes"],
+  ["hardware", "Hardware runs"],
+  ["hardware-items", "Hardware items"],
+  ["lsm", "LSM runs"],
+  ["correlations", "Correlations"],
+  ["tickets", "Ticket drafts"],
+  ["deep", "Deep runs"],
+  ["bundles", "Bundles"],
+  ["runs", "Runs"],
+  ["core2", "Core 2 cases"],
+  ["crosschecks", "Crosschecks"],
+  ["notifications", "Notifications"],
+  ["reports", "Reports"],
+  ["meta", "Metadata"],
+].map(([id, label]) => ({ id, label }));
 const CLICK_DELAY = 220;
 
 let config = null;
@@ -211,6 +240,39 @@ function setActiveCategories(categories) {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+}
+
+function renderQueryCategories(categories) {
+  const toolbar = $("#query-categories");
+  clear(toolbar);
+  const visible = categories.filter((category) =>
+    category && category.id && !HIDDEN_QUERY_CATEGORIES.has(category.id));
+  if (!visible.length) {
+    toolbar.append(muted("No categories available."));
+    return;
+  }
+  const findings = visible.findIndex((category) => category.id === "findings");
+  if (findings > 0) visible.unshift(visible.splice(findings, 1)[0]);
+  for (const category of visible) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.queryCategory = category.id;
+    button.textContent = category.label || category.id;
+    button.setAttribute("aria-pressed", "false");
+    if (category.description) button.title = category.description;
+    toolbar.append(button);
+  }
+  setActiveCategories(activeCategories);
+}
+
+async function loadQueryCategories() {
+  try {
+    const data = await window.qa.sentinels.query({ catalog: true });
+    const categories = Array.isArray(data?.categories) ? data.categories : [];
+    renderQueryCategories(categories);
+  } catch (_error) {
+    renderQueryCategories(FALLBACK_QUERY_CATEGORIES);
+  }
 }
 
 function setQueryFiltersEnabled() {
@@ -1170,9 +1232,10 @@ function bind() {
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
   });
-  $$("[data-query-category]").forEach((button) => {
-    button.addEventListener(
-      "click", () => toggleQueryCategory(button.dataset.queryCategory));
+  $("#query-categories").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-query-category]");
+    if (!button || button.disabled) return;
+    toggleQueryCategory(button.dataset.queryCategory);
   });
   $("#query-run").addEventListener("click", runQuerySql);
   $("#query-refresh").addEventListener("click", refreshQuery);
@@ -1303,6 +1366,7 @@ async function init() {
     loadSentinelsStatus();
     loadSiem();
   } else if (initial === "sentinels") {
+    await loadQueryCategories();
     setActiveCategories(["findings"]);
     loadLatestCycle();
     runCategoryView(["findings"], false);

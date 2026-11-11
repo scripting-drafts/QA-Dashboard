@@ -52,8 +52,10 @@ const MAX_HTTP_BODY = 8 * 1024 * 1024;
 const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
 const QUERY_CATEGORIES = [
   "inbox", "errors", "findings", "cycles", "new-findings", "events", "crashes",
-  "boots", "samples", "inventory", "hardware", "lsm", "correlations", "tickets",
-  "deep", "bundles", "runs",
+  "boots", "samples", "processes", "inventory", "inventory-items",
+  "inventory-diffs", "hardware", "hardware-items", "lsm", "correlations",
+  "tickets", "deep", "bundles", "runs", "core2", "crosschecks", "notifications",
+  "reports", "meta",
 ];
 const QUERY_MAX_SQL = 20000;
 const QUERY_MAX_ROWS = 1000;
@@ -420,6 +422,7 @@ function sentinelsArgs(action) {
 }
 
 function queryArgs(options = {}) {
+  if (options.catalog) return ["query", "--json", "--list-categories"];
   const rawLimit = Number(options.limit);
   const limit = Number.isInteger(rawLimit)
     ? Math.max(1, Math.min(QUERY_MAX_ROWS, rawLimit))

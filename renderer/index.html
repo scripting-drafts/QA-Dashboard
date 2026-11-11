@@ -52,30 +52,15 @@
       </section>
 
       <section id="view-sentinels" class="view">
-        <div class="toolbar query-toolbar" role="toolbar"
+        <div id="query-categories" class="toolbar query-toolbar" role="toolbar"
              aria-label="Sentinels query categories">
-          <button data-query-category="findings" class="active">Findings</button>
-          <button data-query-category="errors">Errors</button>
-          <button data-query-category="cycles">Cycles</button>
-          <button data-query-category="new-findings">New findings</button>
-          <button data-query-category="events">Events</button>
-          <button data-query-category="crashes">Crashes</button>
-          <button data-query-category="boots">Boots</button>
-          <button data-query-category="samples">Samples</button>
-          <button data-query-category="inventory">Inventory</button>
-          <button data-query-category="hardware">Hardware</button>
-          <button data-query-category="lsm">LSM</button>
-          <button data-query-category="correlations">Correlations</button>
-          <button data-query-category="tickets">Tickets</button>
-          <button data-query-category="deep">Deep runs</button>
-          <button data-query-category="bundles">Bundles</button>
-          <button data-query-category="runs">Runs</button>
+          <p class="muted">Loading categories…</p>
         </div>
 
         <div class="panel query-panel">
           <div class="panel-head query-head">
             <div>
-              <h3 id="query-title">Inbox</h3>
+              <h3 id="query-title">Findings</h3>
               <p id="query-meta" class="muted mono">Read-only · sentinels.db</p>
             </div>
             <div class="query-actions">

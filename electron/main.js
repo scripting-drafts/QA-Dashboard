@@ -331,7 +331,8 @@ async function sentinelsQuery(options = {}) {
     throw new Error(`query failed with exit ${result.code}`);
   }
   if (data && (Object.hasOwn(data, "latest") ||
-               Object.hasOwn(data, "last_new"))) {
+               Object.hasOwn(data, "last_new") ||
+               Array.isArray(data.categories))) {
     return data;
   }
   if (!data || !Array.isArray(data.columns) || !Array.isArray(data.rows)) {
