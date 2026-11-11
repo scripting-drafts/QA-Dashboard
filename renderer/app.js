@@ -181,6 +181,22 @@ async function loadSentinelsStatus() {
   }
 }
 
+async function loadDatabaseOverview() {
+  try {
+    const data = await window.qa.sentinels.query({ schema: true });
+    const tables = Array.isArray(data?.tables) ? data.tables : [];
+    const findings = tables.find((table) => table.name === "findings");
+    const rows = Number(findings?.rows);
+    const parts = [`${tables.length} tables`];
+    if (Number.isFinite(rows)) {
+      parts.push(`${rows.toLocaleString()} findings`);
+    }
+    $("#overview-database").textContent = parts.join(" · ");
+  } catch (_error) {
+    $("#overview-database").textContent = "Database unavailable.";
+  }
+}
+
 function setSentinelsBusy(busy) {
   sentinelsBusy = busy;
   $$("[data-sen]").forEach((button) => { button.disabled = busy; });
@@ -1306,6 +1322,7 @@ function bind() {
   });
   window.addEventListener("focus", () => {
     if (currentView === "sentinels") loadLatestCycle();
+    if (currentView === "overview") loadDatabaseOverview();
   });
   $$("[data-sen-tab]").forEach((button) => {
     button.addEventListener("click", () => setSenTab(button.dataset.senTab));
@@ -1403,6 +1420,7 @@ async function init() {
   if (initial === "overview") {
     loadSentinelsStatus();
     loadSiem();
+    loadDatabaseOverview();
   } else if (initial === "sentinels") {
     loadQuerySchema();
     loadLatestCycle();

@@ -20,6 +20,8 @@ in the main process.
 
 The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
+QA Sentinels, Database, and SIEM are separate module cards, with Database in
+the middle; each opens its own window.
 The main Dashboard window uses its default 980x640 size. The content column
 uses the full window width; maximizing a window expands its tables, card grid,
 and module panels to the available work area. Only the Database window shows
