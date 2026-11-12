@@ -4,7 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
-  overview: ["QA Dashboard", "QA Sentinels and QA SIEM in one local dashboard."],
+  overview: ["QA Dashboard", "QA Sentinels monitoring, database, and ticket workflow."],
   sentinels: ["QA Sentinels Database", "Read-only sentinels.db query engine with filters and SQL."],
   "sen-overview": ["QA Sentinels Overview", "Status, scheduling and live sentinel state."],
   logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
@@ -193,6 +193,20 @@ async function loadDatabaseOverview() {
     $("#overview-database").textContent = parts.join(" · ");
   } catch (_error) {
     $("#overview-database").textContent = "Database unavailable.";
+  }
+}
+
+async function loadTicketsOverview() {
+  try {
+    const data = await window.qa.tickets.list();
+    const buckets = Array.isArray(data?.buckets) ? data.buckets : [];
+    const total = buckets.reduce(
+      (sum, bucket) => sum + (bucket.tickets?.length || 0), 0);
+    const raise = buckets.find((bucket) => bucket.bucket === "raise");
+    const staged = raise?.tickets?.length || 0;
+    $("#overview-tickets").textContent = `${total} tickets · ${staged} staged`;
+  } catch (_error) {
+    $("#overview-tickets").textContent = "Tickets unavailable.";
   }
 }
 
@@ -982,11 +996,8 @@ function renderSiemStatus(data) {
   statusGrid($("#siem-status"), entries);
   if (data.error) {
     setConnection("error", "SIEM issue");
-    $("#overview-siem").textContent = data.error;
   } else {
     setConnection("ok", "SIEM connected");
-    $("#overview-siem").textContent =
-      `${stats.events ?? 0} events · ${stats.alerts_open ?? 0} open alerts`;
   }
 }
 
@@ -1253,7 +1264,17 @@ async function saveSettings(event) {
 
 function bind() {
   $$("[data-open]").forEach((button) => {
-    button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
+    button.addEventListener("click", async () => {
+      if (button.dataset.open === "rules") {
+        try {
+          await window.qa.openRules();
+        } catch (error) {
+          toast(String(error.message || error), true);
+        }
+        return;
+      }
+      window.qa.openModule(button.dataset.open);
+    });
   });
   $("#settings").addEventListener("click", openSettings);
   $("#settings-form").addEventListener("submit", (event) => event.preventDefault());
@@ -1321,7 +1342,10 @@ function bind() {
   });
   window.addEventListener("focus", () => {
     if (currentView === "sentinels") loadLatestCycle();
-    if (currentView === "overview") loadDatabaseOverview();
+    if (currentView === "overview") {
+      loadDatabaseOverview();
+      loadTicketsOverview();
+    }
   });
   $$("[data-sen-tab]").forEach((button) => {
     button.addEventListener("click", () => setSenTab(button.dataset.senTab));
@@ -1386,10 +1410,9 @@ function bind() {
       }
     }
     if (payload.scope === "siem" && payload.type === "snapshot" &&
-        currentView !== "logs") {
+        currentView === "siem") {
       if (payload.error) {
         setConnection("error", "SIEM unavailable");
-        $("#overview-siem").textContent = payload.error;
       } else {
         renderSiemSnapshot(payload.data);
       }
@@ -1423,8 +1446,8 @@ async function init() {
   }
   if (initial === "overview") {
     loadSentinelsStatus();
-    loadSiem();
     loadDatabaseOverview();
+    loadTicketsOverview();
   } else if (initial === "sentinels") {
     loadQuerySchema();
     loadLatestCycle();

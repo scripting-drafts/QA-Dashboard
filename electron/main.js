@@ -368,15 +368,15 @@ async function autoRefreshSentinels() {
 
 async function autoRefreshSiem() {
   if (siemRefreshing) return;
-  if (!windows.has("overview") && !windows.has("siem")) return;
+  if (!windows.has("siem")) return;
   siemRefreshing = true;
   try {
-    broadcastTo(["overview", "siem"], {
+    broadcastTo(["siem"], {
       scope: "siem", type: "snapshot",
       data: await backend.siemSnapshot(backend.loadConfig()),
     });
   } catch (error) {
-    broadcastTo(["overview", "siem"], {
+    broadcastTo(["siem"], {
       scope: "siem", type: "snapshot", error: String(error.message || error),
     });
   } finally {

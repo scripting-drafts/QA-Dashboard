@@ -20,8 +20,8 @@ in the main process.
 
 The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
-QA Sentinels, Database, and SIEM are separate module cards, with Database in
-the middle; each opens its own window.
+QA Sentinels, Database, and Tickets are separate module cards, with Database
+in the middle; SIEM remains a standalone module window.
 The main Dashboard window uses its default 980x640 size. The content column
 uses the full window width; maximizing a window expands its tables, card grid,
 and module panels to the available work area. Only the Database window shows
@@ -64,8 +64,8 @@ exposed; SQL is passed as one argv item and validated by the Sentinels process.
 
 `electron/backend.js` reads the token file and requests `/healthz`,
 `/api/v1/stats`, `/api/v1/alerts`, and `/api/v1/events`. Alert acknowledgement
-posts to `/api/v1/alerts/ack`. The dashboard button opens the web dashboard with
-`shell.openExternal`.
+posts to `/api/v1/alerts/ack`. The standalone SIEM window's dashboard button
+opens the web dashboard with `shell.openExternal`.
 
 The Rules button opens `renderer/rules.html` in the system browser; Ticket
 Rules is a standalone document rather than an application window.
@@ -99,9 +99,9 @@ Settings open from a module window and are scoped to that module: Sentinels
 command and root, or SIEM URL and token file. Saving one module leaves the
 other configuration keys untouched.
 
-The main process refreshes Sentinels status and the SIEM snapshot every 10
-seconds and broadcasts the results to the Overview and the relevant module
-windows. The Database window is query-driven and refreshes when a category, the Refresh
+The main process refreshes Sentinels status for the Overview and the SIEM
+snapshot for the standalone SIEM window every 10 seconds. The Database window
+is query-driven and refreshes when a category, the Refresh
 button, or the optional SQL statement is run.
 
 ## Configuration

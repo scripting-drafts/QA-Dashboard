@@ -1,5 +1,5 @@
 # QA Dashboard
-Electron dashboard for **QA Sentinels** and **QA SIEM**.
+Electron dashboard for **QA Sentinels**, with **QA SIEM** as a standalone module.
 Linux, Windows, and macOS releases use this Electron core with a TaiG-inspired teal interface that follows the desktop light/dark setting, including the favourite icon.
 Use the **QA Dashboard** favourite or standalone launcher to open the compact Overview.
 Module launchers in the applications menu open QA Sentinels or SIEM directly.
