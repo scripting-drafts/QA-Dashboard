@@ -695,6 +695,7 @@ select {
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
+.sen-tabs button[hidden] { display: none; }
 .sen-tab-panel[hidden] { display: none; }
 
 .database-layout {

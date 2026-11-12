@@ -134,6 +134,7 @@ function setSenTab(tab, load = true) {
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
   });
+  $("#sen-tab-overview").hidden = senTab === "tickets";
   $("#sen-panel-overview").hidden = senTab !== "overview";
   $("#sen-panel-tickets").hidden = senTab !== "tickets";
   const title = senTab === "tickets"
