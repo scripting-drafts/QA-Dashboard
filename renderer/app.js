@@ -149,6 +149,8 @@ function setSenTab(tab, load = true) {
     overviewTab.hidden = senTab === "tickets";
     ticketsTab.hidden = false;
   }
+  $("#findings-refresh").hidden = senPane !== "tickets";
+  $("#findings-open-folder").hidden = senPane !== "tickets";
   $("#sen-overview-logs").hidden = senPane === "tickets";
   $("#sen-overview-rules").hidden = senPane === "overview";
   $("#sen-panel-overview").hidden = senTab !== "overview";
