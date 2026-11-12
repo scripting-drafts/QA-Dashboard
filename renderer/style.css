@@ -144,7 +144,8 @@ body.overview-mode .topbar h2 { font-size: 28px; }
 body.overview-mode .top-actions { display: none; }
 body[data-module="sentinels"] #settings,
 body[data-module="logs"] #settings,
-body[data-module="rules"] #settings { display: none; }
+body[data-module="rules"] #settings,
+body[data-pane="tickets"] #settings { display: none; }
 body[data-module="rules"] .top-actions { display: none; }
 
 .logs-panel { margin-bottom: 0; }

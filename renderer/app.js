@@ -1451,6 +1451,7 @@ async function init() {
       ? (initialTab === "tickets" ? "tickets" : "overview") : "";
   }
   senPane = initialPane;
+  document.body.dataset.pane = senPane;
   setView(initial);
   try {
     config = await window.qa.getConfig();
