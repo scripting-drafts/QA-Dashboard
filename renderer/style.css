@@ -468,11 +468,6 @@ button.ghost:hover {
   line-height: 1.45;
 }
 
-.record-console {
-  min-height: 300px;
-  max-height: calc(100vh - 220px);
-}
-
 .path-row {
   display: flex;
   gap: 8px;
@@ -536,39 +531,6 @@ button.ghost:hover {
   gap: 7px;
   max-height: 330px;
   overflow: auto;
-}
-
-.siem-columns .row {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  flex: 0 0 78px;
-  height: 78px;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.siem-columns .row-detail {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.siem-columns .row.open {
-  flex-basis: auto;
-  height: auto;
-  overflow: visible;
-}
-
-.siem-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  align-items: start;
-}
-
-@media (max-width: 860px) {
-  .siem-columns { grid-template-columns: minmax(0, 1fr); }
 }
 
 .bucket-columns {
@@ -1173,8 +1135,6 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; mar
 
 .topbar { position: relative; }
 body[data-module="logs"] .status-pill { display: none; }
-body[data-module="record"] .status-pill,
-body[data-module="record"] #settings { display: none; }
 .topbar-title .brand-mark {
   color: #ddffff;
   filter: drop-shadow(0 0 9px rgba(72, 216, 226, 0.24));
