@@ -46,9 +46,10 @@ Category presets remain available to the CLI only. The newest cycle with new
 findings is loaded silently to mark NEW rows; full cycle summaries remain in
 the Runs category. The QA Sentinels engine enforces the read-only rule and row
 limit; the dashboard only builds an argument vector and never opens the
-database itself. The Overview window contains the status grid and the ticket
-board as tabs; it is opened from the QA Dashboard Overview card. The Database
-window exposes the table sidebar, filters, SQL box, and result panels. A cycle runs
+database itself. The QA Sentinels Overview window contains the status grid
+and is opened from the QA Sentinels card. The separate Tickets window contains
+the ticket board and is opened from the Tickets card. The Database window
+exposes the table sidebar, filters, SQL box, and result panels. A cycle runs
 automatically only as a fallback: when the installed Sentinel systemd timer or
 user cron block is absent, `sentinelsCycleMinutes` (10 minutes by default)
 drives it. When a Sentinel scheduler is present, that scheduler owns the cycle.

@@ -10,8 +10,8 @@ const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set([
-  "overview", "sentinels", "sen-overview", "findings", "logs",
-  "siem", "record",
+  "overview", "sentinels", "sen-overview", "tickets", "findings",
+  "logs", "siem", "record",
 ]);
 const APP_ICON_LIGHT = path.join(
   __dirname, "..", "assets", "qa-dashboard-light-256.png");
@@ -22,6 +22,7 @@ const WINDOW_TITLES = {
   overview: "QA Dashboard",
   sentinels: "QA Sentinels Database",
   "sen-overview": "QA Sentinels Overview",
+  tickets: "QA Sentinels Tickets",
   logs: "QA Sentinels Logs",
   siem: "QA SIEM",
   record: "SIEM Record",
@@ -31,6 +32,7 @@ const WINDOW_SIZES = {
   overview: { width: 980, height: 640 },
   sentinels: { width: 1180, height: 820 },
   "sen-overview": { width: 1180, height: 820 },
+  tickets: { width: 1180, height: 820 },
   logs: { width: 980, height: 680 },
   siem: { width: 1080, height: 820 },
   record: { width: 900, height: 720 },
@@ -101,11 +103,11 @@ function parseArgs(argv) {
 
 function normalizeModule(module, tab = "") {
   let name = MODULES.has(module) ? module : "overview";
-  if (name === "findings") {
-    return { module: "sen-overview", tab: tab || "tickets" };
+  if (name === "findings" || name === "tickets") {
+    return { module: "tickets", tab: "tickets" };
   }
   if (name === "sen-overview") {
-    return { module: name, tab: tab === "tickets" ? "tickets" : "overview" };
+    return { module: "sen-overview", tab: "overview" };
   }
   return { module: name, tab: "" };
 }
@@ -148,9 +150,14 @@ function createWindow(module = "overview", show = true, tab = "") {
       sandbox: true,
     },
   });
+  const renderModule = module === "tickets" ? "sen-overview" : module;
+  const renderTab = module === "tickets" ? "tickets" : tab;
+  const pane = module === "tickets"
+    ? "tickets" : (module === "sen-overview" ? "overview" : "");
   const url = pathToFileURL(path.join(__dirname, "..", "renderer", "index.html"));
-  url.searchParams.set("module", module);
-  if (tab) url.searchParams.set("tab", tab);
+  url.searchParams.set("module", renderModule);
+  if (renderTab) url.searchParams.set("tab", renderTab);
+  if (pane) url.searchParams.set("pane", pane);
   window.loadURL(url.toString());
   window.once("ready-to-show", () => {
     if (show) window.show();

@@ -34,6 +34,7 @@ let currentView = "overview";
 let sentinelsBusy = false;
 let sentinelsAction = "";
 let senTab = "overview";
+let senPane = "";
 let queryBusy = false;
 let queryLast = { categories: ["findings"], filters: {} };
 let queryResults = [];
@@ -128,13 +129,26 @@ function setView(view) {
 }
 
 function setSenTab(tab, load = true) {
+  if (senPane === "tickets") tab = "tickets";
+  else if (senPane === "overview") tab = "overview";
   senTab = tab === "tickets" ? "tickets" : "overview";
   $$("[data-sen-tab]").forEach((button) => {
     const active = button.dataset.senTab === senTab;
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
   });
-  $("#sen-tab-overview").hidden = senTab === "tickets";
+  const overviewTab = $("#sen-tab-overview");
+  const ticketsTab = $("#sen-tab-tickets");
+  if (senPane === "tickets") {
+    overviewTab.hidden = true;
+    ticketsTab.hidden = false;
+  } else if (senPane === "overview") {
+    overviewTab.hidden = false;
+    ticketsTab.hidden = true;
+  } else {
+    overviewTab.hidden = senTab === "tickets";
+    ticketsTab.hidden = false;
+  }
   $("#sen-panel-overview").hidden = senTab !== "overview";
   $("#sen-panel-tickets").hidden = senTab !== "tickets";
   const title = senTab === "tickets"
@@ -1423,6 +1437,12 @@ async function init() {
     initial = "sen-overview";
     initialTab = "tickets";
   }
+  let initialPane = params.get("pane") || "";
+  if (initialPane !== "tickets" && initialPane !== "overview") {
+    initialPane = initial === "sen-overview"
+      ? (initialTab === "tickets" ? "tickets" : "overview") : "";
+  }
+  senPane = initialPane;
   setView(initial);
   try {
     config = await window.qa.getConfig();
@@ -1444,9 +1464,7 @@ async function init() {
     loadLatestCycle();
     runCategoryView([], true);
   } else if (initial === "sen-overview") {
-    setSenTab(initialTab || "overview", false);
-    loadSentinelsStatus();
-    if (initialTab === "tickets") loadFindings();
+    setSenTab(initialTab || "overview");
   } else if (initial === "siem") {
     loadSiem();
   } else if (initial === "record") {
