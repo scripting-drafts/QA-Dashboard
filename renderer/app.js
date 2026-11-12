@@ -1304,6 +1304,12 @@ function bind() {
     $("#query-sql").value = `SELECT * FROM "${escaped}" LIMIT ${limit}`;
     runQuerySql();
   });
+  $("#database-sidebar-toggle").addEventListener("click", () => {
+    const open = document.body.classList.toggle("database-sidebar-open");
+    const button = $("#database-sidebar-toggle");
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+    button.textContent = open ? "Hide tables" : "Tables";
+  });
   $("#query-run").addEventListener("click", runQuerySql);
   $("#query-refresh").addEventListener("click", refreshQuery);
   $("#query-clear").addEventListener("click", clearQuerySql);

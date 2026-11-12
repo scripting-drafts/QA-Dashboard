@@ -701,9 +701,13 @@ select {
 
 .database-layout {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+body.database-sidebar-open .database-layout {
+  grid-template-columns: 250px minmax(0, 1fr);
 }
 
 .database-layout .panel { margin-bottom: 0; }
@@ -711,11 +715,13 @@ select {
 .database-sidebar {
   position: sticky;
   top: 18px;
-  display: flex;
+  display: none;
   flex-direction: column;
   max-height: calc(100vh - 120px);
   padding: 14px;
 }
+
+body.database-sidebar-open .database-sidebar { display: flex; }
 
 .schema-list {
   display: flex;
@@ -766,7 +772,10 @@ select {
 }
 
 @media (max-width: 1000px) {
-  .database-layout { grid-template-columns: minmax(0, 1fr); }
+  .database-layout,
+  body.database-sidebar-open .database-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .database-sidebar { position: static; max-height: none; }
   .schema-list { max-height: 240px; }
 }
