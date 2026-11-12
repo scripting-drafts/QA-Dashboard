@@ -2,8 +2,6 @@
 
 QA Dashboard is an Electron application with a narrow IPC boundary. The
 dashboard only invokes the Sentinels CLI; it never opens the database itself.
-QA SIEM is a separate standalone project and is out of scope for this
-application.
 
 ## Process boundaries
 
@@ -67,16 +65,12 @@ The Rules button opens `renderer/rules.html` and the Documentation button opens
 `renderer/docs.html`; both are standalone documents in the system browser rather
 than application windows.
 
-QA SIEM is not part of this application. It remains a separate standalone
-program with its own repository, service, API, and web dashboard.
-
 ## Launchers and single instance
 
 There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
 Overview and is also the desktop favourite; `install.sh` migrates an existing
 QA Sentinels favourite to it. The per-app `.desktop` file calls
-`qa-dashboard --module=sentinels` for the standalone Database window. There is
-no SIEM launcher or SIEM window in this application.
+`qa-dashboard --module=sentinels` for the standalone Database window.
 
 All launches share one Electron instance. A second launch forwards its module
 argument to the running process; an existing window is restored and focused,
@@ -106,7 +100,6 @@ button, or the optional SQL statement is run.
 
 `~/.config/qa-dashboard/config.json` stores Sentinel command overrides,
 repository roots, and the fallback cycle interval. It is written mode `0600`.
-No SIEM credentials or endpoints are stored by this application.
 
 ## Testing
 

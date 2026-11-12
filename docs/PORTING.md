@@ -12,7 +12,7 @@ Electron core is shared; only shell integration is platform-specific.
 - `assets/qa-dashboard-*`: shared brush-enso brand mark, launcher icon, and PNGs.
 
 Keep module names, window sizes, and single-instance behavior unchanged across
-platforms. QA SIEM is a separate project and is not part of this core.
+platforms.
 
 ## Linux (this branch)
 

@@ -55,7 +55,6 @@ rm -rf "$LIB" "$DOC"
 rm -f "$PREFIX/bin/qa-desktop" "$PREFIX/bin/qa-desktop-tray"
 rm -rf "$PREFIX/lib/qa-desktop" "$PREFIX/share/doc/qa-desktop"
 rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
-      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg" \
       "$ICONS/scalable/apps/qa-dashboard.svg" \
       "$ICONS/256x256/apps/qa-dashboard.png" \
       "$ICONS/512x512/apps/qa-dashboard.png" \
@@ -68,7 +67,7 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 rm -f "$AUTOSTART/qa-dashboard-tray.desktop" \
       "$AUTOSTART/qa-desktop-tray.desktop"
-for file in qa-desktop qa-dashboard qa-sentinels qa-malware-scan qa-siem; do
+for file in qa-desktop qa-dashboard qa-sentinels; do
     rm -f "$APPS/$file.desktop"
 done
 if command -v update-desktop-database >/dev/null 2>&1; then

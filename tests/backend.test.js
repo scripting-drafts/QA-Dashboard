@@ -75,8 +75,6 @@ test("config round-trips with private permissions", () => {
   process.env.XDG_CONFIG_HOME = temp;
   try {
     const cfg = backend.loadConfig();
-    assert.equal(Object.hasOwn(backend.DEFAULT_CONFIG, "siemUrl"), false);
-    assert.equal(Object.hasOwn(backend.DEFAULT_CONFIG, "siemTokenFile"), false);
     cfg.sentinelsRoot = root;
     assert.equal(cfg.sentinelsCycleMinutes, "10");
     cfg.sentinelsBin = "/opt/qa";

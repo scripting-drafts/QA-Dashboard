@@ -63,10 +63,8 @@ fi
 # Remove the old GTK/Python launchers and menu entries.
 rm -f "$PREFIX/bin/qa-desktop" "$PREFIX/bin/qa-desktop-tray"
 rm -rf "$PREFIX/lib/qa-desktop" "$PREFIX/share/doc/qa-desktop"
-rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg" \
-      "$PREFIX/share/icons/hicolor/scalable/apps/qa-malware-scan.svg"
-rm -f "$APPS/qa-desktop.desktop" "$APPS/qa-sentinels.desktop" \
-      "$APPS/qa-malware-scan.desktop" "$APPS/qa-siem.desktop"
+rm -f "$PREFIX/share/icons/hicolor/scalable/apps/qa-desktop.svg"
+rm -f "$APPS/qa-desktop.desktop" "$APPS/qa-sentinels.desktop"
 
 write_desktop() {
     local file=$1 title=$2 comment=$3 module=$4 icon=$5
@@ -175,5 +173,4 @@ Installed QA Dashboard to $PREFIX
   dashboard : $APPS/qa-dashboard.desktop
   modules   : QA Sentinels launcher
   no tray   : use the favourite or standalone launchers
-  detached  : QA SIEM is a separate standalone project
 EOF
