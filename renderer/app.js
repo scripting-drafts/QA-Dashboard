@@ -149,6 +149,8 @@ function setSenTab(tab, load = true) {
     overviewTab.hidden = senTab === "tickets";
     ticketsTab.hidden = false;
   }
+  $("#sen-overview-logs").hidden = senPane === "tickets";
+  $("#sen-overview-rules").hidden = senPane === "overview";
   $("#sen-panel-overview").hidden = senTab !== "overview";
   $("#sen-panel-tickets").hidden = senTab !== "tickets";
   const title = senTab === "tickets"
