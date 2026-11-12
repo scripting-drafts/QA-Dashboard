@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self'; img-src 'self' data:;">
+  <title>QA Sentinels Documentation · QA Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-module="docs">
+  <div class="shell">
+    <main>
+      <header class="topbar">
+        <div class="topbar-title">
+          <img class="brand-logo" width="34" height="34" alt=""
+               src="data:image/png;base64,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">
+          <div>
+            <h2>QA Sentinels Documentation</h2>
+            <p>Local monitoring, evidence collection, and ticket preparation.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="view active">
+        <div class="panel">
+          <h3>What QA Sentinels does</h3>
+          <p class="rules-note">
+            QA Sentinels periodically samples the host, examines journal and crash
+            records, and organizes findings into reports and verifiable evidence
+            bundles. When an incident needs closer inspection, it can queue a more
+            privileged tracing run. It correlates repeated failures and prepares
+            vendor bug-report drafts; it never submits tickets automatically.
+          </p>
+        </div>
+
+        <div class="panel">
+          <h3>How it works</h3>
+          <div class="table-wrap">
+            <table class="rules-table">
+              <thead>
+                <tr><th>Component</th><th>Purpose</th><th>Runs when</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="state">Layer 1</td>
+                  <td>Capture CPU, memory, kernel, process, and journal evidence; detect possible incidents.</td>
+                  <td>Every minute via cron or systemd, or manually.</td>
+                </tr>
+                <tr>
+                  <td class="state">Boot analysis</td>
+                  <td>Classify prior boots as <code>CLEAN</code>, <code>UNCLEAN</code>, or <code>UNKNOWN</code>; flag unexplained stops.</td>
+                  <td>During monitoring and analysis.</td>
+                </tr>
+                <tr>
+                  <td class="state">Correlation</td>
+                  <td>Connect recurring signatures to preceding events and prepare vendor ticket drafts.</td>
+                  <td>On demand or through the configured workflow.</td>
+                </tr>
+                <tr>
+                  <td class="state">Layer 2</td>
+                  <td>Collect additional <code>ftrace</code>, <code>perf</code>, and optional eBPF diagnostics for selected findings.</td>
+                  <td>When a deep-trace request is queued or manually invoked.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted rules-note">
+            The core uses a C sampler, the Python 3 standard library, SQLite WAL,
+            and cron or systemd. All collected data stays on this machine.
+          </p>
+        </div>
+
+        <div class="panel">
+          <h3>Common commands</h3>
+          <div class="table-wrap">
+            <table class="rules-table">
+              <thead>
+                <tr><th>Command</th><th>Purpose</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>./bin/qa status</code></td><td>Overall Sentinel status and latest activity.</td></tr>
+                <tr><td><code>./bin/qa cycle</code></td><td>Run one routine monitoring pass.</td></tr>
+                <tr><td><code>./bin/qa findings</code></td><td>List current findings.</td></tr>
+                <tr><td><code>./bin/qa boots</code></td><td>Show recorded boots and unclean stops.</td></tr>
+                <tr><td><code>./bin/qa preflight</code></td><td>Check host support and access.</td></tr>
+                <tr><td><code>./bin/qa logs --follow</code></td><td>Follow live Sentinel activity.</td></tr>
+                <tr><td><code>./bin/qa evidence --reason ticket</code></td><td>Create an evidence bundle for a ticket.</td></tr>
+                <tr><td><code>./bin/qa tickets</code></td><td>Inspect ticket drafts and their buckets.</td></tr>
+                <tr><td><code>./bin/qa query --json ...</code></td><td>Run a read-only JSON query against <code>sentinels.db</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Data locations</h3>
+          <div class="table-wrap">
+            <table class="rules-table">
+              <thead>
+                <tr><th>Path</th><th>Contents</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>~/QA-Sentinels/var/</code></td><td>SQLite database, samples, logs, and runtime state.</td></tr>
+                <tr><td><code>~/QA-Sentinels/journal/</code></td><td>Daily reports, startup reports, and journal notes.</td></tr>
+                <tr><td><code>~/QA-Sentinels/evidence/</code></td><td>Verifiable evidence bundles with hash chains.</td></tr>
+                <tr><td><code>~/QA-Sentinels/tickets/</code></td><td>Draft, raise, rejected, and standby ticket buckets.</td></tr>
+                <tr><td><code>~/QA-Sentinels/triage/</code></td><td>Core-2 triage cases and deep-trace requests.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Ticket workflow</h3>
+          <p class="rules-note">
+            Drafts are generated automatically for each issue grouped by vendor
+            and signature. A draft reaches the raise bucket only when all viability
+            checks pass. Anything else moves to standby or rejected with the
+            failing reason recorded. A human posts tickets to the vendor tracker.
+          </p>
+          <ul class="rules-kinds">
+            <li><strong>raise/</strong> &mdash; passed all checks; ready for human review.</li>
+            <li><strong>standby/</strong> &mdash; a check failed; retained with its reason.</li>
+            <li><strong>rejected/</strong> &mdash; a held or outdated package explains the crash.</li>
+            <li><strong>raised/</strong> &mdash; legacy archive for manually posted tickets.</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h3>Safety and privacy</h3>
+          <ul class="rules-kinds">
+            <li>The Database window runs read-only <code>SELECT</code>, <code>WITH</code>, or <code>EXPLAIN</code> statements only.</li>
+            <li>The dashboard builds an argument vector; QA Sentinels enforces limits and validates SQL.</li>
+            <li>Tickets are never submitted automatically; a human posts them.</li>
+            <li>Captured data remains local. Credentials and token values are never shown in the renderer.</li>
+            <li>Core-2 affinity is retained as diagnostic context for correlated crashes.</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h3>Full documentation</h3>
+          <p class="rules-note">
+            Read the complete project documentation in the
+            <a href="https://github.com/scripting-drafts/QA-Sentinels">QA-Sentinels repository</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

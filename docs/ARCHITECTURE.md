@@ -69,8 +69,9 @@ exposed; SQL is passed as one argv item and validated by the Sentinels process.
 posts to `/api/v1/alerts/ack`. The standalone SIEM window's dashboard button
 opens the web dashboard with `shell.openExternal`.
 
-The Rules button opens `renderer/rules.html` in the system browser; Ticket
-Rules is a standalone document rather than an application window.
+The Rules button opens `renderer/rules.html` and the Documentation button opens
+`renderer/docs.html`; both are standalone documents in the system browser rather
+than application windows.
 
 ## Launchers and single instance
 

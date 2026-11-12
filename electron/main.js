@@ -486,6 +486,13 @@ function registerIpc() {
     return target;
   });
 
+  ipcMain.handle("app:open-docs", async () => {
+    const target = path.join(__dirname, "..", "renderer", "docs.html");
+    const error = await shell.openPath(target);
+    if (error) throw new Error(error);
+    return target;
+  });
+
   ipcMain.handle("app:open-tickets", async () => {
     const found = backend.ticketsRoot();
     if (!found) throw new Error("tickets directory not found");

@@ -152,6 +152,7 @@ function setSenTab(tab, load = true) {
   $("#findings-refresh").hidden = senPane !== "tickets";
   $("#findings-open-folder").hidden = senPane !== "tickets";
   $("#sen-overview-logs").hidden = senPane === "tickets";
+  $("#sen-overview-docs").hidden = senPane === "tickets";
   $("#sen-overview-rules").hidden = senPane === "overview";
   $("#sen-panel-overview").hidden = senTab !== "overview";
   $("#sen-panel-tickets").hidden = senTab !== "tickets";
@@ -1368,6 +1369,13 @@ function bind() {
   $("#sen-overview-rules").addEventListener("click", async () => {
     try {
       await window.qa.openRules();
+    } catch (error) {
+      toast(String(error.message || error), true);
+    }
+  });
+  $("#sen-overview-docs").addEventListener("click", async () => {
+    try {
+      await window.qa.openDocs();
     } catch (error) {
       toast(String(error.message || error), true);
     }

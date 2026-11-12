@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld("qa", {
   pickPath: (kind) => ipcRenderer.invoke("dialog:pick", kind),
   openModule: (module, tab) => ipcRenderer.invoke("app:open", module, tab),
   openRules: () => ipcRenderer.invoke("app:open-rules"),
+  openDocs: () => ipcRenderer.invoke("app:open-docs"),
   openTickets: () => ipcRenderer.invoke("app:open-tickets"),
   tickets: {
     list: () => ipcRenderer.invoke("tickets:list"),
