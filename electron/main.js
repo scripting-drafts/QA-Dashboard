@@ -10,7 +10,8 @@ const backend = require("./backend");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set([
-  "overview", "sentinels", "sen-overview", "tickets", "findings", "logs",
+  "overview", "sentinels", "sen-overview", "tickets", "findings",
+  "logs", "siem", "record",
 ]);
 const APP_ICON_LIGHT = path.join(
   __dirname, "..", "assets", "qa-dashboard-light-256.png");
@@ -23,6 +24,8 @@ const WINDOW_TITLES = {
   "sen-overview": "QA Sentinels Overview",
   tickets: "QA Sentinels Tickets",
   logs: "QA Sentinels Logs",
+  siem: "QA SIEM",
+  record: "SIEM Record",
 };
 
 const WINDOW_SIZES = {
@@ -31,6 +34,8 @@ const WINDOW_SIZES = {
   "sen-overview": { width: 1180, height: 820 },
   tickets: { width: 1180, height: 820 },
   logs: { width: 980, height: 680 },
+  siem: { width: 1080, height: 820 },
+  record: { width: 900, height: 720 },
 };
 
 const windows = new Map();
@@ -48,9 +53,12 @@ let screenshotPath = "";
 let allMinimized = false;
 let lastLaunchAt = 0;
 let sentinelsTimer = null;
+let siemTimer = null;
 let sentinelsCycleTimer = null;
 let sentinelsRefreshing = false;
+let siemRefreshing = false;
 let sentinelsCycleRunning = false;
+let recordPayload = null;
 
 const AUTO_REFRESH_MS = 10000;
 
@@ -157,6 +165,7 @@ function createWindow(module = "overview", show = true, tab = "") {
   window.on("closed", () => {
     windows.delete(module);
     if (module === "sentinels") backend.cancelProcess(activeSentinels);
+    if (module === "record") recordPayload = null;
   });
   window.webContents.setWindowOpenHandler(({ url: target }) => {
     if (/^https?:\/\//i.test(target)) shell.openExternal(target);
@@ -364,6 +373,24 @@ async function autoRefreshSentinels() {
   }
 }
 
+async function autoRefreshSiem() {
+  if (siemRefreshing) return;
+  if (!windows.has("siem")) return;
+  siemRefreshing = true;
+  try {
+    broadcastTo(["siem"], {
+      scope: "siem", type: "snapshot",
+      data: await backend.siemSnapshot(backend.loadConfig()),
+    });
+  } catch (error) {
+    broadcastTo(["siem"], {
+      scope: "siem", type: "snapshot", error: String(error.message || error),
+    });
+  } finally {
+    siemRefreshing = false;
+  }
+}
+
 async function runSentinelsCycle() {
   if (sentinelsCycleRunning || activeSentinels) return;
   const cfg = backend.loadConfig();
@@ -412,14 +439,18 @@ function refreshSentinelsCycleTimer() {
 
 function startAutoRefresh() {
   clearInterval(sentinelsTimer);
+  clearInterval(siemTimer);
   sentinelsTimer = setInterval(autoRefreshSentinels, AUTO_REFRESH_MS);
+  siemTimer = setInterval(autoRefreshSiem, AUTO_REFRESH_MS);
   refreshSentinelsCycleTimer();
 }
 
 function stopAutoRefresh() {
   clearInterval(sentinelsTimer);
+  clearInterval(siemTimer);
   stopSentinelsCycleTimer();
   sentinelsTimer = null;
+  siemTimer = null;
 }
 
 function registerIpc() {
@@ -436,6 +467,7 @@ function registerIpc() {
     restartBackgroundLogs();
     setTimeout(() => {
       autoRefreshSentinels();
+      autoRefreshSiem();
     }, 0);
     return backend.configView(backend.loadConfig());
   });
@@ -479,6 +511,24 @@ function registerIpc() {
     if (error) throw new Error(error);
     return { path: pathToOpen, ticketMd: Boolean(target.file) };
   });
+
+  ipcMain.handle("record:open", (_event, record) => {
+    let text = "";
+    try {
+      text = JSON.stringify(record);
+    } catch (_error) {
+      throw new Error("invalid record");
+    }
+    if (!text || text.length > 1024 * 1024) throw new Error("invalid record");
+    recordPayload = JSON.parse(text);
+    const window = showWindow("record");
+    window.webContents.send("event", {
+      scope: "record", type: "show", data: recordPayload,
+    });
+    return true;
+  });
+
+  ipcMain.handle("record:get", () => recordPayload);
 
   ipcMain.handle("app:version", () => app.getVersion());
 
@@ -543,6 +593,21 @@ function registerIpc() {
   });
 
   ipcMain.handle("sentinels:stopLogs", () => true);
+
+  ipcMain.handle("siem:refresh", async () => backend.siemSnapshot(backend.loadConfig()));
+  ipcMain.handle("siem:ack", async (_event, id) => {
+    const numeric = Number(id);
+    if (!Number.isInteger(numeric) || numeric <= 0) {
+      throw new Error("invalid alert id");
+    }
+    await backend.siemAck(backend.loadConfig(), numeric);
+    return true;
+  });
+  ipcMain.handle("siem:open", async () => {
+    const cfg = backend.loadConfig();
+    await shell.openExternal(cfg.siemUrl.replace(/\/+$/, "") + "/");
+    return true;
+  });
 
   ipcMain.handle("dialog:pick", async (_event, kind) => {
     const parent = BrowserWindow.getFocusedWindow()

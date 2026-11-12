@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
@@ -75,14 +76,14 @@ test("config round-trips with private permissions", () => {
   process.env.XDG_CONFIG_HOME = temp;
   try {
     const cfg = backend.loadConfig();
-    assert.equal(Object.hasOwn(backend.DEFAULT_CONFIG, "siemUrl"), false);
-    assert.equal(Object.hasOwn(backend.DEFAULT_CONFIG, "siemTokenFile"), false);
     cfg.sentinelsRoot = root;
     assert.equal(cfg.sentinelsCycleMinutes, "10");
+    cfg.siemUrl = "http://127.0.0.1:9999/";
     cfg.sentinelsBin = "/opt/qa";
     cfg.sentinelsCycleMinutes = "2";
     backend.saveConfig(cfg);
     const loaded = backend.loadConfig();
+    assert.equal(loaded.siemUrl, "http://127.0.0.1:9999");
     assert.equal(loaded.sentinelsBin, "/opt/qa");
     assert.equal(loaded.sentinelsCycleMinutes, "2");
     const mode = fs.statSync(backend.configPath()).mode & 0o777;
@@ -174,6 +175,38 @@ test("sentinels settings mirror to the engine root", () => {
     if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
     else process.env.XDG_CONFIG_HOME = previous;
     fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("HTTP client handles auth and errors", async () => {
+  const server = http.createServer((request, response) => {
+    if (request.url === "/healthz") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ status: "ok" }));
+      return;
+    }
+    if (request.headers.authorization !== "Bearer secret") {
+      response.statusCode = 401;
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ ok: true }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    assert.deepEqual(await backend.httpJson(base, "/healthz"), { status: "ok" });
+    assert.deepEqual(await backend.httpJson(base, "/api/v1/stats", "secret"),
+      { ok: true });
+    await assert.rejects(
+      backend.httpJson(base, "/api/v1/stats", "wrong"),
+      /unauthorized/,
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
   }
 });
 

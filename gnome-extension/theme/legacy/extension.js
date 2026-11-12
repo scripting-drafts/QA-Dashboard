@@ -6,6 +6,7 @@ const Main = imports.ui.main;
 const APP_IDS = [
     "qa-dashboard.desktop",
     "qa-sentinels.desktop",
+    "qa-siem.desktop",
 ];
 let settings = null;
 let settingsSignal = 0;

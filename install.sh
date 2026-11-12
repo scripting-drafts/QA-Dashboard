@@ -89,6 +89,8 @@ write_desktop qa-dashboard "QA Dashboard" \
     "Local QA operations dashboard" "overview" "qa-dashboard"
 write_desktop qa-sentinels "QA Sentinels" \
     "Evidence collection and failure correlation" "sentinels" "qa-dashboard"
+write_desktop qa-siem "QA SIEM" \
+    "Local QA SIEM dashboard and alerts" "siem" "qa-dashboard"
 
 # Remove the former GNOME top-bar icon and tray autostart.
 if command -v gnome-extensions >/dev/null 2>&1; then
@@ -173,7 +175,6 @@ fi
 cat <<EOF
 Installed QA Dashboard to $PREFIX
   dashboard : $APPS/qa-dashboard.desktop
-  modules   : QA Sentinels launcher
+  modules   : QA Sentinels, QA SIEM launchers
   no tray   : use the favourite or standalone launchers
-  detached  : QA SIEM is a separate standalone project
 EOF

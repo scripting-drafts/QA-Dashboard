@@ -219,6 +219,34 @@
 
 
 
+      <section id="view-siem" class="view">
+        <div class="toolbar">
+          <button id="siem-open">Open dashboard</button>
+        </div>
+        <div id="siem-status" class="status-grid">
+          <p class="muted">Connect to read SIEM state.</p>
+        </div>
+        <div class="siem-columns">
+          <div class="panel">
+            <h3>Recent events</h3>
+            <div id="siem-events" class="list"><p class="muted">No events loaded.</p></div>
+          </div>
+          <div class="panel">
+            <h3>Open alerts</h3>
+            <div id="siem-alerts" class="list"><p class="muted">No alerts loaded.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-record" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <h3 id="record-title">SIEM record</h3>
+            <span id="record-subtitle" class="muted mono"></span>
+          </div>
+          <pre id="record-json" class="console record-console"></pre>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -236,6 +264,8 @@
       <label data-settings-module="sentinels">Samples retention (days) <input id="set-sen-samples-days" type="text" inputmode="numeric" placeholder="0"></label>
       <label data-settings-module="sentinels">proc_snap retention (days) <input id="set-sen-proc-days" type="text" inputmode="numeric" placeholder="0"></label>
       <label data-settings-module="sentinels">Inventory retention (days) <input id="set-sen-inventory-days" type="text" inputmode="numeric" placeholder="0"></label>
+      <label data-settings-module="siem">SIEM URL <input id="set-siem-url" type="text"></label>
+      <label data-settings-module="siem">SIEM token file <input id="set-siem-token" type="text"></label>
       <div class="dialog-actions">
         <button id="settings-cancel" type="button">Cancel</button>
         <button id="settings-save" type="button">Save</button>

@@ -8,10 +8,13 @@ const TITLES = {
   sentinels: ["QA Sentinels Database", "Read-only sentinels.db query engine with filters and SQL."],
   "sen-overview": ["QA Sentinels Overview", "Status, scheduling and live sentinel state."],
   logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
+  siem: ["SIEM", "Click an alert or event for a preview; double-click for the full record."],
+  record: ["SIEM Record", "Full alert or event record."],
 };
 
 const SETTINGS_TITLES = {
   sentinels: "QA Sentinels settings",
+  siem: "SIEM settings",
 };
 
 const SENTINEL_KEYS = [
@@ -41,6 +44,7 @@ let logsReady = false;
 let logsLastSeq = 0;
 let logsPending = [];
 let settingsModule = "";
+const expandedSiemRows = new Set();
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -986,6 +990,237 @@ async function startSentinelLogs() {
   }
 }
 
+function severityBadge(severity) {
+  const value = String(severity || "info").toLowerCase();
+  const badge = document.createElement("span");
+  badge.className = `badge badge-${value === "critical" || value === "error"
+    ? "infected" : value === "warning" ? "suspicious" : "clean"}`;
+  badge.textContent = value;
+  return badge;
+}
+
+function renderSiemStatus(data) {
+  const health = data.health || {};
+  const stats = data.stats || {};
+  const entries = [
+    ["service", data.service || "unknown"],
+    ["health", health.status || "unknown"],
+    ["version", health.version || "-"],
+    ["uptime", formatUptime(health.uptime_s)],
+    ["events", stats.events ?? "-"],
+    ["open alerts", stats.alerts_open ?? "-"],
+    ["alerts total", stats.alerts_total ?? "-"],
+    ["hosts", stats.hosts ?? "-"],
+    ["last event", stats.last_event_ts || "-"],
+  ];
+  statusGrid($("#siem-status"), entries);
+  if (data.error) {
+    setConnection("error", "SIEM issue");
+  } else {
+    setConnection("ok", "SIEM connected");
+  }
+}
+
+function formatUptime(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return "-";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${minutes}m`;
+}
+
+function makeRowClickable(row, record, key, onOpen) {
+  row.classList.add("row-clickable");
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
+  row.setAttribute("aria-expanded", "false");
+  row.title = onOpen
+    ? "Click for preview; double-click for the full record"
+    : "Click for preview";
+  const head = row.querySelector(".row-head");
+  const toggle = document.createElement("span");
+  toggle.className = "row-toggle";
+  toggle.textContent = "\u25b8";
+  toggle.setAttribute("aria-hidden", "true");
+  const button = head.querySelector("button");
+  if (button) head.insertBefore(toggle, button);
+  else head.append(toggle);
+  let body = null;
+  let clickTimer = null;
+  const collapse = () => {
+    if (!body) return;
+    body.remove();
+    body = null;
+    row.classList.remove("open");
+    row.setAttribute("aria-expanded", "false");
+  };
+  const expand = () => {
+    if (body) return;
+    body = document.createElement("pre");
+    body.className = "row-json";
+    body.textContent = JSON.stringify(record, null, 2);
+    row.append(body);
+    row.classList.add("open");
+    row.setAttribute("aria-expanded", "true");
+  };
+  const activate = () => {
+    if (body) {
+      expandedSiemRows.delete(key);
+      collapse();
+      return;
+    }
+    expandedSiemRows.add(key);
+    expand();
+  };
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    if (event.detail > 1) return;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(activate, CLICK_DELAY);
+  });
+  row.addEventListener("dblclick", (event) => {
+    if (event.target.closest("button")) return;
+    event.preventDefault();
+    clearTimeout(clickTimer);
+    onOpen?.();
+  });
+  row.addEventListener("keydown", (event) => {
+    if (event.target !== row) return;
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && onOpen) {
+      event.preventDefault();
+      onOpen();
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activate();
+    }
+  });
+  if (expandedSiemRows.has(key)) expand();
+}
+
+function renderAlerts(alerts) {
+  const node = $("#siem-alerts");
+  clear(node);
+  if (!alerts.length) {
+    node.append(muted("No open alerts."));
+    return;
+  }
+  for (const alert of alerts) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const head = document.createElement("div");
+    head.className = "row-head";
+    head.append(severityBadge(alert.severity));
+    const title = document.createElement("span");
+    title.className = "row-title";
+    title.textContent = alert.rule || "alert";
+    head.append(title);
+    const time = document.createElement("span");
+    time.className = "muted mono";
+    time.textContent = alert.last_seen || "";
+    head.append(time);
+    const ack = document.createElement("button");
+    ack.textContent = "Ack";
+    ack.addEventListener("click", async () => {
+      try {
+        await window.qa.siem.ack(alert.id);
+        toast(`Alert ${alert.id} acknowledged.`);
+        loadSiem();
+      } catch (error) {
+        toast(String(error.message || error), true);
+      }
+    });
+    head.append(ack);
+    const detail = document.createElement("div");
+    detail.className = "row-detail";
+    detail.textContent = `host ${alert.host_id ?? "-"} · count ${alert.count ?? "-"}`;
+    row.append(head, detail);
+    makeRowClickable(row, alert, `alert:${alert.id}`, () => openRecord(alert));
+    node.append(row);
+  }
+}
+
+function renderEvents(events) {
+  const node = $("#siem-events");
+  clear(node);
+  if (!events.length) {
+    node.append(muted("No recent events."));
+    return;
+  }
+  for (const event of events) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const head = document.createElement("div");
+    head.className = "row-head";
+    head.append(severityBadge(event.severity));
+    const title = document.createElement("span");
+    title.className = "row-title";
+    title.textContent = event.event_type || "event";
+    head.append(title);
+    const time = document.createElement("span");
+    time.className = "muted mono";
+    time.textContent = event.ts || "";
+    head.append(time);
+    const detail = document.createElement("div");
+    detail.className = "row-detail";
+    detail.textContent = `${event.rule ?? "-"} · host ${event.host_id ?? "-"} · ${event.subject || event.detail || ""}`;
+    row.append(head, detail);
+    makeRowClickable(row, event, `event:${event.id}`, () => openRecord(event));
+    node.append(row);
+  }
+}
+
+function renderSiemSnapshot(data) {
+  renderSiemStatus(data);
+  renderAlerts(Array.isArray(data.alerts) ? data.alerts : []);
+  renderEvents(Array.isArray(data.events) ? data.events : []);
+}
+
+async function loadSiem() {
+  try {
+    renderSiemSnapshot(await window.qa.siem.refresh());
+  } catch (error) {
+    setConnection("error", "SIEM unavailable");
+    toast(String(error.message || error), true);
+  }
+}
+
+async function openRecord(record) {
+  try {
+    await window.qa.record.open(record);
+  } catch (error) {
+    toast(String(error.message || error), true);
+  }
+}
+
+function renderRecord(record) {
+  const output = $("#record-json");
+  if (!output) return;
+  if (!record) {
+    output.textContent = "No record selected.";
+    $("#record-title").textContent = "SIEM record";
+    $("#record-subtitle").textContent = "";
+    return;
+  }
+  const label = record.event_type ? "Event" : "Alert";
+  const heading = `${label}${record.id != null ? ` #${record.id}` : ""}`;
+  output.textContent = JSON.stringify(record, null, 2);
+  $("#record-title").textContent = heading;
+  $("#record-subtitle").textContent = [
+    record.severity, record.rule, record.last_seen || record.ts,
+  ].filter(Boolean).join(" · ");
+  document.title = `${heading} · ${record.rule || label}`;
+}
+
+async function loadRecord() {
+  try {
+    renderRecord(await window.qa.record.get());
+  } catch (error) {
+    toast(String(error.message || error), true);
+  }
+}
+
 function fillSettings(view) {
   if (!view) return;
   $("#set-sentinels-bin").value = view.sentinelsBin || "";
@@ -998,6 +1233,8 @@ function fillSettings(view) {
   $("#set-sen-samples-days").value = view.sentinelsSamplesRetentionDays || "0";
   $("#set-sen-proc-days").value = view.sentinelsProcRetentionDays || "0";
   $("#set-sen-inventory-days").value = view.sentinelsInventoryRetentionDays || "0";
+  $("#set-siem-url").value = view.siemUrl || "";
+  $("#set-siem-token").value = view.siemTokenFile || "";
   $$("[data-settings-module]").forEach((label) => {
     label.hidden = label.dataset.settingsModule !== settingsModule;
   });
@@ -1030,6 +1267,9 @@ async function saveSettings(event) {
     payload.sentinelsSamplesRetentionDays = $("#set-sen-samples-days").value;
     payload.sentinelsProcRetentionDays = $("#set-sen-proc-days").value;
     payload.sentinelsInventoryRetentionDays = $("#set-sen-inventory-days").value;
+  } else if (settingsModule === "siem") {
+    payload.siemUrl = $("#set-siem-url").value;
+    payload.siemTokenFile = $("#set-siem-token").value;
   } else {
     return;
   }
@@ -1146,6 +1386,20 @@ function bind() {
   $("#findings-refresh").addEventListener("click", loadFindings);
   $("#findings-open-folder").addEventListener("click", openTicketsFolder);
 
+  $("#siem-open").addEventListener("click", async () => {
+    try { await window.qa.siem.open(); } catch (error) {
+      toast(String(error.message || error), true);
+    }
+  });
+  $("#siem-alerts").addEventListener("wheel", (event) => {
+    const node = event.currentTarget;
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX) &&
+        node.scrollWidth > node.clientWidth) {
+      node.scrollLeft += event.deltaY;
+      event.preventDefault();
+    }
+  }, { passive: false });
+
   window.qa.onEvent((payload) => {
     if (payload.scope === "sen-tabs" && payload.type === "select") {
       setSenTab(payload.tab);
@@ -1178,6 +1432,17 @@ function bind() {
         if (currentView === "sentinels") refreshQuery();
       }
     }
+    if (payload.scope === "siem" && payload.type === "snapshot" &&
+        currentView === "siem") {
+      if (payload.error) {
+        setConnection("error", "SIEM unavailable");
+      } else {
+        renderSiemSnapshot(payload.data);
+      }
+    }
+    if (payload.scope === "record" && payload.type === "show") {
+      renderRecord(payload.data);
+    }
   });
 }
 
@@ -1185,7 +1450,6 @@ async function init() {
   bind();
   const params = new URLSearchParams(location.search);
   let initial = params.get("module") || "overview";
-  if (!TITLES[initial]) initial = "overview";
   let initialTab = params.get("tab") || "";
   if (initial === "findings") {
     initial = "sen-overview";
@@ -1220,6 +1484,10 @@ async function init() {
     runCategoryView([], true);
   } else if (initial === "sen-overview") {
     setSenTab(initialTab || "overview");
+  } else if (initial === "siem") {
+    loadSiem();
+  } else if (initial === "record") {
+    loadRecord();
   } else if (initial === "logs") {
     startSentinelLogs();
   }

@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { execFileSync, spawn } = require("node:child_process");
+const { execFile, execFileSync, spawn } = require("node:child_process");
 const readline = require("node:readline");
 
 const SENTINELS_SETTING_KEYS = {
@@ -40,12 +40,15 @@ const SENTINELS_SETTING_KEYS = {
 const DEFAULT_CONFIG = {
   sentinelsBin: "",
   sentinelsRoot: "",
+  siemUrl: "http://127.0.0.1:8088",
+  siemTokenFile: "",
   sentinelsCycleMinutes: "10",
 };
 for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
   DEFAULT_CONFIG[key] = spec.default;
 }
 
+const MAX_HTTP_BODY = 8 * 1024 * 1024;
 const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
 const QUERY_CATEGORIES = [
   "inbox", "errors", "findings", "cycles", "new-findings", "events", "crashes",
@@ -160,6 +163,7 @@ function loadConfig() {
   } catch (_error) {
     // Missing or invalid configuration falls back to defaults.
   }
+  cfg.siemUrl = (cfg.siemUrl || DEFAULT_CONFIG.siemUrl).replace(/\/+$/, "");
   Object.assign(cfg, loadSentinelsSettings(cfg));
   return cfg;
 }
@@ -173,6 +177,7 @@ function saveConfig(cfg) {
     payload[key] = typeof cfg[key] === "string" ? cfg[key].trim() : "";
   }
   Object.assign(payload, normalized);
+  if (!payload.siemUrl) payload.siemUrl = DEFAULT_CONFIG.siemUrl;
   const tmp = `${target}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2) + "\n", { mode: 0o600 });
   fs.renameSync(tmp, target);
@@ -358,6 +363,30 @@ function ticketPath(root, bucket, name) {
   return { dir: ticketDir, file: "" };
 }
 
+function resolveSiemTokenFile(cfg) {
+  const configured = expand(cfg.siemTokenFile);
+  if (configured) return configured;
+  const envFile = expand(process.env.QA_SIEM_TOKEN_FILE || "");
+  if (envFile) return envFile;
+  for (const candidate of [
+    "/etc/qa-siem/token",
+    path.join(os.homedir(), ".config", "qa-siem", "token"),
+  ]) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return "/etc/qa-siem/token";
+}
+
+function readToken(file) {
+  if (!file) return "";
+  try {
+    const token = fs.readFileSync(file, "utf8").trim();
+    return token.length > 0 && token.length <= 4096 ? token : "";
+  } catch (_error) {
+    return "";
+  }
+}
+
 function configView(cfg) {
   return {
     ...cfg,
@@ -365,6 +394,8 @@ function configView(cfg) {
       sentinelsBin: resolveSentinelsBin(cfg),
       sentinelsRoot: resolveSentinelsRoot(cfg),
       sentinelsSettings: sentinelsSettingsPath(cfg),
+      siemTokenFile: resolveSiemTokenFile(cfg),
+      siemTokenAvailable: Boolean(readToken(resolveSiemTokenFile(cfg))),
     },
   };
 }
@@ -517,17 +548,114 @@ function parseStatus(text) {
   return values;
 }
 
+async function httpJson(baseUrl, requestPath, token = "", options = {}) {
+  const base = String(baseUrl || "").replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(base)) {
+    throw new Error("SIEM URL must start with http:// or https://");
+  }
+  const url = `${base}/${String(requestPath || "").replace(/^\/+/, "")}`;
+  const headers = { Accept: "application/json" };
+  let body;
+  if (options.payload !== undefined) {
+    body = JSON.stringify(options.payload);
+    headers["Content-Type"] = "application/json";
+  }
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(), options.timeout || 5000);
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    if (text.length > MAX_HTTP_BODY) {
+      throw new Error("SIEM response exceeded the size limit");
+    }
+    let parsed = null;
+    try { parsed = text ? JSON.parse(text) : null; } catch (_error) { /* below */ }
+    if (!response.ok) {
+      const message = parsed && parsed.error
+        ? String(parsed.error) : `HTTP ${response.status}`;
+      throw new Error(message);
+    }
+    return parsed;
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("SIEM request timed out");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function serviceState() {
+  return new Promise((resolve) => {
+    execFile("systemctl", ["is-active", "qa-siem.service"],
+      { timeout: 3000 }, (error, stdout, stderr) => {
+        const value = String(stdout || stderr || "").trim();
+        resolve(value || (error ? "unknown" : "inactive"));
+      });
+  });
+}
+
+async function siemSnapshot(cfg) {
+  const tokenFile = resolveSiemTokenFile(cfg);
+  const token = readToken(tokenFile);
+  const result = {
+    health: null,
+    stats: null,
+    alerts: [],
+    events: [],
+    service: await serviceState(),
+    error: "",
+    tokenAvailable: Boolean(token),
+  };
+  try {
+    result.health = await httpJson(cfg.siemUrl, "/healthz", "", { timeout: 3000 });
+  } catch (error) {
+    result.error = String(error.message || error);
+  }
+  if (token) {
+    try {
+      result.stats = await httpJson(cfg.siemUrl, "/api/v1/stats", token);
+      result.alerts = await httpJson(
+        cfg.siemUrl, "/api/v1/alerts?status=open&limit=50", token);
+      result.events = await httpJson(
+        cfg.siemUrl, "/api/v1/events?limit=50", token);
+    } catch (error) {
+      result.error = String(error.message || error);
+    }
+  } else if (!result.error) {
+    result.error = "No bearer token available.";
+  }
+  return result;
+}
+
+async function siemAck(cfg, id) {
+  const token = readToken(resolveSiemTokenFile(cfg));
+  if (!token) throw new Error("No bearer token available.");
+  await httpJson(cfg.siemUrl, "/api/v1/alerts/ack", token, {
+    method: "POST",
+    payload: { id },
+  });
+}
+
 module.exports = {
   DEFAULT_CONFIG,
   TICKET_BUCKETS,
   cancelProcess,
   configPath,
   configView,
+  httpJson,
   listTickets,
   loadConfig,
   parseStatus,
   resolveSentinelsBin,
   resolveSentinelsRoot,
+  resolveSiemTokenFile,
   runCapture,
   saveConfig,
   SENTINELS_SETTING_KEYS,
@@ -542,6 +670,8 @@ module.exports = {
   sentinelsSchedulerPresent,
   sentinelsSettingsPath,
   shellEnv,
+  siemAck,
+  siemSnapshot,
   startStream,
   ticketPath,
   ticketsRoot,

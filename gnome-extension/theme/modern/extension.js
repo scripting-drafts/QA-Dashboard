@@ -8,6 +8,7 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 const APP_IDS = [
     "qa-dashboard.desktop",
     "qa-sentinels.desktop",
+    "qa-siem.desktop",
 ];
 
 export default class QADashboardThemeExtension extends Extension {

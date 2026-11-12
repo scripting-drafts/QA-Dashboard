@@ -6,19 +6,19 @@ Electron core is shared; only shell integration is platform-specific.
 ## Shared core
 
 - `electron/main.js`: window lifecycle, module routing, IPC.
-- `electron/backend.js`: fixed CLI arguments and streaming.
+- `electron/backend.js`: fixed CLI arguments, streaming, SIEM HTTP.
 - `electron/preload.js`: narrow `contextBridge` API.
-- `renderer/`: compact Overview and Sentinel module views.
+- `renderer/`: compact Overview and module views.
 - `assets/qa-dashboard-*`: shared brush-enso brand mark, launcher icon, and PNGs.
 
-Keep module names, window sizes, and single-instance behavior unchanged across
-platforms. QA SIEM is a separate project and is not part of this core.
+Keep module names, window sizes, single-instance behavior, and the token
+boundary unchanged across platforms.
 
 ## Linux (this branch)
 
 - No tray or top-bar icon.
 - `qa-dashboard.desktop` opens the Overview and is used as the favourite.
-- The QA Sentinels `.desktop` file opens the Database window directly.
+- Per-app `.desktop` files open QA Sentinels or SIEM directly.
 - All launches share one Electron instance and focus existing windows.
 
 ## Windows (later)
