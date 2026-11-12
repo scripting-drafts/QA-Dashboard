@@ -1264,17 +1264,7 @@ async function saveSettings(event) {
 
 function bind() {
   $$("[data-open]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      if (button.dataset.open === "rules") {
-        try {
-          await window.qa.openRules();
-        } catch (error) {
-          toast(String(error.message || error), true);
-        }
-        return;
-      }
-      window.qa.openModule(button.dataset.open);
-    });
+    button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
   });
   $("#settings").addEventListener("click", openSettings);
   $("#settings-form").addEventListener("submit", (event) => event.preventDefault());
