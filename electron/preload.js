@@ -16,10 +16,6 @@ contextBridge.exposeInMainWorld("qa", {
     list: () => ipcRenderer.invoke("tickets:list"),
     open: (bucket, name) => ipcRenderer.invoke("tickets:open", bucket, name),
   },
-  record: {
-    open: (record) => ipcRenderer.invoke("record:open", record),
-    get: () => ipcRenderer.invoke("record:get"),
-  },
   sentinels: {
     status: () => ipcRenderer.invoke("sentinels:status"),
     query: (options) => ipcRenderer.invoke("sentinels:query", options),
@@ -27,11 +23,6 @@ contextBridge.exposeInMainWorld("qa", {
     cancel: () => ipcRenderer.invoke("sentinels:cancel"),
     logsStart: () => ipcRenderer.invoke("sentinels:logs"),
     logsStop: () => ipcRenderer.invoke("sentinels:stopLogs"),
-  },
-  siem: {
-    refresh: () => ipcRenderer.invoke("siem:refresh"),
-    ack: (id) => ipcRenderer.invoke("siem:ack", id),
-    open: () => ipcRenderer.invoke("siem:open"),
   },
   onEvent: (callback) => {
     const listener = (_event, payload) => callback(payload);

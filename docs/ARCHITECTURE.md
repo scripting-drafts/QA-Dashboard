@@ -1,27 +1,28 @@
 # Architecture
 
-QA Dashboard is an Electron application with a narrow IPC boundary. The two
-engines stay independent: the dashboard only invokes their CLI or local API.
+QA Dashboard is an Electron application with a narrow IPC boundary. The
+dashboard only invokes the Sentinels CLI; it never opens the database itself.
+QA SIEM is a separate standalone project and is out of scope for this
+application.
 
 ## Process boundaries
 
 | Layer | Responsibility |
 | --- | --- |
-| Main process (`electron/main.js`) | Window lifecycle, IPC, child processes, local SIEM HTTP |
-| Backend (`electron/backend.js`) | Config resolution, fixed argv builders, streaming, HTTP |
+| Main process (`electron/main.js`) | Window lifecycle, IPC, child processes |
+| Backend (`electron/backend.js`) | Config resolution, fixed argv builders, streaming |
 | Preload (`electron/preload.js`) | Minimal `contextBridge` API; no Node in the renderer |
 | Renderer (`renderer/`) | Compact Overview window and module-specific windows |
 
 The renderer has `nodeIntegration: false`, `contextIsolation: true`, and
-`sandbox: true`. It never receives the SIEM bearer token; HTTP requests are made
-in the main process.
+`sandbox: true`.
 
 ## Overview layout
 
 The Overview uses a centered brush-enso lockup above the title. Module cards
 carry their open actions; the Overview has no Refresh or Settings controls.
 QA Sentinels, Database, and Tickets are separate module cards, with Database
-in the middle; SIEM remains a standalone module window.
+in the middle.
 The main Dashboard window uses its default 980x640 size. The content column
 uses the full window width; maximizing a window expands its tables, card grid,
 and module panels to the available work area. Only the Database window shows
@@ -62,24 +63,20 @@ live lines, so closing and reopening the window never restarts the command.
 Output streams to that window over `event` messages. Arbitrary commands are not
 exposed; SQL is passed as one argv item and validated by the Sentinels process.
 
-## SIEM
-
-`electron/backend.js` reads the token file and requests `/healthz`,
-`/api/v1/stats`, `/api/v1/alerts`, and `/api/v1/events`. Alert acknowledgement
-posts to `/api/v1/alerts/ack`. The standalone SIEM window's dashboard button
-opens the web dashboard with `shell.openExternal`.
-
 The Rules button opens `renderer/rules.html` and the Documentation button opens
 `renderer/docs.html`; both are standalone documents in the system browser rather
 than application windows.
+
+QA SIEM is not part of this application. It remains a separate standalone
+program with its own repository, service, API, and web dashboard.
 
 ## Launchers and single instance
 
 There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
 Overview and is also the desktop favourite; `install.sh` migrates an existing
-QA Sentinels favourite to it. Per-app `.desktop` files call
-`qa-dashboard --module=sentinels` or `--module=siem` for standalone module
-buttons.
+QA Sentinels favourite to it. The per-app `.desktop` file calls
+`qa-dashboard --module=sentinels` for the standalone Database window. There is
+no SIEM launcher or SIEM window in this application.
 
 All launches share one Electron instance. A second launch forwards its module
 argument to the running process; an existing window is restored and focused,
@@ -98,26 +95,23 @@ appearance and adds no top-bar item.
 
 ## Settings and auto-refresh
 
-Settings open from a module window and are scoped to that module: Sentinels
-command and root, or SIEM URL and token file. Saving one module leaves the
-other configuration keys untouched.
+Settings open from a Sentinels window and cover the command, repository root,
+cycle, and retention. The Database window shares the Sentinels configuration.
 
-The main process refreshes Sentinels status for the Overview and the SIEM
-snapshot for the standalone SIEM window every 10 seconds. The Database window
-is query-driven and refreshes when a category, the Refresh
+The main process refreshes Sentinels status for the Overview every 10 seconds.
+The Database window is query-driven and refreshes when a category, the Refresh
 button, or the optional SQL statement is run.
 
 ## Configuration
 
-`~/.config/qa-dashboard/config.json` stores command overrides, repository roots,
-the SIEM URL, token-file path, and the Sentinel fallback cycle interval. It is
-written mode `0600`. Tokens are read at request time and are never written to
-this file or exposed to the renderer.
+`~/.config/qa-dashboard/config.json` stores Sentinel command overrides,
+repository roots, and the fallback cycle interval. It is written mode `0600`.
+No SIEM credentials or endpoints are stored by this application.
 
 ## Testing
 
-`npm test` covers argument construction, status parsing, config permissions, and
-the HTTP client. Electron smoke screenshots can be produced with:
+`npm test` covers argument construction, status parsing, ticket handling, and
+config permissions. Electron smoke screenshots can be produced with:
 
 ```bash
 npm start -- --module=overview --screenshot=/tmp/qa-overview.png
