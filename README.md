@@ -306,6 +306,16 @@ The Sentinels integration is the only former module that survived, and it has
 been rewritten as an Electron interface with a new Database and independent
 Tickets window.
 
-## Version
+# History
 
 Current application version: **0.2.0**, defined in `package.json`.
+
+Lead Developer - Gerard Sala
+- LinkedIn: https://www.linkedin.com/in/gerard-sala/
+- GitHub: https://github.com/scripting-drafts
+
+# License
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Gerard Sala
