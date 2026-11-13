@@ -166,11 +166,9 @@ function setSenTab(tab, load = true) {
 
 function overviewText(values) {
   if (!values) return "Not loaded yet.";
-  const parts = [];
-  if (values["last sample"]) parts.push(`last sample ${values["last sample"]}`);
-  if (values["layer1"]) parts.push(values["layer1"]);
-  if (values.boots) parts.push(values.boots);
-  return parts.length ? parts.join(" · ") : "Status loaded.";
+  return values["last sample"]
+    ? `last sample ${values["last sample"]}`
+    : "Status loaded.";
 }
 
 function renderSentinelsStatus(result) {
