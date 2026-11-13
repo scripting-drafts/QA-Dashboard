@@ -2,8 +2,7 @@
 
 **A modular Electron desktop interface for QA Sentinels on Linux.**
 
-> Provisional reference for the current implementation. It replaces the former
-> QA Desktop 0.1.0 README, which described a removed GTK4/Python application.
+![https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/overview.png]
 
 QA Dashboard is a graphical front end for the existing QA Sentinels command-line
 tool. It does not implement monitoring, evidence collection, crash correlation,
