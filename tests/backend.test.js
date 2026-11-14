@@ -50,7 +50,7 @@ test("query arguments cover categories, SQL and limits", () => {
   assert.ok(backend.QUERY_CATEGORIES.includes("crashes"));
   for (const category of [
     "processes", "inventory-items", "inventory-diffs", "hardware-items",
-    "core2", "crosschecks", "notifications", "reports", "meta",
+    "faultcore", "crosschecks", "notifications", "reports", "meta",
   ]) {
     assert.ok(backend.QUERY_CATEGORIES.includes(category), category);
   }
@@ -60,9 +60,11 @@ test("status output parses colon-delimited values", () => {
   const values = backend.parseStatus(
     "Quality Assurance Sentinels status\n" +
     "  last sample   : 2026-11-08T12:45:38Z\n" +
+    "  fault-core    : 32 cases\n" +
     "  layer1        : open findings: critical=1\n",
   );
   assert.equal(values["last sample"], "2026-11-08T12:45:38Z");
+  assert.equal(values["fault-core"], "32 cases");
   assert.equal(values.layer1, "open findings: critical=1");
 });
 

@@ -10,13 +10,9 @@ const TITLES = {
   logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
 };
 
-const SETTINGS_TITLES = {
-  sentinels: "QA Sentinels settings",
-};
-
 const SENTINEL_KEYS = [
   "last sample", "last ingest", "last hardware", "last lsm", "database",
-  "critical", "inventory", "evidence", "ticket drafts", "core2 triage",
+  "critical", "inventory", "evidence", "ticket drafts", "fault-core",
   "layer1", "boots", "notify", "layer2", "posture",
 ];
 
@@ -26,7 +22,6 @@ const QUERY_FILTERABLE = new Set([
 ]);
 const CLICK_DELAY = 220;
 
-let config = null;
 let currentView = "overview";
 let sentinelsBusy = false;
 let sentinelsAction = "";
@@ -40,7 +35,6 @@ let cycleTarget = null;
 let logsReady = false;
 let logsLastSeq = 0;
 let logsPending = [];
-let settingsModule = "";
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -984,70 +978,17 @@ async function startSentinelLogs() {
   }
 }
 
-function fillSettings(view) {
-  if (!view) return;
-  $("#set-sentinels-bin").value = view.sentinelsBin || "";
-  $("#set-sentinels-root").value = view.sentinelsRoot || "";
-  $("#set-sentinels-cycle").value = view.sentinelsCycleMinutes || "10";
-  $("#set-sen-cycle-hours").value = view.sentinelsCycleHours || "1";
-  $("#set-sen-drafts-days").value = view.sentinelsDraftsRetentionDays || "30";
-  $("#set-sen-lookback-days").value = view.sentinelsRaiseLookbackDays || "30";
-  $("#set-sen-events-days").value = view.sentinelsEventRetentionDays || "0";
-  $("#set-sen-samples-days").value = view.sentinelsSamplesRetentionDays || "0";
-  $("#set-sen-proc-days").value = view.sentinelsProcRetentionDays || "0";
-  $("#set-sen-inventory-days").value = view.sentinelsInventoryRetentionDays || "0";
-  $$("[data-settings-module]").forEach((label) => {
-    label.hidden = label.dataset.settingsModule !== settingsModule;
-  });
-  $("#settings-title").textContent = SETTINGS_TITLES[settingsModule] || "Settings";
-}
-
-async function openSettings() {
-  const module = currentView === "sen-overview" ? "sentinels" : currentView;
-  if (!SETTINGS_TITLES[module]) return;
-  settingsModule = module;
-  try {
-    config = await window.qa.getConfig();
-    fillSettings(config);
-    $("#settings-dialog").showModal();
-  } catch (error) {
-    toast(String(error.message || error), true);
-  }
-}
-async function saveSettings(event) {
-  if (event) event.preventDefault();
-  const payload = {};
-  if (settingsModule === "sentinels") {
-    payload.sentinelsBin = $("#set-sentinels-bin").value;
-    payload.sentinelsRoot = $("#set-sentinels-root").value;
-    payload.sentinelsCycleMinutes = $("#set-sentinels-cycle").value;
-    payload.sentinelsCycleHours = $("#set-sen-cycle-hours").value;
-    payload.sentinelsDraftsRetentionDays = $("#set-sen-drafts-days").value;
-    payload.sentinelsRaiseLookbackDays = $("#set-sen-lookback-days").value;
-    payload.sentinelsEventRetentionDays = $("#set-sen-events-days").value;
-    payload.sentinelsSamplesRetentionDays = $("#set-sen-samples-days").value;
-    payload.sentinelsProcRetentionDays = $("#set-sen-proc-days").value;
-    payload.sentinelsInventoryRetentionDays = $("#set-sen-inventory-days").value;
-  } else {
-    return;
-  }
-  try {
-    config = await window.qa.saveConfig(payload);
-    $("#settings-dialog").close();
-    toast(`${SETTINGS_TITLES[settingsModule]} saved.`);
-  } catch (error) {
-    toast(String(error.message || error), true);
-  }
-}
-
 function bind() {
   $$("[data-open]").forEach((button) => {
     button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
   });
-  $("#settings").addEventListener("click", openSettings);
-  $("#settings-form").addEventListener("submit", (event) => event.preventDefault());
-  $("#settings-save").addEventListener("click", saveSettings);
-  $("#settings-cancel").addEventListener("click", () => $("#settings-dialog").close());
+  $("#settings").addEventListener("click", async () => {
+    try {
+      await window.qa.openSettings();
+    } catch (error) {
+      toast(String(error.message || error), true);
+    }
+  });
 
   $$("[data-sen]").forEach((button) => {
     button.addEventListener("click", () => runSentinels(button.dataset.sen));
@@ -1145,6 +1086,9 @@ function bind() {
   $("#findings-open-folder").addEventListener("click", openTicketsFolder);
 
   window.qa.onEvent((payload) => {
+    if (payload.scope === "config" && payload.type === "saved") {
+      toast("QA Sentinels settings saved.");
+    }
     if (payload.scope === "sen-tabs" && payload.type === "select") {
       setSenTab(payload.tab);
     }
@@ -1197,11 +1141,6 @@ async function init() {
   senPane = initialPane;
   document.body.dataset.pane = senPane;
   setView(initial);
-  try {
-    config = await window.qa.getConfig();
-  } catch (error) {
-    toast(String(error.message || error), true);
-  }
   try {
     const version = await window.qa.version();
     $("#app-version").textContent = `Version ${version}`;

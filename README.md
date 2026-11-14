@@ -20,11 +20,11 @@ standalone project with its own service, API, and web dashboard.
 | Language | JavaScript, HTML, CSS |
 | Main process | `electron/main.js` |
 | Backend | `electron/backend.js` |
-| Preload bridge | `electron/preload.js` |
-| Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/style.css` |
+| Preload bridges | `electron/preload.js`, `electron/preload-settings.js` |
+| Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.2.0` |
+| Version | `0.3.0` |
 
 Linux is the current target. The Electron core is portable; Windows and macOS
 porting notes are in `docs/PORTING.md`.
@@ -37,6 +37,7 @@ The application uses independent windows instead of one tabbed suite.
 | --- | --- |
 | **QA Dashboard** | Compact Overview with QA Sentinels, Database, and Ticket workflow cards |
 | **QA Sentinels Overview** | Status grid, Logs action, Documentation action |
+| **QA Sentinels Settings** | Command, repository, cycle, and retention; independent movable window |
 | **QA Sentinels Database** | Read-only SQL console over `sentinels.db` |
 | **QA Sentinels Tickets** | Ticket buckets, refresh, open folder, Rules |
 | **QA Sentinels Logs** | Live `qa logs --all-layers --follow` stream |
@@ -152,8 +153,9 @@ Current fields:
 | `sentinelsProcRetentionDays` | Process snapshot retention |
 | `sentinelsInventoryRetentionDays` | Inventory retention |
 
-Settings open from the QA Sentinels Overview window. The Database and Tickets
-windows do not show the Settings button.
+Settings open from the QA Sentinels Overview window in an independent, movable
+window. The window is single-instance: opening Settings again restores and
+focuses it. The Database and Tickets windows do not show the Settings button.
 
 There are no Malware Scan or SIEM configuration fields.
 
@@ -307,7 +309,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.2.0**, defined in `package.json`.
+Current application version: **0.3.0**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/

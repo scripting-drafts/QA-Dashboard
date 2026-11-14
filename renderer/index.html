@@ -216,32 +216,8 @@
           <pre id="logs-output" class="console"></pre>
         </div>
       </section>
-
-
-
     </main>
   </div>
-
-  <dialog id="settings-dialog">
-    <form id="settings-form">
-      <h2 id="settings-title">Settings</h2>
-      <label data-settings-module="sentinels">QA Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect"></label>
-      <label data-settings-module="sentinels">QA Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
-      <label data-settings-module="sentinels">Fallback cycle (minutes) <input id="set-sentinels-cycle" type="text" placeholder="10"></label>
-      <p data-settings-module="sentinels" class="settings-group">Cycle and retention</p>
-      <label data-settings-module="sentinels">Cycle cadence (hours) <input id="set-sen-cycle-hours" type="text" inputmode="decimal" placeholder="1"></label>
-      <label data-settings-module="sentinels">Drafts retention (days) <input id="set-sen-drafts-days" type="text" inputmode="numeric" placeholder="30"></label>
-      <label data-settings-module="sentinels">Raise gate lookback (days) <input id="set-sen-lookback-days" type="text" inputmode="numeric" placeholder="30"></label>
-      <label data-settings-module="sentinels">Events retention (days) <input id="set-sen-events-days" type="text" inputmode="numeric" placeholder="0"></label>
-      <label data-settings-module="sentinels">Samples retention (days) <input id="set-sen-samples-days" type="text" inputmode="numeric" placeholder="0"></label>
-      <label data-settings-module="sentinels">proc_snap retention (days) <input id="set-sen-proc-days" type="text" inputmode="numeric" placeholder="0"></label>
-      <label data-settings-module="sentinels">Inventory retention (days) <input id="set-sen-inventory-days" type="text" inputmode="numeric" placeholder="0"></label>
-      <div class="dialog-actions">
-        <button id="settings-cancel" type="button">Cancel</button>
-        <button id="settings-save" type="button">Save</button>
-      </div>
-    </form>
-  </dialog>
 
   <script src="app.js"></script>
 </body>

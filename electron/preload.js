@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("qa", {
   openModule: (module, tab) => ipcRenderer.invoke("app:open", module, tab),
   openRules: () => ipcRenderer.invoke("app:open-rules"),
   openDocs: () => ipcRenderer.invoke("app:open-docs"),
+  openSettings: () => ipcRenderer.invoke("settings:open"),
   openTickets: () => ipcRenderer.invoke("app:open-tickets"),
   tickets: {
     list: () => ipcRenderer.invoke("tickets:list"),

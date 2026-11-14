@@ -51,7 +51,7 @@ const QUERY_CATEGORIES = [
   "inbox", "errors", "findings", "cycles", "new-findings", "events", "crashes",
   "boots", "samples", "processes", "inventory", "inventory-items",
   "inventory-diffs", "hardware", "hardware-items", "lsm", "correlations",
-  "tickets", "deep", "bundles", "runs", "core2", "crosschecks", "notifications",
+  "tickets", "deep", "bundles", "runs", "faultcore", "crosschecks", "notifications",
   "reports", "meta",
 ];
 const QUERY_MAX_SQL = 20000;

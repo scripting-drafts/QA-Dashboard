@@ -7,8 +7,8 @@ Electron core is shared; only shell integration is platform-specific.
 
 - `electron/main.js`: window lifecycle, module routing, IPC.
 - `electron/backend.js`: fixed CLI arguments and streaming.
-- `electron/preload.js`: narrow `contextBridge` API.
-- `renderer/`: compact Overview and Sentinel module views.
+- `electron/preload.js`, `electron/preload-settings.js`: narrow `contextBridge` APIs.
+- `renderer/`: compact Overview, Sentinel module views, and the settings window.
 - `assets/qa-dashboard-*`: shared brush-enso brand mark, launcher icon, and PNGs.
 
 Keep module names, window sizes, and single-instance behavior unchanged across
@@ -31,4 +31,4 @@ platforms.
 
 - No menu-bar icon; the Dock/app icon opens the Overview.
 - Package as an app bundle and add per-module shortcuts or URL schemes.
-- Keep the same preload, backend, and renderer code.
+- Keep the same preloads, backend, and renderer code.

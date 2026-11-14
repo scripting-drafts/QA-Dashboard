@@ -9,8 +9,8 @@ dashboard only invokes the Sentinels CLI; it never opens the database itself.
 | --- | --- |
 | Main process (`electron/main.js`) | Window lifecycle, IPC, child processes |
 | Backend (`electron/backend.js`) | Config resolution, fixed argv builders, streaming |
-| Preload (`electron/preload.js`) | Minimal `contextBridge` API; no Node in the renderer |
-| Renderer (`renderer/`) | Compact Overview window and module-specific windows |
+| Preload (`electron/preload.js`, `electron/preload-settings.js`) | Minimal `contextBridge` APIs; no Node in the renderer |
+| Renderer (`renderer/`) | Compact Overview window, module windows, and the settings window |
 
 The renderer has `nodeIntegration: false`, `contextIsolation: true`, and
 `sandbox: true`.
@@ -89,8 +89,13 @@ appearance and adds no top-bar item.
 
 ## Settings and auto-refresh
 
-Settings open from a Sentinels window and cover the command, repository root,
-cycle, and retention. The Database window shares the Sentinels configuration.
+Settings open from the QA Sentinels Overview window and cover the command,
+repository root, cycle, and retention. They run in an independent, movable,
+non-modal window without a parent, so the window can leave the Sentinels window
+and the dashboard stays usable. The window is single-instance; the Settings
+button restores and focuses an existing window. A restricted preload exposes
+only configuration read/save and window close to the settings page. The
+Database window shares the Sentinels configuration.
 
 The main process refreshes Sentinels status for the Overview every 10 seconds.
 The Database window is query-driven and refreshes when a category, the Refresh

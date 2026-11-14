@@ -34,6 +34,7 @@ const WINDOW_SIZES = {
 };
 
 const windows = new Map();
+let settingsWindow = null;
 let activeSentinels = null;
 let activeLogs = null;
 let logsRestartTimer = null;
@@ -65,7 +66,9 @@ function windowIcon() {
 function syncWindowBackgrounds() {
   const color = windowBackground();
   const icon = windowIcon();
-  for (const window of windows.values()) {
+  const targets = Array.from(windows.values());
+  if (settingsWindow && !settingsWindow.isDestroyed()) targets.push(settingsWindow);
+  for (const window of targets) {
     if (window.isDestroyed()) continue;
     window.setBackgroundColor(color);
     window.setIcon(icon);
@@ -102,6 +105,19 @@ function normalizeModule(module, tab = "") {
     return { module: "sen-overview", tab: "overview" };
   }
   return { module: name, tab: "" };
+}
+
+function hardenWindow(window) {
+  window.webContents.setWindowOpenHandler(({ url: target }) => {
+    if (/^https?:\/\//i.test(target)) shell.openExternal(target);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, target) => {
+    if (!target.startsWith("file://")) {
+      event.preventDefault();
+      if (/^https?:\/\//i.test(target)) shell.openExternal(target);
+    }
+  });
 }
 
 function createWindow(module = "overview", show = true, tab = "") {
@@ -142,6 +158,7 @@ function createWindow(module = "overview", show = true, tab = "") {
       sandbox: true,
     },
   });
+  hardenWindow(window);
   const renderModule = module === "tickets" ? "sen-overview" : module;
   const renderTab = module === "tickets" ? "tickets" : tab;
   const pane = module === "tickets"
@@ -157,16 +174,6 @@ function createWindow(module = "overview", show = true, tab = "") {
   window.on("closed", () => {
     windows.delete(module);
     if (module === "sentinels") backend.cancelProcess(activeSentinels);
-  });
-  window.webContents.setWindowOpenHandler(({ url: target }) => {
-    if (/^https?:\/\//i.test(target)) shell.openExternal(target);
-    return { action: "deny" };
-  });
-  window.webContents.on("will-navigate", (event, target) => {
-    if (!target.startsWith("file://")) {
-      event.preventDefault();
-      if (/^https?:\/\//i.test(target)) shell.openExternal(target);
-    }
   });
   window.on("minimize", () => {
     const open = Array.from(windows.values()).filter((win) => !win.isDestroyed());
@@ -199,6 +206,54 @@ function showWindow(module = "overview", tab = "") {
   window.focus();
   allMinimized = false;
   return window;
+}
+
+function openSettingsWindow(requester = null) {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow.isMinimized()) settingsWindow.restore();
+    settingsWindow.show();
+    settingsWindow.focus();
+    return settingsWindow;
+  }
+  const display = requester && !requester.isDestroyed()
+    ? screen.getDisplayMatching(requester.getBounds())
+    : screen.getPrimaryDisplay();
+  const area = display.workArea;
+  const width = Math.min(580, Math.max(360, area.width - 80));
+  const height = Math.min(860, Math.max(420, area.height - 80));
+  const x = area.x + Math.max(0, Math.round((area.width - width) / 2));
+  const y = area.y + Math.max(0, Math.round((area.height - height) / 2));
+  settingsWindow = new BrowserWindow({
+    width,
+    height,
+    x,
+    y,
+    minWidth: Math.min(480, width),
+    minHeight: Math.min(560, height),
+    show: false,
+    title: "QA Sentinels Settings",
+    icon: windowIcon(),
+    backgroundColor: windowBackground(),
+    webPreferences: {
+      preload: path.join(__dirname, "preload-settings.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  hardenWindow(settingsWindow);
+  const url = pathToFileURL(
+    path.join(__dirname, "..", "renderer", "settings.html"));
+  settingsWindow.loadURL(url.toString());
+  settingsWindow.once("ready-to-show", () => {
+    if (!settingsWindow || settingsWindow.isDestroyed()) return;
+    settingsWindow.show();
+    settingsWindow.focus();
+  });
+  settingsWindow.on("closed", () => {
+    settingsWindow = null;
+  });
+  return settingsWindow;
 }
 
 function sendEvent(sender, payload) {
@@ -437,7 +492,24 @@ function registerIpc() {
     setTimeout(() => {
       autoRefreshSentinels();
     }, 0);
+    broadcastTo(Object.keys(WINDOW_TITLES), {
+      scope: "config", type: "saved",
+    });
     return backend.configView(backend.loadConfig());
+  });
+
+  ipcMain.handle("settings:open", (event) => {
+    const sender = BrowserWindow.fromWebContents(event.sender);
+    if (!sender || !Array.from(windows.values()).includes(sender)) return false;
+    openSettingsWindow(sender);
+    return true;
+  });
+
+  ipcMain.handle("settings:close", (event) => {
+    if (!settingsWindow || settingsWindow.isDestroyed()) return false;
+    if (event.sender !== settingsWindow.webContents) return false;
+    settingsWindow.close();
+    return true;
   });
 
   ipcMain.handle("app:open", (_event, module, tab) => {
