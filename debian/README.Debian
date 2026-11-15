@@ -1,0 +1,24 @@
+QA Dashboard APT package
+========================
+
+This package installs the Electron application under /usr/lib/qa-dashboard
+and the desktop launcher /usr/bin/qa-dashboard. Electron is bundled, so the
+package has no Node.js/npm runtime dependency.
+
+QA Sentinels is recommended, not a hard dependency. Its /usr/bin/qa wrapper
+uses an existing ~/QA-Sentinels checkout or seeds a per-user workspace on
+first use. You can install the packages separately:
+
+  apt install qa-sentinels                 # engine only
+  apt install qa-sentinels qa-dashboard    # engine + GUI
+  apt install --no-install-recommends qa-dashboard  # GUI only; no engine
+
+QA Dashboard is only a front end and has no monitoring or evidence-collection
+code of its own. Without qa-sentinels it starts, but its Sentinels windows have
+nothing to read or invoke. The package does not install a cron/systemd
+schedule itself; QA Dashboard keeps its fallback cycle when neither is
+present.
+
+The source installer also provides a hidden GNOME theme extension for the
+favourite icon. The APT package intentionally omits it; the application works
+without it.

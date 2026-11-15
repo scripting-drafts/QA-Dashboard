@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=QA Sentinels
+Comment=Evidence collection and failure correlation
+Exec=/usr/bin/qa-dashboard --module=sentinels
+Icon=qa-dashboard
+Terminal=false
+Categories=System;Security;Monitor;
+StartupNotify=false
+StartupWMClass=qa-dashboard

@@ -1,0 +1,60 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	dh_clean
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+
+override_dh_auto_test:
+
+# Electron and the bundled native modules are prebuilt binaries. Skip
+# stripping/dwz so the build does not try to generate debug info for them.
+override_dh_strip:
+	@true
+
+override_dh_dwz:
+	@true
+
+override_dh_auto_install:
+	install -d debian/qa-dashboard/usr/lib/qa-dashboard
+	cp -a electron renderer assets package.json package-lock.json \
+		debian/qa-dashboard/usr/lib/qa-dashboard/
+	install -d debian/qa-dashboard/usr/lib/qa-dashboard/node_modules/electron
+	cp -a node_modules/electron/dist \
+		debian/qa-dashboard/usr/lib/qa-dashboard/node_modules/electron/
+	cp -a node_modules/electron/package.json \
+		debian/qa-dashboard/usr/lib/qa-dashboard/node_modules/electron/
+	install -D -m 0755 bin/qa-dashboard debian/qa-dashboard/usr/bin/qa-dashboard
+	install -D -m 0644 debian/qa-dashboard.desktop \
+		debian/qa-dashboard/usr/share/applications/qa-dashboard.desktop
+	install -D -m 0644 debian/qa-sentinels.desktop \
+		debian/qa-dashboard/usr/share/applications/qa-sentinels.desktop
+	install -D -m 0644 assets/qa-dashboard-light-256.png \
+		debian/qa-dashboard/usr/share/icons/hicolor/256x256/apps/qa-dashboard.png
+	install -D -m 0644 assets/qa-dashboard-light-512.png \
+		debian/qa-dashboard/usr/share/icons/hicolor/512x512/apps/qa-dashboard.png
+	install -D -m 0644 assets/qa-dashboard-light-256.png \
+		debian/qa-dashboard/usr/share/icons/hicolor/256x256/apps/qa-dashboard-light.png
+	install -D -m 0644 assets/qa-dashboard-light-512.png \
+		debian/qa-dashboard/usr/share/icons/hicolor/512x512/apps/qa-dashboard-light.png
+	install -D -m 0644 assets/qa-dashboard-256.png \
+		debian/qa-dashboard/usr/share/icons/hicolor/256x256/apps/qa-dashboard-dark.png
+	install -D -m 0644 assets/qa-dashboard-512.png \
+		debian/qa-dashboard/usr/share/icons/hicolor/512x512/apps/qa-dashboard-dark.png
+	install -D -m 0644 README.md \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/README.md
+	install -D -m 0644 docs/ARCHITECTURE.md \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/ARCHITECTURE.md
+	install -D -m 0644 docs/PORTING.md \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/PORTING.md
+	install -D -m 0644 docs/APT-REPO.md \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/APT-REPO.md
+	install -D -m 0644 docs/PPA.md \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/PPA.md
+	install -D -m 0644 debian/README.Debian \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/README.Debian

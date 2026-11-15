@@ -1,0 +1,6 @@
+qa-dashboard (0.3.1) jammy; urgency=medium
+
+  * Initial APT package. Bundles Electron and Recommends qa-sentinels;
+    the engine and GUI remain separately installable.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 15 Nov 2026 13:00:00 +0100

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=QA Dashboard
+Comment=Local QA operations dashboard
+Exec=/usr/bin/qa-dashboard --module=overview
+Icon=qa-dashboard
+Terminal=false
+Categories=System;Security;Monitor;
+StartupNotify=false
+StartupWMClass=qa-dashboard
