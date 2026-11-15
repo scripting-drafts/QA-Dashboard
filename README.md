@@ -24,7 +24,7 @@ standalone project with its own service, API, and web dashboard.
 | Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.3.0` |
+| Version | `0.3.1` |
 
 Linux is the current target. The Electron core is portable; Windows and macOS
 porting notes are in `docs/PORTING.md`.
@@ -161,14 +161,91 @@ There are no Malware Scan or SIEM configuration fields.
 
 ## Requirements
 
-- Node.js and npm
 - A Linux desktop session
-- QA Sentinels and its `qa` CLI installed separately
+- For APT installs: the QA Launchpad PPA or a signed APT repository
+- For source installs: Node.js and npm
+- QA Sentinels and its `qa` CLI, either as the `qa-sentinels` APT package or a
+  `~/QA-Sentinels` checkout
 - Optional: the Sentinel systemd timer or user cron schedule
 
 Python, GTK4, PyGObject, ClamAV, YARA, and a QA SIEM service are not required.
 
-## Installation
+## Install on Linux
+
+| Method | System | Notes |
+| --- | --- | --- |
+| Launchpad PPA | Ubuntu 22.04 (jammy) | signed packages, automatic updates |
+| Local `.deb` | Ubuntu/Debian | offline or pinned version |
+| [Source install](#install-from-source) | any Linux | development |
+
+### Ubuntu 22.04 (PPA)
+
+QA Sentinels and QA Dashboard are separate packages in the same Launchpad PPA.
+QA Dashboard is only a front end: it **Recommends** `qa-sentinels` but does not
+hard-depend on it. QA Sentinels is standalone and does not require the
+Dashboard.
+
+Add the PPA:
+
+```bash
+sudo add-apt-repository ppa:toomanypatterns/ubuntu-backup
+sudo apt update
+```
+
+`ppa:toomanypatterns/ubuntu-backup` is the existing Ubuntu Backup PPA (shared archive). If it has not
+been published yet, use the local `.deb` section below; the one-time
+Launchpad/GPG setup and upload commands are in
+[`docs/PPA.md`](docs/PPA.md).
+
+Install the engine only:
+
+```bash
+sudo apt install qa-sentinels
+```
+
+Install the engine and the Dashboard:
+
+```bash
+sudo apt install qa-sentinels qa-dashboard
+```
+
+The Dashboard by itself is allowed but will have nothing to read until the
+engine is installed. This is the explicit GUI-only path:
+
+```bash
+sudo apt install --no-install-recommends qa-dashboard
+```
+
+### Install from local .deb files
+
+Before publishing a repository, the built packages can be installed directly:
+
+```bash
+sudo apt install ./qa-sentinels_1.1.0_amd64.deb
+sudo apt install ./qa-dashboard_0.3.1_amd64.deb
+```
+
+`qa-dashboard` Recommends `qa-sentinels`; install the engine first or use
+`--no-install-recommends` for a Dashboard-only install.
+
+PPA creation, GPG registration and source-upload steps are documented in
+[`docs/PPA.md`](docs/PPA.md). A self-hosted signed APT repository is documented
+in [`docs/APT-REPO.md`](docs/APT-REPO.md).
+
+### Codependence
+
+| Package | Role | Relationship |
+| --- | --- | --- |
+| `qa-sentinels` | Monitoring, evidence collection, database and `qa` CLI | Standalone; no dependency on the Dashboard |
+| `qa-dashboard` | Electron GUI and read-only views | Recommends `qa-sentinels` |
+
+- Installing `qa-sentinels` alone is the normal headless/server setup.
+- Installing `qa-dashboard` normally also installs `qa-sentinels`.
+- Removing `qa-sentinels` leaves `qa-dashboard` installed but non-functional;
+  remove both if you no longer want the stack.
+- The source `install.sh` path is still available for development.
+
+## Install from source
 
 ```bash
 ./install.sh
@@ -309,7 +386,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.3.0**, defined in `package.json`.
+Current application version: **0.3.1**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/
