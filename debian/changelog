@@ -1,3 +1,13 @@
+qa-dashboard (0.3.2) jammy; urgency=medium
+
+  * Run the bundled Electron binary directly; the APT package has no Node.js
+    runtime.
+  * Document the Launchpad PPA as the canonical origin and the self-hosted
+    signed repository as an option.
+  * Document every Linux install path, including the local .deb.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 15 Nov 2026 21:25:00 +0100
+
 qa-dashboard (0.3.1) jammy; urgency=medium
 
   * Initial APT package. Bundles Electron and Recommends qa-sentinels;
