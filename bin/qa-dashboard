@@ -6,4 +6,9 @@ if [ -d "$ROOT/electron" ]; then
 else
     APP_DIR="$ROOT/lib/qa-dashboard"
 fi
+# The APT package has no Node.js runtime dependency; use the bundled
+# Electron binary directly. The npm CLI shim is a Node script.
+if [ -x "$APP_DIR/node_modules/electron/dist/electron" ]; then
+    exec "$APP_DIR/node_modules/electron/dist/electron" "$APP_DIR" "$@"
+fi
 exec "$APP_DIR/node_modules/.bin/electron" "$APP_DIR" "$@"
