@@ -1507,3 +1507,61 @@ input[type="text"]:focus, input[type="search"]:focus {
   }
 }
 
+/* About */
+
+.app-about {
+  margin: 6px 0 0;
+  text-align: center;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  padding: 0;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link-button:hover {
+  background: none;
+  color: var(--text);
+  box-shadow: none;
+}
+
+.about-dialog {
+  width: min(420px, calc(100vw - 48px));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+}
+
+.about-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.about-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.about-head h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.about-dialog p {
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
+
+

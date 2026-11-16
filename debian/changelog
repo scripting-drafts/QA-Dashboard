@@ -1,3 +1,9 @@
+qa-dashboard (0.5.1) jammy; urgency=medium
+
+  * Add a minimal About dialog to the Overview footer.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 18:21:30 +0100
+
 qa-dashboard (0.5.0) jammy; urgency=medium
 
   * Remove the License & Legal window from QA Dashboard.

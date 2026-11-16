@@ -977,9 +977,25 @@ async function startSentinelLogs() {
   }
 }
 
+async function openAbout() {
+  const dialog = $("#about-dialog");
+  try {
+    const version = await window.qa.version();
+    $("#about-version").textContent = `Version ${version}`;
+  } catch (_error) {
+    $("#about-version").textContent = "";
+  }
+  if (!dialog.open) dialog.showModal();
+}
+
 function bind() {
   $$("[data-open]").forEach((button) => {
     button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
+  });
+  $("#about-open").addEventListener("click", openAbout);
+  $("#about-close").addEventListener("click", () => $("#about-dialog").close());
+  $("#about-dialog").addEventListener("click", (event) => {
+    if (event.target === $("#about-dialog")) $("#about-dialog").close();
   });
   $("#settings").addEventListener("click", async () => {
     try {

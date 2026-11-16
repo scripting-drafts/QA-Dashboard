@@ -56,6 +56,9 @@
           </article>
         </div>
         <p id="app-version" class="app-version muted"></p>
+        <p class="app-about muted">
+          <button id="about-open" class="link-button" type="button">About</button>
+        </p>
       </section>
 
       <section id="view-sentinels" class="view">
@@ -218,6 +221,16 @@
       </section>
     </main>
   </div>
+
+  <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
+    <div class="about-head">
+      <h2 id="about-title">QA Dashboard</h2>
+      <button id="about-close" class="ghost" type="button">Close</button>
+    </div>
+    <p id="about-version" class="muted mono"></p>
+    <p>Local QA operations dashboard for QA Sentinels.</p>
+    <p class="muted">MIT License · Copyright (c) 2026 Gerard Sala</p>
+  </dialog>
 
   <script src="app.js"></script>
 </body>
