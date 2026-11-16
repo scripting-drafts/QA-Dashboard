@@ -9,3 +9,6 @@ __pycache__/
 debian/files
 debian/.debhelper/
 debian/*.substvars
+debian/debhelper-build-stamp
+debian/qa-dashboard/
+debian/tmp/
