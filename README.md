@@ -24,7 +24,7 @@ standalone project with its own service, API, and web dashboard.
 | Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.3.2` |
+| Version | `0.4.0` |
 
 Linux is the current target. The Electron core is portable; Windows and macOS
 porting notes are in `docs/PORTING.md`.
@@ -41,6 +41,7 @@ The application uses independent windows instead of one tabbed suite.
 | **QA Sentinels Database** | Read-only SQL console over `sentinels.db` |
 | **QA Sentinels Tickets** | Ticket buckets, refresh, open folder, Rules |
 | **QA Sentinels Logs** | Live `qa logs --all-layers --follow` stream |
+| **License & Legal** | Own-product compliance register, notices, checks, and report export |
 
 `Ticket Rules` and `Documentation` open as standalone HTML pages in the system
 browser:
@@ -57,10 +58,19 @@ sen-overview
 tickets
 findings
 logs
+legal
 ```
 
 `findings` is an alias for the Tickets window. The former `malware`, `siem`,
 and `record` modules no longer exist.
+
+## Legal and compliance
+
+The **License & Legal** window is a read-only register for the application's
+license, third-party notices, distribution obligations, privacy, and manual
+review items. It opens from the Overview footer and with `--module=legal`.
+Reports export as Markdown or JSON without local paths. The register is an
+inventory and attestation aid, not legal advice. See `docs/LEGAL.md`.
 
 ## QA Sentinels integration
 
@@ -222,7 +232,7 @@ Before publishing a repository, the built packages can be installed directly:
 
 ```bash
 sudo apt install ./qa-sentinels_1.1.1_amd64.deb
-sudo apt install ./qa-dashboard_0.3.2_amd64.deb
+sudo apt install ./qa-dashboard_0.4.0_amd64.deb
 ```
 
 `qa-dashboard` Recommends `qa-sentinels`; install the engine first or use
@@ -331,6 +341,7 @@ The current tests cover:
 - Sentinels settings normalization and mirroring
 - Ticket bucket listing and path safety
 - Sentinel scheduler detection
+- Legal manifest validation, document allowlist, report redaction, and packaging
 
 There are no GTK, tray, Malware Scan, or SIEM tests.
 
@@ -348,21 +359,35 @@ QA-Dashboard/
 │   └── qa-dashboard
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   └── PORTING.md
+│   ├── LEGAL.md
+│   ├── PORTING.md
+│   └── PRIVACY.md
 ├── electron/
 │   ├── backend.js
+│   ├── legal.js
 │   ├── main.js
-│   └── preload.js
+│   ├── preload.js
+│   └── preload-legal.js
 ├── gnome-extension/
 │   └── theme/
+├── legal/
+│   ├── README.md
+│   └── manifest.json
 ├── renderer/
 │   ├── app.js
 │   ├── docs.html
 │   ├── index.html
+│   ├── legal.html
+│   ├── legal.js
 │   ├── rules.html
 │   └── style.css
 ├── tests/
-│   └── backend.test.js
+│   ├── backend.test.js
+│   └── legal.test.js
+├── CONTRIBUTING.md
+├── LICENSE
+├── SECURITY.md
+├── THIRD-PARTY-NOTICES.md
 ├── install.sh
 ├── uninstall.sh
 ├── Makefile
@@ -386,7 +411,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.3.2**, defined in `package.json`.
+Current application version: **0.4.0**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/
@@ -394,6 +419,7 @@ Lead Developer - Gerard Sala
 
 # License
 
-The MIT License (MIT)
+The MIT License (MIT). Copyright (c) 2026 Gerard Sala.
 
-Copyright (c) 2026 Gerard Sala
+See [`LICENSE`](LICENSE), [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md),
+and the in-app **License & Legal** window for the compliance register.

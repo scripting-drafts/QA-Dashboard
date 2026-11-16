@@ -7,10 +7,12 @@ const {
   app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen, shell,
 } = require("electron");
 const backend = require("./backend");
+const legal = require("./legal");
 
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set([
   "overview", "sentinels", "sen-overview", "tickets", "findings", "logs",
+  "legal",
 ]);
 const APP_ICON_LIGHT = path.join(
   __dirname, "..", "assets", "qa-dashboard-light-256.png");
@@ -23,6 +25,7 @@ const WINDOW_TITLES = {
   "sen-overview": "QA Sentinels Overview",
   tickets: "QA Sentinels Tickets",
   logs: "QA Sentinels Logs",
+  legal: "License & Legal",
 };
 
 const WINDOW_SIZES = {
@@ -31,6 +34,7 @@ const WINDOW_SIZES = {
   "sen-overview": { width: 1180, height: 820 },
   tickets: { width: 1180, height: 820 },
   logs: { width: 980, height: 680 },
+  legal: { width: 1020, height: 780 },
 };
 
 const windows = new Map();
@@ -141,6 +145,7 @@ function createWindow(module = "overview", show = true, tab = "") {
   const y = Math.min(
     Math.max(0, Math.round(area.y + (area.height - size.height) / 2) + offset),
     area.y + Math.max(0, area.height - size.height));
+  const preload = module === "legal" ? "preload-legal.js" : "preload.js";
   const window = new BrowserWindow({
     ...size,
     x,
@@ -152,22 +157,29 @@ function createWindow(module = "overview", show = true, tab = "") {
     icon: windowIcon(),
     backgroundColor: windowBackground(),
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, preload),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
   hardenWindow(window);
-  const renderModule = module === "tickets" ? "sen-overview" : module;
-  const renderTab = module === "tickets" ? "tickets" : tab;
-  const pane = module === "tickets"
-    ? "tickets" : (module === "sen-overview" ? "overview" : "");
-  const url = pathToFileURL(path.join(__dirname, "..", "renderer", "index.html"));
-  url.searchParams.set("module", renderModule);
-  if (renderTab) url.searchParams.set("tab", renderTab);
-  if (pane) url.searchParams.set("pane", pane);
-  window.loadURL(url.toString());
+  if (module === "legal") {
+    const url = pathToFileURL(
+      path.join(__dirname, "..", "renderer", "legal.html"));
+    window.loadURL(url.toString());
+  } else {
+    const renderModule = module === "tickets" ? "sen-overview" : module;
+    const renderTab = module === "tickets" ? "tickets" : tab;
+    const pane = module === "tickets"
+      ? "tickets" : (module === "sen-overview" ? "overview" : "");
+    const url = pathToFileURL(
+      path.join(__dirname, "..", "renderer", "index.html"));
+    url.searchParams.set("module", renderModule);
+    if (renderTab) url.searchParams.set("tab", renderTab);
+    if (pane) url.searchParams.set("pane", pane);
+    window.loadURL(url.toString());
+  }
   window.once("ready-to-show", () => {
     if (show) window.show();
   });
@@ -553,6 +565,46 @@ function registerIpc() {
   });
 
   ipcMain.handle("app:version", () => app.getVersion());
+
+  ipcMain.handle("legal:get", () => legal.register(app.getVersion()));
+
+  ipcMain.handle("legal:document", (_event, id) =>
+    legal.readDocument(String(id || "")));
+
+  ipcMain.handle("legal:open-document", async (_event, id) => {
+    const target = legal.documentTarget(String(id || ""));
+    const error = await shell.openPath(target.file);
+    if (error) throw new Error(error);
+    return { label: target.label };
+  });
+
+  ipcMain.handle("legal:export", async (event, format) => {
+    const kind = format === "json" ? "json" : format === "md" ? "md" : "";
+    if (!kind) throw new Error("unsupported legal report format");
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    if (!parent || !Array.from(windows.values()).includes(parent)) {
+      return { saved: false };
+    }
+    const options = {
+      title: "Save License & Legal report",
+      defaultPath: path.join(
+        app.getPath("documents"), `qa-dashboard-legal.${kind}`),
+      filters: kind === "json"
+        ? [{ name: "JSON", extensions: ["json"] }]
+        : [{ name: "Markdown", extensions: ["md"] }],
+    };
+    const result = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return { saved: false };
+    const text = legal.exportReport(kind, app.getVersion());
+    const target = path.resolve(result.filePath);
+    const temporary = `${target}.tmp`;
+    fs.writeFileSync(temporary, text, { mode: 0o600 });
+    fs.renameSync(temporary, target);
+    fs.chmodSync(target, 0o600);
+    return { saved: true, file: path.basename(target), format: kind };
+  });
 
   ipcMain.handle("window:fit-sentinels", (event, height) => {
     const window = windows.get("sen-overview");

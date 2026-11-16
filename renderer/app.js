@@ -982,6 +982,9 @@ function bind() {
   $$("[data-open]").forEach((button) => {
     button.addEventListener("click", () => window.qa.openModule(button.dataset.open));
   });
+  $("#legal-open").addEventListener("click", () => {
+    window.qa.openModule("legal");
+  });
   $("#settings").addEventListener("click", async () => {
     try {
       await window.qa.openSettings();

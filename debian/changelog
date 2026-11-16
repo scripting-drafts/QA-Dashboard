@@ -1,3 +1,14 @@
+qa-dashboard (0.4.0) jammy; urgency=medium
+
+  * Add the License & Legal window: own-product compliance register,
+    manifest checks, document viewer, and Markdown/JSON export.
+  * Add LICENSE, third-party notices, privacy, contribution, security,
+    and release-policy documents.
+  * Install Electron and Chromium license texts under /usr/share/doc.
+  * Add legal manifest validation and packaging tests.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 10:00:00 +0100
+
 qa-dashboard (0.3.2) jammy; urgency=medium
 
   * Run the bundled Electron binary directly; the APT package has no Node.js

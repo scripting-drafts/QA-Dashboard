@@ -31,8 +31,12 @@ sleep 1
 install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$ICONS/256x256/apps" \
     "$ICONS/512x512/apps" "$DOC" "$AUTOSTART"
 rm -rf "$LIB/electron" "$LIB/renderer" "$LIB/assets" "$LIB/node_modules"
-cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$LIB/"
-install -m 0644 "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
+rm -rf "$LIB/docs" "$LIB/legal"
+cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$ROOT/docs" "$ROOT/legal" "$LIB/"
+install -m 0644 "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" \
+    "$ROOT/CONTRIBUTING.md" "$ROOT/SECURITY.md" \
+    "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
+install -D -m 0644 "$ROOT/debian/copyright" "$LIB/debian/copyright"
 if [ -d "$ROOT/node_modules/electron" ]; then
     cp -a "$ROOT/node_modules" "$LIB/"
 else
@@ -49,8 +53,16 @@ rm -f "$ICONS/scalable/apps/qa-dashboard.svg"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "$ICONS" >/dev/null 2>&1 || true
 fi
-install -m 0644 "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
-    "$ROOT/docs/PORTING.md" "$DOC/"
+install -m 0644 "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" \
+    "$ROOT/CONTRIBUTING.md" "$ROOT/SECURITY.md" \
+    "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
+    "$ROOT/docs/PORTING.md" "$ROOT/docs/PRIVACY.md" \
+    "$ROOT/docs/LEGAL.md" "$DOC/"
+install -D -m 0644 "$ROOT/legal/manifest.json" "$DOC/legal/manifest.json"
+install -m 0644 "$LIB/node_modules/electron/dist/LICENSE" \
+    "$DOC/electron-LICENSE"
+install -m 0644 "$LIB/node_modules/electron/dist/LICENSES.chromium.html" \
+    "$DOC/chromium-LICENSES.html"
 
 # Older launchers enabled startup notification, which made GNOME keep a busy
 # cursor after a single-instance handoff. Note that a session reload is needed

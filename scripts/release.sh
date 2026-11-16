@@ -32,7 +32,7 @@ case "$REPO" in
   QA-Dashboard)
     PKG=qa-dashboard
     VERSION_FILES=(debian/changelog package.json package-lock.json README.md)
-    TEST_CMD=(node tests/backend.test.js)
+    TEST_CMD=(npm test)
     ;;
   Ubuntu-Backup)
     PKG=ubuntu-backup

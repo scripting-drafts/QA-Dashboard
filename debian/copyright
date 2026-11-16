@@ -3,7 +3,7 @@ Upstream-Name: QA Dashboard
 Source: https://github.com/scripting-drafts/QA-Dashboard
 
 Files: *
-Copyright: 2026 Gerard Sala <creative.gsp@gmail.com>
+Copyright: 2026 Gerard Sala
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the "Software"),
@@ -22,3 +22,13 @@ License: MIT
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  DEALINGS IN THE SOFTWARE.
+
+Files: node_modules/electron/dist/*
+Copyright: Electron contributors; The Chromium Authors; Node.js contributors; third-party contributors
+License: MIT AND BSD-3-Clause AND LicenseRef-Chromium-Third-Party
+Comment: This package bundles the prebuilt Electron distribution. The full
+ Electron license is installed at
+ /usr/share/doc/qa-dashboard/electron-LICENSE and the complete Chromium
+ third-party notice is installed at
+ /usr/share/doc/qa-dashboard/chromium-LICENSES.html. Those files are the
+ authoritative notices for the bundled components. Do not strip them.

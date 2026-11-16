@@ -13,6 +13,9 @@ first use. You can install the packages separately:
   apt install qa-sentinels qa-dashboard    # engine + GUI
   apt install --no-install-recommends qa-dashboard  # GUI only; no engine
 
+The License & Legal window is a read-only compliance register. License and
+third-party notices are installed under /usr/share/doc/qa-dashboard.
+
 QA Dashboard is only a front end and has no monitoring or evidence-collection
 code of its own. Without qa-sentinels it starts, but its Sentinels windows have
 nothing to read or invoke. The package does not install a cron/systemd

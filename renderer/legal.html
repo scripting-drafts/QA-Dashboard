@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;">
+  <title>License &amp; Legal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="legal-window">
+  <div class="shell">
+    <main>
+      <header class="topbar">
+        <div class="topbar-title">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div>
+            <h2>License &amp; Legal</h2>
+            <p id="legal-subtitle">Own-product compliance register.</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="status-pill">
+            <span id="legal-dot" class="dot"></span>
+            <span id="legal-status">Loading</span>
+          </span>
+        </div>
+      </header>
+
+      <p id="legal-error" class="legal-error" role="alert" hidden></p>
+
+      <section id="legal-content" hidden>
+        <section class="panel legal-summary">
+          <div class="legal-product">
+            <span class="kicker">Product</span>
+            <h3 id="legal-product">—</h3>
+            <p id="legal-version" class="muted"></p>
+          </div>
+          <div class="legal-facts">
+            <div><span>License</span><strong id="legal-license">—</strong></div>
+            <div><span>Copyright</span><strong id="legal-copyright">—</strong></div>
+            <div><span>Last reviewed</span><strong id="legal-reviewed">—</strong></div>
+          </div>
+          <p class="legal-source muted">Source: <a id="legal-source" href="#" target="_blank" rel="noreferrer"></a></p>
+        </section>
+
+        <div id="legal-counts" class="legal-counts" aria-label="Compliance summary"></div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h3>Components</h3>
+            <span id="legal-component-count" class="muted mono"></span>
+          </div>
+          <div class="legal-table-wrap">
+            <table class="legal-table">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Version</th>
+                  <th>License</th>
+                  <th>Scope</th>
+                </tr>
+              </thead>
+              <tbody id="legal-components"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h3>Checks</h3>
+            <span id="legal-check-count" class="muted mono"></span>
+          </div>
+          <div id="legal-checks" class="legal-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h3>Manual reviews</h3>
+            <span id="legal-review-count" class="muted mono"></span>
+          </div>
+          <div id="legal-reviews" class="legal-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h3>Documents</h3>
+          </div>
+          <div id="legal-documents" class="legal-documents"></div>
+        </section>
+
+        <section id="legal-document-panel" class="panel legal-document-panel" hidden>
+          <div class="panel-head">
+            <h3 id="legal-document-title">Document</h3>
+            <button id="legal-document-close" class="ghost" type="button">Close</button>
+          </div>
+          <pre id="legal-document-text" class="console"></pre>
+        </section>
+
+        <div class="legal-actions">
+          <button id="legal-export-md" type="button">Export Markdown</button>
+          <button id="legal-export-json" class="ghost" type="button">Export JSON</button>
+          <span id="legal-export-status" class="muted" role="status" aria-live="polite"></span>
+        </div>
+
+        <p class="legal-disclaimer muted">
+          This register is an inventory and attestation aid, not legal advice.
+          Review pending items with qualified counsel before relying on them.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="legal.js"></script>
+</body>
+</html>

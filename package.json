@@ -1,9 +1,16 @@
 {
   "name": "qa-dashboard",
   "productName": "QA Dashboard",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "Electron dashboard for QA Sentinels",
+  "license": "MIT",
+  "author": "Gerard Sala",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scripting-drafts/QA-Dashboard.git"
+  },
+  "homepage": "https://github.com/scripting-drafts/QA-Dashboard",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
