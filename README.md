@@ -11,8 +11,8 @@ Malware Scan and SIEM are not part of this application. QA SIEM is a separate
 standalone project with its own service, API, and web dashboard.
 
 ![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/overview.png)
-![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/database.png)
 ![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/tickets.png)
+![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/database.png)
 
 
 ## Stack
