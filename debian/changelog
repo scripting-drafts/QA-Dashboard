@@ -1,3 +1,9 @@
+qa-dashboard (0.5.3) jammy; urgency=medium
+
+  * Remove the underline from the version-number About link.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 18:36:37 +0100
+
 qa-dashboard (0.5.2) jammy; urgency=medium
 
   * Make the version number the About link in the Overview footer.
