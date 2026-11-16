@@ -65,23 +65,6 @@ The Rules button opens `renderer/rules.html` and the Documentation button opens
 `renderer/docs.html`; both are standalone documents in the system browser rather
 than application windows.
 
-## License & Legal
-
-The Legal window is a separate renderer (`renderer/legal.html`) with its own
-narrow preload (`preload-legal.js`). It is a first-class module (`--module=legal`)
-and opens from the Overview footer. The main process reads
-`legal/manifest.json`, evaluates fixed checks, and exposes only four IPC
-actions: register read, allowlisted document read, document open, and report
-export. Document
-IDs resolve through the manifest and are checked with `realpath` against the
-application root. The renderer never receives arbitrary paths. The export uses
-a save dialog and writes Markdown or JSON with mode `0600`.
-
-The register distinguishes declared, verified, and manually reviewed items. It
-shows pending export/cryptography, trademark, and accessibility reviews rather
-than claiming legal compliance. The scanner in the separate QA License Scanner
-project validates the same manifest schema.
-
 ## Launchers and single instance
 
 There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact

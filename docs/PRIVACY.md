@@ -34,9 +34,3 @@ retained data.
 
 QA Dashboard does not store SIEM tokens or vendor credentials. Tokens managed by
 QA Sentinels or QA SIEM remain in their own configuration.
-
-## Sharing reports
-
-The License & Legal report contains product and license metadata only. It uses
-relative document paths and does not include usernames, hostnames, or
-configuration values. Review any report before sharing it.

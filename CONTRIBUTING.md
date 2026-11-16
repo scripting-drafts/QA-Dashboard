@@ -8,6 +8,6 @@ commits with the Developer Certificate of Origin 1.1 (`git commit -s`).
 - Use fixed argument vectors. Do not add a general shell or arbitrary command
   execution.
 - Do not add telemetry, network calls, or credentials to the renderer.
-- Add tests for backend, IPC, manifest, and packaging changes.
-- Run `npm test` and validate `legal/manifest.json` before opening a pull request.
+- Add tests for backend, IPC, and packaging changes.
+- Run `npm test` before opening a pull request.
 - Do not include personal data, host-specific paths, or secrets in commits.

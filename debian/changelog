@@ -1,3 +1,11 @@
+qa-dashboard (0.5.0) jammy; urgency=medium
+
+  * Remove the License & Legal window from QA Dashboard.
+  * Keep the compliance register in the private QA-License-Legal repository.
+  * Drop the in-app legal manifest, preload, renderer, and tests.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 18:13:49 +0100
+
 qa-dashboard (0.4.1) jammy; urgency=medium
 
   * Shorten Dashboard window titles by removing the "QA Sentinels" prefix.

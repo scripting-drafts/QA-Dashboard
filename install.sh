@@ -32,7 +32,7 @@ install -d -m 0755 "$LIB" "$PREFIX/bin" "$APPS" "$ICONS/256x256/apps" \
     "$ICONS/512x512/apps" "$DOC" "$AUTOSTART"
 rm -rf "$LIB/electron" "$LIB/renderer" "$LIB/assets" "$LIB/node_modules"
 rm -rf "$LIB/docs" "$LIB/legal"
-cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$ROOT/docs" "$ROOT/legal" "$LIB/"
+cp -a "$ROOT/electron" "$ROOT/renderer" "$ROOT/assets" "$ROOT/docs" "$LIB/"
 install -m 0644 "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" \
     "$ROOT/CONTRIBUTING.md" "$ROOT/SECURITY.md" \
     "$ROOT/package.json" "$ROOT/package-lock.json" "$LIB/"
@@ -57,8 +57,7 @@ install -m 0644 "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" \
     "$ROOT/CONTRIBUTING.md" "$ROOT/SECURITY.md" \
     "$ROOT/README.md" "$ROOT/docs/ARCHITECTURE.md" \
     "$ROOT/docs/PORTING.md" "$ROOT/docs/PRIVACY.md" \
-    "$ROOT/docs/LEGAL.md" "$DOC/"
-install -D -m 0644 "$ROOT/legal/manifest.json" "$DOC/legal/manifest.json"
+    "$DOC/"
 install -m 0644 "$LIB/node_modules/electron/dist/LICENSE" \
     "$DOC/electron-LICENSE"
 install -m 0644 "$LIB/node_modules/electron/dist/LICENSES.chromium.html" \
