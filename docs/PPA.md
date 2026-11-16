@@ -63,14 +63,14 @@ Sign the changes files with the registered key if `dpkg-buildpackage` did not:
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
   ~/qa-sentinels_1.1.1_source.changes
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
-  ~/qa-dashboard_0.5.4_source.changes
+  ~/qa-dashboard_0.5.5_source.changes
 ```
 
 ## Upload
 
 ```bash
 dput ubuntu-backup ~/qa-sentinels_1.1.1_source.changes
-dput ubuntu-backup ~/qa-dashboard_0.5.4_source.changes
+dput ubuntu-backup ~/qa-dashboard_0.5.5_source.changes
 ```
 
 `dput` refuses a second upload of the same `.changes` file unless forced. Use
@@ -78,7 +78,7 @@ dput ubuntu-backup ~/qa-dashboard_0.5.4_source.changes
 
 ```bash
 dput -f ubuntu-backup ~/qa-sentinels_1.1.1_source.changes
-dput -f ubuntu-backup ~/qa-dashboard_0.5.4_source.changes
+dput -f ubuntu-backup ~/qa-dashboard_0.5.5_source.changes
 ```
 
 Watch the build queue:
