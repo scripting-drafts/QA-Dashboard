@@ -2,9 +2,6 @@
 
 **A modular Electron desktop interface for QA Sentinels on Linux.**
 
-![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/overview.png)
-![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/tickets.png)
-
 QA Dashboard is a graphical front end for the existing QA Sentinels command-line
 tool. It does not implement monitoring, evidence collection, crash correlation,
 or ticket generation itself. It invokes the `qa` CLI and reads the files that
@@ -12,6 +9,11 @@ QA Sentinels produces.
 
 Malware Scan and SIEM are not part of this application. QA SIEM is a separate
 standalone project with its own service, API, and web dashboard.
+
+![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/overview.png)
+![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/database.png)
+![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/tickets.png)
+
 
 ## Stack
 
