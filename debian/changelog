@@ -1,3 +1,9 @@
+qa-dashboard (0.5.6) jammy; urgency=medium
+
+  * Restore the saved-settings banner using the standard panel theme.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 19:26:40 +0100
+
 qa-dashboard (0.5.5) jammy; urgency=medium
 
   * Make the saved-settings status message less prominent.
