@@ -5,9 +5,9 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
   overview: ["QA Dashboard", "QA Sentinels monitoring, database, and ticket workflow."],
-  sentinels: ["QA Sentinels Database", "Read-only sentinels.db query engine with filters and SQL."],
-  "sen-overview": ["QA Sentinels Overview", "Status, scheduling and live sentinel state."],
-  logs: ["QA Sentinels Logs", "Live QA Sentinels log stream."],
+  sentinels: ["Database", "Read-only sentinels.db query engine with filters and SQL."],
+  "sen-overview": ["Overview", "Status, scheduling and live sentinel state."],
+  logs: ["Logs", "Live QA Sentinels log stream."],
 };
 
 const SENTINEL_KEYS = [
@@ -146,8 +146,7 @@ function setSenTab(tab, load = true) {
   $("#sen-overview-rules").hidden = senPane === "overview";
   $("#sen-panel-overview").hidden = senTab !== "overview";
   $("#sen-panel-tickets").hidden = senTab !== "tickets";
-  const title = senTab === "tickets"
-    ? "QA Sentinels Tickets" : "QA Sentinels Overview";
+  const title = senTab === "tickets" ? "Tickets" : "Overview";
   $("#view-title").textContent = title;
   document.title = title;
   $("#view-subtitle").textContent = senTab === "tickets"

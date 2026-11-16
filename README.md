@@ -27,7 +27,7 @@ standalone project with its own service, API, and web dashboard.
 | Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.4.0` |
+| Version | `0.4.1` |
 
 Linux is the current target. The Electron core is portable; Windows and macOS
 porting notes are in `docs/PORTING.md`.
@@ -235,7 +235,7 @@ Before publishing a repository, the built packages can be installed directly:
 
 ```bash
 sudo apt install ./qa-sentinels_1.1.1_amd64.deb
-sudo apt install ./qa-dashboard_0.4.0_amd64.deb
+sudo apt install ./qa-dashboard_0.4.1_amd64.deb
 ```
 
 `qa-dashboard` Recommends `qa-sentinels`; install the engine first or use
@@ -414,7 +414,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.4.0**, defined in `package.json`.
+Current application version: **0.4.1**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/

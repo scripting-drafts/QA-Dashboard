@@ -1,3 +1,9 @@
+qa-dashboard (0.4.1) jammy; urgency=medium
+
+  * Shorten Dashboard window titles by removing the "QA Sentinels" prefix.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 17:59:37 +0100
+
 qa-dashboard (0.4.0) jammy; urgency=medium
 
   * Add the License & Legal window: own-product compliance register,

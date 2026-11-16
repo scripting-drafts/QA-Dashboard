@@ -23,7 +23,7 @@ test("the checked-in manifest is valid", () => {
 });
 
 test("the register evaluates the checked-in application", () => {
-  const data = legal.register("0.4.0", { root: ROOT, versions: VERSIONS });
+  const data = legal.register("0.4.1", { root: ROOT, versions: VERSIONS });
   assert.equal(data.ok, true);
   assert.equal(data.facts.packageLicense, "MIT");
   assert.equal(data.summary.actions, 0);
@@ -45,7 +45,7 @@ test("license documents are readable and large HTML notices are deferred", () =>
 });
 
 test("the exported report uses relative paths and no host data", () => {
-  const text = legal.exportReport("json", "0.4.0", {
+  const text = legal.exportReport("json", "0.4.1", {
     root: ROOT, versions: VERSIONS,
   });
   const report = JSON.parse(text);
@@ -108,6 +108,8 @@ test("packaging installs the legal artifacts", () => {
 
 test("package metadata declares the same license", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  assert.equal(pkg.version, "0.4.0");
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "legal", "manifest.json"), "utf8"));
+  assert.equal(pkg.version, manifest.reviewedVersion);
   assert.equal(pkg.license, "MIT");
 });

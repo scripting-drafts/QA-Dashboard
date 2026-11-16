@@ -6,7 +6,7 @@
   "source": "https://github.com/scripting-drafts/QA-Dashboard",
   "homepage": "https://github.com/scripting-drafts/QA-Dashboard",
   "lastReviewed": "2026-11-16",
-  "reviewedVersion": "0.4.0",
+  "reviewedVersion": "0.4.1",
   "reviewedComponents": {
     "electron": "45.2.3",
     "chromium": "156.0.8078.80",
@@ -18,7 +18,7 @@
     {
       "id": "qa-dashboard",
       "name": "QA Dashboard",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "license": "MIT",
       "scope": "project"
     },

@@ -21,10 +21,10 @@ const APP_ICON_DARK = path.join(
 
 const WINDOW_TITLES = {
   overview: "QA Dashboard",
-  sentinels: "QA Sentinels Database",
-  "sen-overview": "QA Sentinels Overview",
-  tickets: "QA Sentinels Tickets",
-  logs: "QA Sentinels Logs",
+  sentinels: "Database",
+  "sen-overview": "Overview",
+  tickets: "Tickets",
+  logs: "Logs",
   legal: "License & Legal",
 };
 
@@ -243,7 +243,7 @@ function openSettingsWindow(requester = null) {
     minWidth: Math.min(480, width),
     minHeight: Math.min(560, height),
     show: false,
-    title: "QA Sentinels Settings",
+    title: "Settings",
     icon: windowIcon(),
     backgroundColor: windowBackground(),
     webPreferences: {
