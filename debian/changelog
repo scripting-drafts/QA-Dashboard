@@ -1,3 +1,10 @@
+qa-dashboard (0.5.2) jammy; urgency=medium
+
+  * Make the version number the About link in the Overview footer.
+  * Remove the version number from the About dialog.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 18:32:59 +0100
+
 qa-dashboard (0.5.1) jammy; urgency=medium
 
   * Add a minimal About dialog to the Overview footer.

@@ -977,14 +977,8 @@ async function startSentinelLogs() {
   }
 }
 
-async function openAbout() {
+function openAbout() {
   const dialog = $("#about-dialog");
-  try {
-    const version = await window.qa.version();
-    $("#about-version").textContent = `Version ${version}`;
-  } catch (_error) {
-    $("#about-version").textContent = "";
-  }
   if (!dialog.open) dialog.showModal();
 }
 
@@ -1158,9 +1152,9 @@ async function init() {
   setView(initial);
   try {
     const version = await window.qa.version();
-    $("#app-version").textContent = `Version ${version}`;
+    $("#about-open").textContent = `Version ${version}`;
   } catch (error) {
-    $("#app-version").hidden = true;
+    $("#about-open").textContent = "About";
   }
   if (initial === "overview") {
     loadSentinelsStatus();
