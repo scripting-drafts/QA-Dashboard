@@ -36,4 +36,5 @@ re-check the bundled `LICENSES.chromium.html` and the Electron `LICENSE`.
 
 Electron, Chromium, Ubuntu, Launchpad, GNOME, and other names are trademarks of
 their respective owners. They are used descriptively. No affiliation or
-endorsement is claimed.
+endorsement is claimed. See `docs/LEGAL.md` for the export classification and
+the full affiliation notice.

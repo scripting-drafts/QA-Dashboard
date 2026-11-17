@@ -22,12 +22,14 @@ override_dh_dwz:
 
 override_dh_auto_install:
 	install -d debian/qa-dashboard/usr/lib/qa-dashboard
-	cp -a electron renderer assets \
+	cp -a electron renderer assets legal \
 		LICENSE THIRD-PARTY-NOTICES.md CONTRIBUTING.md SECURITY.md \
 		package.json package-lock.json \
 		debian/qa-dashboard/usr/lib/qa-dashboard/
 	install -D -m 0644 docs/PRIVACY.md \
 		debian/qa-dashboard/usr/lib/qa-dashboard/docs/PRIVACY.md
+	install -D -m 0644 docs/LEGAL.md \
+		debian/qa-dashboard/usr/lib/qa-dashboard/docs/LEGAL.md
 	install -D -m 0644 debian/copyright \
 		debian/qa-dashboard/usr/lib/qa-dashboard/debian/copyright
 	install -d debian/qa-dashboard/usr/lib/qa-dashboard/node_modules/electron
@@ -74,6 +76,10 @@ override_dh_auto_install:
 		debian/qa-dashboard/usr/share/doc/qa-dashboard/SECURITY.md
 	install -D -m 0644 docs/PRIVACY.md \
 		debian/qa-dashboard/usr/share/doc/qa-dashboard/PRIVACY.md
+	install -D -m 0644 docs/LEGAL.md \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/LEGAL.md
+	install -D -m 0644 legal/manifest.json \
+		debian/qa-dashboard/usr/share/doc/qa-dashboard/legal/manifest.json
 	install -D -m 0644 node_modules/electron/dist/LICENSE \
 		debian/qa-dashboard/usr/share/doc/qa-dashboard/electron-LICENSE
 	install -D -m 0644 node_modules/electron/dist/LICENSES.chromium.html \

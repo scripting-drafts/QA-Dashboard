@@ -61,24 +61,24 @@ Sign the changes files with the registered key if `dpkg-buildpackage` did not:
 
 ```bash
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
-  ~/qa-sentinels_1.1.1_source.changes
+  ~/qa-sentinels_1.2.1_source.changes
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
-  ~/qa-dashboard_0.5.6_source.changes
+  ~/qa-dashboard_0.5.7_source.changes
 ```
 
 ## Upload
 
 ```bash
-dput ubuntu-backup ~/qa-sentinels_1.1.1_source.changes
-dput ubuntu-backup ~/qa-dashboard_0.5.6_source.changes
+dput ubuntu-backup ~/qa-sentinels_1.2.1_source.changes
+dput ubuntu-backup ~/qa-dashboard_0.5.7_source.changes
 ```
 
 `dput` refuses a second upload of the same `.changes` file unless forced. Use
 `dput -f ubuntu-backup …` when retrying after a Launchpad rejection:
 
 ```bash
-dput -f ubuntu-backup ~/qa-sentinels_1.1.1_source.changes
-dput -f ubuntu-backup ~/qa-dashboard_0.5.6_source.changes
+dput -f ubuntu-backup ~/qa-sentinels_1.2.1_source.changes
+dput -f ubuntu-backup ~/qa-dashboard_0.5.7_source.changes
 ```
 
 Watch the build queue:

@@ -27,7 +27,7 @@ standalone project with its own service, API, and web dashboard.
 | Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.5.6` |
+| Version | `0.5.7` |
 
 Linux is the current target. The Electron core is portable; Windows and macOS
 porting notes are in `docs/PORTING.md`.
@@ -224,8 +224,8 @@ sudo apt install --no-install-recommends qa-dashboard
 Before publishing a repository, the built packages can be installed directly:
 
 ```bash
-sudo apt install ./qa-sentinels_1.1.1_amd64.deb
-sudo apt install ./qa-dashboard_0.5.6_amd64.deb
+sudo apt install ./qa-sentinels_1.2.1_amd64.deb
+sudo apt install ./qa-dashboard_0.5.7_amd64.deb
 ```
 
 `qa-dashboard` Recommends `qa-sentinels`; install the engine first or use
@@ -395,7 +395,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.5.6**, defined in `package.json`.
+Current application version: **0.5.7**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/
@@ -406,5 +406,5 @@ Lead Developer - Gerard Sala
 The MIT License (MIT). Copyright (c) 2026 Gerard Sala.
 
 See [`LICENSE`](LICENSE) and [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
-The License & Legal compliance register is maintained in the separate private
-QA-License-Legal repository.
+The compliance register lives in `legal/manifest.json`. The standalone viewer
+is maintained in the separate private QA-License-Legal repository.
