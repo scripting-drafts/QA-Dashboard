@@ -63,7 +63,8 @@ version="$(dpkg-parsechangelog -SVersion)"
 published="$(curl -fsS --max-time 30 \
   "$PPA_HOST/dists/$DIST/main/binary-amd64/Packages.gz" 2>/dev/null \
   | gunzip -c 2>/dev/null \
-  | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}')"
+  | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}' \
+  || true)"
 published="${published:-unknown}"
 
 dirty="$(git status --porcelain | wc -l)"
@@ -133,7 +134,8 @@ while (( waited < WAIT_MAX )); do
   now="$(curl -fsS --max-time 30 \
     "$PPA_HOST/dists/$DIST/main/binary-amd64/Packages.gz" 2>/dev/null \
     | gunzip -c 2>/dev/null \
-    | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}')"
+    | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}' \
+    || true)"
   if [[ ${now:-} == "$version" ]]; then
     echo "published: $PKG $version"
     exit 0
