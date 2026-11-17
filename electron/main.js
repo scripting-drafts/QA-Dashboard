@@ -161,16 +161,15 @@ function createWindow(module = "overview", show = true, tab = "") {
     Math.max(0, Math.round(area.y + (area.height - size.height) / 2) + offset),
     area.y + Math.max(0, area.height - size.height));
   const preload = "preload.js";
-  const fixedLogsWindow = module === "logs";
   const window = new BrowserWindow({
     ...size,
     x,
     y,
     minWidth: module === "overview" ? 820 : 900,
     minHeight: module === "overview" ? 540 : 620,
-    resizable: !fixedLogsWindow,
-    maximizable: !fixedLogsWindow,
-    fullscreenable: !fixedLogsWindow,
+    resizable: true,
+    maximizable: true,
+    fullscreenable: true,
     show: false,
     title: WINDOW_TITLES[module],
     icon: windowIcon(),

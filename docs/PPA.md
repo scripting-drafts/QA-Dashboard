@@ -70,7 +70,7 @@ Sign the changes files with the registered key if `dpkg-buildpackage` did not:
 
 ```bash
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
-  ~/qa-sentinels_1.3.0_source.changes
+  ~/qa-sentinels_1.4.1_source.changes
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
   ~/qa-dashboard_0.5.9_source.changes
 ```
@@ -80,7 +80,7 @@ debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
 Each package goes to its own archive:
 
 ```bash
-dput qa-sentinels ~/qa-sentinels_1.3.0_source.changes
+dput qa-sentinels ~/qa-sentinels_1.4.1_source.changes
 dput qa-dashboard ~/qa-dashboard_0.5.9_source.changes
 ```
 

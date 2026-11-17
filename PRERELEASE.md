@@ -7,7 +7,7 @@ Date: 2026-11-17
 ## What this build is
 
 - Packaging and UI test build of the Electron Dashboard.
-- Compatible with QA Sentinels 1.3.0, including the network/connectivity tier.
+- Compatible with QA Sentinels 1.4.1, including the network/connectivity tier and ticket attribution.
 - No commercial license code, activation, TPM/Secure Enclave binding, or device limit.
 - No seller entity, EULA, privacy policy, or storefront is included.
 - QA Sentinels is Linux-only at this stage. On Windows and macOS the Dashboard
@@ -53,7 +53,7 @@ Use the DMG when it is available, or the ZIP:
 - [ ] About shows version `0.5.9`.
 - [ ] Closing all windows exits the process.
 - [ ] No commercial license prompt appears.
-- [ ] On Linux with QA Sentinels 1.3.0, Overview shows network tier/state.
+- [ ] On Linux with QA Sentinels 1.4.1, Overview shows network tier/state.
 - [ ] On Windows/macOS, the Sentinels state clearly reports unavailable.
 
 ## Reporting

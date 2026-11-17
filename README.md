@@ -79,7 +79,7 @@ environment, or common locations:
 
 Available capabilities:
 
-- Read `qa status` and display parsed values, including the 1.3.0 network tier.
+- Read `qa status` and display parsed values, including the network tier and evidence-first ticket attribution.
 - Auto-refresh status every 10 seconds in the Overview and Sentinels Overview.
 - Run read-only `qa query` calls against `sentinels.db`, including the
   `network`, `network-items`, `network-metrics`, and `network-diffs` categories.
@@ -225,7 +225,7 @@ sudo apt install --no-install-recommends qa-dashboard
 Before publishing a repository, the built packages can be installed directly:
 
 ```bash
-sudo apt install ./qa-sentinels_1.3.0_amd64.deb
+sudo apt install ./qa-sentinels_1.4.1_amd64.deb
 sudo apt install ./qa-dashboard_0.5.9_amd64.deb
 ```
 

@@ -3,6 +3,7 @@ qa-dashboard (0.5.9) jammy; urgency=medium
   * Add QA Sentinels 1.3.0 network and connectivity query categories.
   * Refresh companion metadata for the new Sentinels implementation.
   * Rebuild the normal and diagnostics pre-release packages.
+  * Allow resizing and maximizing the Logs window.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 13:55:00 +0100
 
