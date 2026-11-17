@@ -223,12 +223,23 @@
   </div>
 
   <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
-    <div class="about-head">
-      <h2 id="about-title">QA Dashboard</h2>
-      <button id="about-close" class="ghost" type="button">Close</button>
+    <div class="about-hero">
+      <div class="about-mark" aria-hidden="true"></div>
+      <div class="about-identity">
+        <h2 id="about-title">QA Dashboard</h2>
+        <p class="about-tagline">A front end for QA Sentinels evidence, database queries, and ticket flow.</p>
+      </div>
+      <button id="about-close" class="about-close" type="button" aria-label="Close About">×</button>
     </div>
-    <p>Local QA operations dashboard for QA Sentinels.</p>
-    <p class="muted">MIT License · Copyright (c) 2026 Gerard Sala</p>
+
+    <p id="diagnostics-row" class="about-diagnostics muted" hidden>
+      <button id="diagnostics-open" class="link-button" type="button">
+        Open diagnostics log
+      </button>
+      <span id="diagnostics-path"></span>
+    </p>
+
+    <p class="about-copyright muted">MIT License · Copyright (c) 2026 Gerard Sala</p>
   </dialog>
 
   <script src="app.js"></script>

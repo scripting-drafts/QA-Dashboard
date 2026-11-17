@@ -48,6 +48,10 @@ test("query arguments cover categories, SQL and limits", () => {
   assert.ok(backend.QUERY_CATEGORIES.includes("inbox"));
   assert.ok(backend.QUERY_CATEGORIES.includes("errors"));
   assert.ok(backend.QUERY_CATEGORIES.includes("crashes"));
+  for (const category of ["network", "network-items", "network-metrics",
+    "network-diffs"]) {
+    assert.ok(backend.QUERY_CATEGORIES.includes(category), category);
+  }
   for (const category of [
     "processes", "inventory-items", "inventory-diffs", "hardware-items",
     "faultcore", "crosschecks", "notifications", "reports", "meta",

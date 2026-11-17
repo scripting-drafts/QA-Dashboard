@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-logs/
 __pycache__/
 *.py[cod]
 *.egg-info/

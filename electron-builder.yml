@@ -1,0 +1,100 @@
+appId: org.scriptingdrafts.QADashboard
+productName: QA Dashboard
+copyright: Copyright (c) 2026 Gerard Sala
+directories:
+  output: dist
+  buildResources: build
+files:
+  - electron/**/*
+  - "!electron/diagnostics.js"
+  - renderer/**/*
+  - assets/**/*
+  - docs/**/*
+  - legal/**/*
+  - LICENSE
+  - THIRD-PARTY-NOTICES.md
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - PRERELEASE.md
+  - package.json
+extraResources:
+  - from: PRERELEASE.md
+    to: PRERELEASE.md
+asar: true
+compression: normal
+npmRebuild: false
+forceCodeSigning: false
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+    # Per-machine MSI: consumed by the QA VM (automated deploy) and GPO/Intune.
+    - target: msi
+      arch:
+        - x64
+  artifactName: QA-Dashboard-${version}-${arch}-win.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: QA Dashboard
+  artifactName: QA-Dashboard-Setup-${version}-${arch}.${ext}
+
+msi:
+  oneClick: true
+  perMachine: true
+  upgradeCode: 65D10012-0BD8-4699-8D00-5AFFD2E82127
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: QA Dashboard
+  runAfterFinish: false
+  artifactName: QA-Dashboard-${version}-${arch}.${ext}
+
+mac:
+  icon: build/icon.icns
+  category: public.app-category.developer-tools
+  minimumSystemVersion: "13.0"
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  artifactName: QA-Dashboard-${version}-${arch}-mac.${ext}
+
+dmg:
+  sign: false
+  title: QA Dashboard ${version}
+  contents:
+    - x: 140
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+linux:
+  icon: build/icons
+  category: Development
+  syncDesktopName: true
+  target:
+    - AppImage
+    - tar.gz
+  artifactName: QA-Dashboard-${version}-${arch}-linux.${ext}

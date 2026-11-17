@@ -78,6 +78,11 @@ function append(pre, line, limit = 4000) {
   pre.scrollTop = pre.scrollHeight;
 }
 
+function scrollLogsToEnd() {
+  const output = $("#logs-output");
+  if (output) output.scrollTop = output.scrollHeight;
+}
+
 function statusGrid(node, entries) {
   clear(node);
   if (!entries.length) {
@@ -115,6 +120,9 @@ function setView(view) {
   if (view === "sentinels" &&
       $("#sidebar-status").textContent === "Ready") {
     $("#sidebar-status").textContent = "sentinels.db";
+  }
+  if (view === "logs") {
+    requestAnimationFrame(scrollLogsToEnd);
   }
 }
 
@@ -964,7 +972,7 @@ async function startSentinelLogs() {
         logsLastSeq = seq;
       }
     }
-    output.scrollTop = output.scrollHeight;
+    scrollLogsToEnd();
     logsReady = true;
     if (result.error) append(output, `[dashboard] ${result.error}`);
     if (!result.started) {
@@ -1070,6 +1078,10 @@ function bind() {
       loadDatabaseOverview();
       loadTicketsOverview();
     }
+    if (currentView === "logs") scrollLogsToEnd();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && currentView === "logs") scrollLogsToEnd();
   });
   $$("[data-sen-tab]").forEach((button) => {
     button.addEventListener("click", () => setSenTab(button.dataset.senTab));
@@ -1111,7 +1123,8 @@ function bind() {
           renderSentinelsStatus(payload.data);
         }
       }
-      if (payload.type === "line" && currentView === "logs") {
+      if (payload.type === "line" &&
+          (currentView === "logs" || document.body.dataset.module === "logs")) {
         if (!logsReady) {
           logsPending.push(payload);
           if (logsPending.length > 4000) logsPending.shift();
@@ -1155,6 +1168,18 @@ async function init() {
     $("#about-open").textContent = `Version ${version}`;
   } catch (error) {
     $("#about-open").textContent = "About";
+  }
+  try {
+    const diagnostics = await window.qa.diagnostics();
+    if (diagnostics && diagnostics.enabled) {
+      $("#diagnostics-row").hidden = false;
+      $("#diagnostics-path").textContent = diagnostics.path;
+      $("#diagnostics-open").addEventListener("click", () => {
+        window.qa.openDiagnostics();
+      });
+    }
+  } catch (error) {
+    // Normal builds have no diagnostics API.
   }
   if (initial === "overview") {
     loadSentinelsStatus();

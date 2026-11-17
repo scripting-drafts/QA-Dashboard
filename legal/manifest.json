@@ -6,20 +6,20 @@
   "source": "https://github.com/scripting-drafts/QA-Dashboard",
   "homepage": "https://github.com/scripting-drafts/QA-Dashboard",
   "lastReviewed": "2026-11-17",
-  "reviewedVersion": "0.5.7",
+  "reviewedVersion": "0.5.9",
   "reviewedComponents": {
-    "qa-dashboard": "0.5.7",
+    "qa-dashboard": "0.5.9",
     "electron": "45.2.3",
     "chromium": "156.0.8078.80",
     "nodejs": "24.22.2",
-    "qa-sentinels": "1.2.1",
+    "qa-sentinels": "1.3.0",
     "qa-license-scanner": "0.1.0"
   },
   "components": [
     {
       "id": "qa-dashboard",
       "name": "QA Dashboard",
-      "version": "0.5.7",
+      "version": "0.5.9",
       "license": "MIT",
       "scope": "project"
     },
@@ -73,7 +73,7 @@
     {
       "id": "qa-sentinels",
       "name": "QA Sentinels",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "license": "MIT",
       "scope": "companion",
       "url": "https://github.com/scripting-drafts/QA-Sentinels"
@@ -157,7 +157,7 @@
       "category": "distribution",
       "status": "reviewed",
       "date": "2026-11-17",
-      "note": "Source install and Debian packaging now include the register and legal policy."
+      "note": "Source and Debian packaging include the register; companion metadata tracks QA Sentinels 1.3.0."
     },
     {
       "id": "privacy",

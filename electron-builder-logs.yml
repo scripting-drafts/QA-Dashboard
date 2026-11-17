@@ -1,0 +1,36 @@
+extends: ./electron-builder.yml
+
+extraMetadata:
+  qaDiagnostics: true
+
+files:
+  - electron/**/*
+  - electron/diagnostics.js
+  - renderer/**/*
+  - assets/**/*
+  - docs/**/*
+  - legal/**/*
+  - LICENSE
+  - THIRD-PARTY-NOTICES.md
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - PRERELEASE.md
+  - package.json
+
+extraResources:
+  - from: PRERELEASE.md
+    to: PRERELEASE.md
+  - from: DIAGNOSTICS.md
+    to: DIAGNOSTICS.md
+
+win:
+  artifactName: QA-Dashboard-${version}-${arch}-win-logs.${ext}
+
+nsis:
+  artifactName: QA-Dashboard-Setup-${version}-${arch}-logs.${ext}
+
+mac:
+  artifactName: QA-Dashboard-${version}-${arch}-mac-logs.${ext}
+
+linux:
+  artifactName: QA-Dashboard-${version}-${arch}-linux-logs.${ext}

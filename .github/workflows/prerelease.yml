@@ -1,0 +1,78 @@
+name: Pre-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            args: --linux --x64
+          - os: windows-latest
+            platform: win
+            args: --win --x64 --arm64
+          - os: macos-15
+            platform: mac
+            args: --mac --x64 --arm64
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci --no-audit --no-fund
+      - run: npx electron-builder ${{ matrix.args }} --publish never
+      - name: Smoke test
+        shell: bash
+        run: |
+          case "${{ matrix.platform }}" in
+            linux)
+              ./dist/linux-unpacked/qa-dashboard --version
+              ;;
+            win)
+              "./dist/win-unpacked/QA Dashboard.exe" --version
+              ;;
+            mac)
+              if [ "$(uname -m)" = "arm64" ]; then
+                "./dist/mac-arm64/QA Dashboard.app/Contents/MacOS/QA Dashboard" --version
+              else
+                "./dist/mac/QA Dashboard.app/Contents/MacOS/QA Dashboard" --version
+              fi
+              ;;
+          esac
+      - name: Checksums
+        run: node scripts/checksums.js dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-dashboard-${{ matrix.platform }}
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error

@@ -1,0 +1,58 @@
+name: QA VM deploy
+
+on:
+  workflow_run:
+    workflows: ["Windows MSI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Windows MSI run id to deploy"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: qa-vm
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, qa-vm]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download MSI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qa-dashboard-msi
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifact
+
+      - name: Deploy to Windows 11 VM
+        run: |
+          set -euo pipefail
+          msi=$(find artifact -name '*.msi' | head -1)
+          test -n "$msi"
+          echo "deploying $(basename "$msi")"
+          mkdir -p out
+          DEPLOY_SCREENSHOT="$PWD/out/after-install.ppm" bash scripts/qa-vm/deploy.sh "$msi"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### QA VM deploy" >> "$GITHUB_STEP_SUMMARY"
+          test -f out/after-install.ppm && echo "Screenshot captured" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-vm-evidence
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 7

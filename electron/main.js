@@ -8,6 +8,22 @@ const {
 } = require("electron");
 const backend = require("./backend");
 
+let diagnostics;
+try {
+  diagnostics = require("./diagnostics");
+} catch (_error) {
+  diagnostics = {
+    init: () => false,
+    log: () => {},
+    error: () => {},
+    info: () => ({ enabled: false, path: "", directory: "" }),
+  };
+}
+
+app.setName("QA Dashboard");
+diagnostics.init();
+backend.setLogger(diagnostics.log);
+
 const APP_ID = "org.scriptingdrafts.QADashboard";
 const MODULES = new Set([
   "overview", "sentinels", "sen-overview", "tickets", "findings", "logs",
@@ -78,9 +94,12 @@ function syncWindowBackgrounds() {
 function parseArgs(argv) {
   let module = "overview";
   let screenshot = "";
+  let version = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
-    if (value.startsWith("--module=")) {
+    if (value === "--version" || value === "-v") {
+      version = true;
+    } else if (value.startsWith("--module=")) {
       const candidate = value.slice("--module=".length);
       if (MODULES.has(candidate)) module = candidate;
     } else if (value === "--module" && argv[index + 1]) {
@@ -93,7 +112,7 @@ function parseArgs(argv) {
       index += 1;
     }
   }
-  return { module, screenshot };
+  return { module, screenshot, version };
 }
 
 function normalizeModule(module, tab = "") {
@@ -142,12 +161,16 @@ function createWindow(module = "overview", show = true, tab = "") {
     Math.max(0, Math.round(area.y + (area.height - size.height) / 2) + offset),
     area.y + Math.max(0, area.height - size.height));
   const preload = "preload.js";
+  const fixedLogsWindow = module === "logs";
   const window = new BrowserWindow({
     ...size,
     x,
     y,
     minWidth: module === "overview" ? 820 : 900,
     minHeight: module === "overview" ? 540 : 620,
+    resizable: !fixedLogsWindow,
+    maximizable: !fixedLogsWindow,
+    fullscreenable: !fixedLogsWindow,
     show: false,
     title: WINDOW_TITLES[module],
     icon: windowIcon(),
@@ -283,6 +306,9 @@ async function sentinelsStatus() {
     cwd: root || undefined,
     env: backend.shellEnv(root ? { QA_SENTINELS_HOME: root } : {}),
     timeout: 30000,
+  });
+  diagnostics.log("sentinels.status", {
+    binary, root, code: result.code, output: result.output.slice(0, 20000),
   });
   return {
     code: result.code,
@@ -480,7 +506,11 @@ function stopAutoRefresh() {
 }
 
 function registerIpc() {
-  ipcMain.handle("config:get", () => backend.configView(backend.loadConfig()));
+  ipcMain.handle("config:get", () => {
+    const view = backend.configView(backend.loadConfig());
+    diagnostics.log("config.get", view);
+    return view;
+  });
   ipcMain.handle("config:save", (_event, incoming) => {
     const current = backend.loadConfig();
     for (const key of Object.keys(backend.DEFAULT_CONFIG)) {
@@ -555,6 +585,19 @@ function registerIpc() {
   });
 
   ipcMain.handle("app:version", () => app.getVersion());
+  ipcMain.handle("diagnostics:info", () => diagnostics.info());
+  ipcMain.handle("diagnostics:open", async () => {
+    const info = diagnostics.info();
+    if (info.path && fs.existsSync(info.path)) {
+      shell.showItemInFolder(info.path);
+      return true;
+    }
+    if (info.directory) {
+      await shell.openPath(info.directory);
+      return true;
+    }
+    return false;
+  });
 
   ipcMain.handle("window:fit-sentinels", (event, height) => {
     const window = windows.get("sen-overview");
@@ -633,13 +676,15 @@ function registerIpc() {
 }
 
 const initial = parseArgs(process.argv.slice(1));
-if (!app.requestSingleInstanceLock({ module: initial.module })) {
+if (initial.version) {
+  console.log(app.getVersion());
+  app.exit(0);
+} else if (!app.requestSingleInstanceLock({ module: initial.module })) {
   app.quit();
 } else {
   startupModule = initial.module;
   screenshotPath = initial.screenshot;
 
-  app.setName("QA Dashboard");
   app.setAppUserModelId(APP_ID);
   nativeTheme.themeSource = "system";
   Menu.setApplicationMenu(null);

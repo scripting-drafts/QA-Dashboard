@@ -6,6 +6,16 @@ const path = require("node:path");
 const { execFileSync, spawn } = require("node:child_process");
 const readline = require("node:readline");
 
+let logFn = null;
+
+function setLogger(fn) {
+  logFn = typeof fn === "function" ? fn : null;
+}
+
+function debugLog(...args) {
+  if (logFn) logFn(...args);
+}
+
 const SENTINELS_SETTING_KEYS = {
   sentinelsCycleHours: {
     env: "QA_CYCLE_RAISE_HOURS", default: "1",
@@ -51,6 +61,7 @@ const QUERY_CATEGORIES = [
   "inbox", "errors", "findings", "cycles", "new-findings", "events", "crashes",
   "boots", "samples", "processes", "inventory", "inventory-items",
   "inventory-diffs", "hardware", "hardware-items", "lsm", "correlations",
+  "network", "network-items", "network-metrics", "network-diffs",
   "tickets", "deep", "bundles", "runs", "faultcore", "crosschecks", "notifications",
   "reports", "meta",
 ];
@@ -78,8 +89,10 @@ function sentinelsSchedulerPresent(options = {}) {
     const out = execFileSync("crontab", ["-l"], {
       encoding: "utf8", timeout: 2000, stdio: ["ignore", "pipe", "ignore"],
     });
+    debugLog("crontab.list", out.slice(0, 4000));
     return out.includes(">>> qa-sentinels >>>");
-  } catch (_error) {
+  } catch (error) {
+    debugLog("crontab.list failed", error.message);
     return false;
   }
 }
@@ -432,6 +445,7 @@ function runCapture(binary, args, options = {}) {
   return new Promise((resolve) => {
     let output = "";
     let child;
+    debugLog("runCapture.spawn", binary, args, { cwd: options.cwd || "" });
     try {
       child = spawn(binary, args, {
         cwd: options.cwd || undefined,
@@ -439,7 +453,9 @@ function runCapture(binary, args, options = {}) {
         detached: true,
         stdio: ["ignore", "pipe", "pipe"],
       });
+      debugLog("runCapture.pid", child.pid);
     } catch (error) {
+      debugLog("runCapture.spawn failed", error);
       resolve({ code: -1, output: String(error) });
       return;
     }
@@ -451,13 +467,17 @@ function runCapture(binary, args, options = {}) {
     child.stdout.on("data", append);
     child.stderr.on("data", append);
     const timer = setTimeout(() => {
+      debugLog("runCapture.timeout", binary, args);
       try { process.kill(-child.pid, "SIGKILL"); } catch (_error) { /* gone */ }
     }, options.timeout || 60000);
     child.on("error", (error) => {
+      debugLog("runCapture.error", binary, args, error);
       clearTimeout(timer);
       resolve({ code: -1, output: String(error) });
     });
     child.on("close", (code) => {
+      debugLog("runCapture.exit", binary, args, code,
+        output.slice(0, 20000));
       clearTimeout(timer);
       resolve({ code: code ?? -1, output });
     });
@@ -467,6 +487,8 @@ function runCapture(binary, args, options = {}) {
 function startStream(binary, args, options = {}) {
   let done = false;
   let child;
+  let lines = 0;
+  debugLog("startStream.spawn", binary, args, { cwd: options.cwd || "" });
   try {
     child = spawn(binary, args, {
       cwd: options.cwd || undefined,
@@ -474,7 +496,9 @@ function startStream(binary, args, options = {}) {
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    debugLog("startStream.pid", child.pid);
   } catch (error) {
+    debugLog("startStream.spawn failed", error);
     options.onLine?.(String(error));
     options.onDone?.(-1);
     return null;
@@ -482,13 +506,19 @@ function startStream(binary, args, options = {}) {
   const finish = (code, signal) => {
     if (done) return;
     done = true;
+    debugLog("startStream.exit", binary, args, code, signal);
     options.onDone?.(code, signal);
   };
   for (const stream of [child.stdout, child.stderr]) {
     const reader = readline.createInterface({ input: stream });
-    reader.on("line", (line) => options.onLine?.(line));
+    reader.on("line", (line) => {
+      if (lines < 5000) debugLog("startStream.line", line);
+      lines += 1;
+      options.onLine?.(line);
+    });
   }
   child.on("error", (error) => {
+    debugLog("startStream.error", error);
     options.onLine?.(String(error));
     finish(-1, null);
   });
@@ -541,6 +571,7 @@ module.exports = {
   sentinelsArgs,
   sentinelsSchedulerPresent,
   sentinelsSettingsPath,
+  setLogger,
   shellEnv,
   startStream,
   ticketPath,
