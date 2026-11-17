@@ -16,9 +16,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 REPO="$(basename "$ROOT")"
 
-PPA_HOST="https://ppa.launchpadcontent.net/toomanypatterns/ubuntu-backup/ubuntu"
+PPA_BASE="https://ppa.launchpadcontent.net/toomanypatterns"
 DIST="jammy"
-DPUT_TARGET="${DPUT_TARGET:-ubuntu-backup}"
 SIGN_KEY="${SIGN_KEY:-F104A3F1CE9A23540AEB8F24F31978E49E85DDCA}"
 WAIT_MAX="${WAIT_MAX:-10800}"
 WAIT_STEP="${WAIT_STEP:-60}"
@@ -26,16 +25,19 @@ WAIT_STEP="${WAIT_STEP:-60}"
 case "$REPO" in
   QA-Sentinels)
     PKG=qa-sentinels
+    PPA=qa-sentinels
     VERSION_FILES=(debian/changelog)
     TEST_CMD=(python3 -m unittest discover -s tests)
     ;;
   QA-Dashboard)
     PKG=qa-dashboard
+    PPA=qa-dashboard
     VERSION_FILES=(debian/changelog package.json package-lock.json README.md)
     TEST_CMD=(npm test)
     ;;
   Ubuntu-Backup)
     PKG=ubuntu-backup
+    PPA=ubuntu-backup
     VERSION_FILES=(debian/changelog CHANGELOG.md snap/snapcraft.yaml)
     TEST_CMD=(python3 -m unittest discover -s tests)
     ;;
@@ -44,6 +46,10 @@ case "$REPO" in
     exit 2
     ;;
 esac
+
+PPA_HOST="$PPA_BASE/$PPA/ubuntu"
+PPA_URL="https://launchpad.net/~toomanypatterns/+archive/ubuntu/$PPA"
+DPUT_TARGET="${DPUT_TARGET:-$PPA}"
 
 MODE=sync
 case "${1:-}" in
@@ -136,5 +142,5 @@ while (( waited < WAIT_MAX )); do
 done
 
 echo "upload succeeded but publication did not finish within $((WAIT_MAX / 60)) min" >&2
-echo "check: https://launchpad.net/~toomanypatterns/+archive/ubuntu/ubuntu-backup/+packages" >&2
+echo "check: $PPA_URL/+packages" >&2
 exit 1

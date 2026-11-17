@@ -183,21 +183,21 @@ Python, GTK4, PyGObject, ClamAV, YARA, and a QA SIEM service are not required.
 
 ### Ubuntu 22.04 (PPA)
 
-QA Sentinels and QA Dashboard are separate packages in the same Launchpad PPA.
-QA Dashboard is only a front end: it **Recommends** `qa-sentinels` but does not
-hard-depend on it. QA Sentinels is standalone and does not require the
+QA Sentinels and QA Dashboard are separate packages in dedicated Launchpad
+PPAs. QA Dashboard is only a front end: it **Recommends** `qa-sentinels` but
+does not hard-depend on it. QA Sentinels is standalone and does not require the
 Dashboard.
 
-Add the PPA:
+Add both PPAs:
 
 ```bash
-sudo add-apt-repository ppa:toomanypatterns/ubuntu-backup
+sudo add-apt-repository ppa:toomanypatterns/qa-sentinels
+sudo add-apt-repository ppa:toomanypatterns/qa-dashboard
 sudo apt update
 ```
 
-`ppa:toomanypatterns/ubuntu-backup` is the existing Ubuntu Backup PPA (shared archive). If it has not
-been published yet, use the local `.deb` section below; the one-time
-Launchpad/GPG setup and upload commands are in
+If a PPA has not been published yet, use the local `.deb` section below; the
+one-time Launchpad/GPG setup and upload commands are in
 [`docs/PPA.md`](docs/PPA.md).
 
 Install the engine only:

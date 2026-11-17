@@ -29,10 +29,10 @@ QA Dashboard is an independent project by Gerard Sala. Ubuntu, Canonical,
 Launchpad, Debian, GNOME, Electron, Chromium, Node.js, and other names are
 trademarks of their respective owners and are used descriptively.
 
-The shared `ppa:toomanypatterns/ubuntu-backup` archive is a distribution
-channel. It is not an endorsement by Ubuntu, Canonical, Debian, GNOME, the
-Electron project, or the Chromium project. No affiliation or endorsement is
-claimed.
+The `ppa:toomanypatterns/qa-dashboard` and
+`ppa:toomanypatterns/qa-sentinels` archives are distribution channels. They are
+not an endorsement by Ubuntu, Canonical, Debian, GNOME, the Electron project,
+or the Chromium project. No affiliation or endorsement is claimed.
 
 ## Export and cryptography
 

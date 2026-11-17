@@ -1,47 +1,56 @@
-# Existing Ubuntu Backup PPA
+# Dedicated QA PPAs
 
-The QA packages are published in the existing `toomanypatterns` archive:
+QA Sentinels and QA Dashboard are published in separate `toomanypatterns`
+archives:
 
 ```text
-ppa:toomanypatterns/ubuntu-backup
+qa-sentinels   ppa:toomanypatterns/qa-sentinels
+qa-dashboard   ppa:toomanypatterns/qa-dashboard
 ```
 
-This is a shared archive; it can carry `ubuntu-backup`, `qa-sentinels` and
-`qa-dashboard` together. The Dashboard Recommends the engine; the QA packages
-remain separately installable.
+`ppa:toomanypatterns/ubuntu-backup` remains the archive for Ubuntu Backup and
+does not carry the QA packages. The Dashboard Recommends the engine; both
+packages remain separately installable.
 
 ## One-time Launchpad setup
 
-The Launchpad account is `toomanypatterns`. It currently has no registered
-OpenPGP key, and PPA uploads require one.
+The Launchpad account is `toomanypatterns`. The signing key is already
+registered:
 
-1. Register the signing key:
+```text
+F104A3F1CE9A23540AEB8F24F31978E49E85DDCA
+```
 
-   ```bash
-   gpg --list-secret-keys --keyid-format long
-   gpg --fingerprint creative.gsp@gmail.com
-   ```
+Install the upload tools:
 
-   Open `https://launchpad.net/~toomanypatterns/+editpgpkeys`, add the chosen
-   fingerprint, and confirm the email challenge. The `F319…` key is already on
-   `keyserver.ubuntu.com`; wait until Launchpad shows it as confirmed.
+```bash
+sudo apt install dput devscripts
+```
 
-2. Install the upload tools:
+Keep one profile per archive in `~/.dput.cf`:
 
-   ```bash
-   sudo apt install dput devscripts
-   ```
+```ini
+[ubuntu-backup]
+fqdn = ppa.launchpad.net
+method = ftp
+incoming = ~toomanypatterns/ubuntu/ubuntu-backup/
+login = anonymous
+allow_unsigned_uploads = 0
 
-3. The existing `~/.dput.cf` profile is enough:
+[qa-sentinels]
+fqdn = ppa.launchpad.net
+method = ftp
+incoming = ~toomanypatterns/ubuntu/qa-sentinels/
+login = anonymous
+allow_unsigned_uploads = 0
 
-   ```ini
-   [ubuntu-backup]
-   fqdn = ppa.launchpad.net
-   method = ftp
-   incoming = ~toomanypatterns/ubuntu/ubuntu-backup/
-   login = anonymous
-   allow_unsigned_uploads = 0
-   ```
+[qa-dashboard]
+fqdn = ppa.launchpad.net
+method = ftp
+incoming = ~toomanypatterns/ubuntu/qa-dashboard/
+login = anonymous
+allow_unsigned_uploads = 0
+```
 
 ## Build source packages
 
@@ -68,32 +77,39 @@ debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
 
 ## Upload
 
+Each package goes to its own archive:
+
 ```bash
-dput ubuntu-backup ~/qa-sentinels_1.2.1_source.changes
-dput ubuntu-backup ~/qa-dashboard_0.5.7_source.changes
+dput qa-sentinels ~/qa-sentinels_1.2.1_source.changes
+dput qa-dashboard ~/qa-dashboard_0.5.7_source.changes
+```
+
+The release scripts enforce this automatically:
+
+```bash
+(cd ~/QA-Sentinels && scripts/release.sh)
+(cd ~/QA-Dashboard && scripts/release.sh)
 ```
 
 `dput` refuses a second upload of the same `.changes` file unless forced. Use
-`dput -f ubuntu-backup …` when retrying after a Launchpad rejection:
+`dput -f qa-sentinels …` or `dput -f qa-dashboard …` when retrying after a
+Launchpad rejection.
 
-```bash
-dput -f ubuntu-backup ~/qa-sentinels_1.2.1_source.changes
-dput -f ubuntu-backup ~/qa-dashboard_0.5.7_source.changes
-```
-
-Watch the build queue:
+Watch the build queues:
 
 ```text
-https://launchpad.net/~toomanypatterns/+archive/ubuntu/ubuntu-backup/+packages
+https://launchpad.net/~toomanypatterns/+archive/ubuntu/qa-sentinels/+packages
+https://launchpad.net/~toomanypatterns/+archive/ubuntu/qa-dashboard/+packages
 ```
 
 When both packages show `Published`, install:
 
 ```bash
-sudo add-apt-repository ppa:toomanypatterns/ubuntu-backup
+sudo add-apt-repository ppa:toomanypatterns/qa-sentinels
+sudo add-apt-repository ppa:toomanypatterns/qa-dashboard
 sudo apt update
 sudo apt install qa-sentinels
-sudo apt install qa-sentinels qa-dashboard
+sudo apt install qa-dashboard
 ```
 
 ## Separate and combined installs

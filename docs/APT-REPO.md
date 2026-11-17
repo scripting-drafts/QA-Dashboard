@@ -8,16 +8,18 @@ qa-sentinels   engine, CLI, evidence store
 qa-dashboard   Electron GUI (Recommends qa-sentinels)
 ```
 
-The canonical origin is the Launchpad PPA:
+The canonical origin is the dedicated Launchpad PPAs:
 
 ```text
-ppa:toomanypatterns/ubuntu-backup
+ppa:toomanypatterns/qa-sentinels
+ppa:toomanypatterns/qa-dashboard
 ```
 
-## Install from the PPA
+## Install from the PPAs
 
 ```bash
-sudo add-apt-repository ppa:toomanypatterns/ubuntu-backup
+sudo add-apt-repository ppa:toomanypatterns/qa-sentinels
+sudo add-apt-repository ppa:toomanypatterns/qa-dashboard
 sudo apt update
 ```
 
