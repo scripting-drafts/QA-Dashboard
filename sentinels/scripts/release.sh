@@ -133,7 +133,7 @@ if [[ "$MODE" == check ]]; then
   for series in "${DEFAULT_SERIES[@]}"; do
     expected="$(series_version "$series")"
     if ! series_release "$series"; then
-      echo "  $series: series not enabled in $PPA (expected $expected)"
+      echo "  $series: no published pocket yet (expected $expected)"
       drift=1
       continue
     fi
@@ -165,9 +165,10 @@ if [[ "$ahead_behind" != "0	0" ]]; then
 fi
 version_files_ok || exit 1
 
+supported_series="$(ubuntu-distro-info --supported 2>/dev/null || true)"
 for series in "${DEFAULT_SERIES[@]}"; do
-  if ! series_release "$series"; then
-    echo "series $series is not enabled in $PPA; enable it in Launchpad first" >&2
+  if [[ -n "$supported_series" ]] && ! grep -qx "$series" <<< "$supported_series"; then
+    echo "series $series is not a supported Ubuntu series" >&2
     exit 2
   fi
 done
