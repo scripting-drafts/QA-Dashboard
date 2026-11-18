@@ -4,6 +4,9 @@ qa-dashboard (0.5.9) jammy; urgency=medium
   * Refresh companion metadata for the new Sentinels implementation.
   * Rebuild the normal and diagnostics pre-release packages.
   * Allow resizing and maximizing the Logs window.
+  * Keep the focused QA window in front when the generic launcher is clicked
+    instead of always raising Overview.
+  * Open the main Dashboard on Shift+click of the QA launcher icon.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 13:55:00 +0100
 

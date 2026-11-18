@@ -62,6 +62,7 @@ const QUERY_CATEGORIES = [
   "boots", "samples", "processes", "inventory", "inventory-items",
   "inventory-diffs", "hardware", "hardware-items", "lsm", "correlations",
   "network", "network-items", "network-metrics", "network-diffs",
+  "platform",
   "tickets", "deep", "bundles", "runs", "faultcore", "crosschecks", "notifications",
   "reports", "meta",
 ];
@@ -69,8 +70,25 @@ const QUERY_MAX_SQL = 20000;
 const QUERY_MAX_ROWS = 10000;
 
 function configPath() {
-  const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+  let base;
+  if (process.platform === "win32") {
+    base = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  } else if (process.platform === "darwin") {
+    base = path.join(os.homedir(), "Library", "Application Support");
+  } else {
+    base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+  }
   return path.join(base, "qa-dashboard", "config.json");
+}
+
+function qaBinNames() {
+  return process.platform === "win32"
+    ? ["qa.exe", "qa.cmd", "qa.ps1", "qa"]
+    : ["qa"];
+}
+
+function rootHasQa(root) {
+  return qaBinNames().some((name) => fs.existsSync(path.join(root, "bin", name)));
 }
 
 function sentinelsSettingsPath(cfg) {
@@ -79,6 +97,7 @@ function sentinelsSettingsPath(cfg) {
 }
 
 function sentinelsSchedulerPresent(options = {}) {
+  if (process.platform !== "linux") return false;
   const timer = options.timerPath ||
     "/etc/systemd/system/timers.target.wants/qa-sentinel.timer";
   if (fs.existsSync(timer)) return true;
@@ -227,18 +246,25 @@ function executable(value) {
 
 function resolveSentinelsRoot(cfg) {
   const configured = expand(cfg.sentinelsRoot);
-  if (configured && fs.existsSync(path.join(configured, "bin", "qa"))) {
+  if (configured && rootHasQa(configured)) {
     return configured;
   }
   const envRoot = expand(process.env.QA_SENTINELS_ROOT || "");
-  if (envRoot && fs.existsSync(path.join(envRoot, "bin", "qa"))) return envRoot;
-  for (const candidate of [
+  if (envRoot && rootHasQa(envRoot)) return envRoot;
+  const candidates = [
     path.join(os.homedir(), "QA-Sentinels"),
     path.join(os.homedir(), "Quality-Assurance-Sentinels"),
     "/opt/QA-Sentinels",
     "/opt/Quality-Assurance-Sentinels",
-  ]) {
-    if (fs.existsSync(path.join(candidate, "bin", "qa"))) return candidate;
+  ];
+  if (process.platform === "win32") {
+    const local = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+    candidates.unshift(path.join(local, "QA-Sentinels"));
+  } else if (process.platform === "darwin") {
+    candidates.unshift(path.join(os.homedir(), "Library", "Application Support", "QA-Sentinels"));
+  }
+  for (const candidate of candidates) {
+    if (rootHasQa(candidate)) return candidate;
   }
   return "";
 }
@@ -250,16 +276,30 @@ function resolveSentinelsBin(cfg) {
   if (envBin) return envBin;
   const root = resolveSentinelsRoot(cfg);
   if (root) {
-    const fromRoot = executable(path.join(root, "bin", "qa"));
-    if (fromRoot) return fromRoot;
+    for (const name of qaBinNames()) {
+      const fromRoot = executable(path.join(root, "bin", name));
+      if (fromRoot) return fromRoot;
+    }
   }
-  return executable("qa");
+  for (const name of qaBinNames()) {
+    const found = executable(name);
+    if (found) return found;
+  }
+  return "";
 }
 
 function ticketsRoot() {
-  for (const name of ["QA-Sentinels", "Quality-Assurance-Sentinels"]) {
-    const candidate = path.join(os.homedir(), name, "tickets");
-    if (fs.existsSync(candidate)) return candidate;
+  const bases = [os.homedir()];
+  if (process.platform === "win32") {
+    bases.unshift(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"));
+  } else if (process.platform === "darwin") {
+    bases.unshift(path.join(os.homedir(), "Library", "Application Support"));
+  }
+  for (const base of bases) {
+    for (const name of ["QA-Sentinels", "Quality-Assurance-Sentinels"]) {
+      const candidate = path.join(base, name, "tickets");
+      if (fs.existsSync(candidate)) return candidate;
+    }
   }
   return "";
 }

@@ -73,12 +73,14 @@ QA Sentinels favourite to it. The per-app `.desktop` file calls
 `qa-dashboard --module=sentinels` for the standalone Database window.
 
 All launches share one Electron instance. A second launch forwards its module
-argument to the running process; an existing window is restored and focused,
-otherwise it is created. When the app is restored after a full minimize, it
-brings the Dashboard forward unless the restore came from a module launcher.
-Desktop entries set `StartupNotify=false` so single-instance handoff cannot
-leave a stuck busy pointer. Closing all windows exits the process, so the next
-launcher click starts a fresh instance.
+argument to the running process; a module launcher restores and focuses that
+window. A generic launcher click keeps the focused QA window, otherwise it
+restores the last active one, and only creates Overview when no QA window
+exists. Desktop entries set `StartupNotify=false` so single-instance handoff
+cannot leave a stuck busy pointer. Closing all windows exits the process, so the
+next launcher click starts a fresh instance. The Shell theme extension also
+intercepts Shift+click on the QA launcher and sends `qa-dashboard --main`, which
+forces the Overview window forward.
 
 The brand mark is the brush-enso artwork, converted to a transparent alpha mask
 at `assets/qa-dashboard-enso.png`. CSS tints it for the active light or dark

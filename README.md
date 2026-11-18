@@ -29,8 +29,8 @@ standalone project with its own service, API, and web dashboard.
 | Database access | Read-only `qa query` calls |
 | Version | `0.5.9` |
 
-Linux is the current target. The Electron core is portable; Windows and macOS
-porting notes are in `docs/PORTING.md`.
+Linux is the reference target. Windows 11 and macOS 13+ use the shared Electron
+core and the new QA Sentinels platform layer; full collector parity is in progress.
 
 ## Windows and modules
 

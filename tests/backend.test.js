@@ -49,7 +49,7 @@ test("query arguments cover categories, SQL and limits", () => {
   assert.ok(backend.QUERY_CATEGORIES.includes("errors"));
   assert.ok(backend.QUERY_CATEGORIES.includes("crashes"));
   for (const category of ["network", "network-items", "network-metrics",
-    "network-diffs"]) {
+    "network-diffs", "platform"]) {
     assert.ok(backend.QUERY_CATEGORIES.includes(category), category);
   }
   for (const category of [
@@ -254,9 +254,13 @@ test("sentinels scheduler detection prefers the installed timer", () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-scheduler-"));
   const timer = path.join(temp, "qa-sentinel.timer");
   try {
-    assert.equal(backend.sentinelsSchedulerPresent({ timerPath: timer }), false);
+    assert.equal(backend.sentinelsSchedulerPresent({
+      timerPath: timer, cronText: "",
+    }), false);
     fs.writeFileSync(timer, "");
-    assert.equal(backend.sentinelsSchedulerPresent({ timerPath: timer }), true);
+    assert.equal(backend.sentinelsSchedulerPresent({
+      timerPath: timer, cronText: "",
+    }), true);
     assert.equal(backend.sentinelsSchedulerPresent({
       timerPath: path.join(temp, "missing"),
       cronText: "*/1 * * * * /opt/qa cycle # >>> qa-sentinels >>>",

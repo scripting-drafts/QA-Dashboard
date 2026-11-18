@@ -63,7 +63,7 @@ const logBuffer = [];
 let startupModule = "overview";
 let screenshotPath = "";
 let allMinimized = false;
-let lastLaunchAt = 0;
+let lastActiveModule = "overview";
 let sentinelsTimer = null;
 let sentinelsCycleTimer = null;
 let sentinelsRefreshing = false;
@@ -95,10 +95,13 @@ function parseArgs(argv) {
   let module = "overview";
   let screenshot = "";
   let version = false;
+  let main = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "--version" || value === "-v") {
       version = true;
+    } else if (value === "--main") {
+      main = true;
     } else if (value.startsWith("--module=")) {
       const candidate = value.slice("--module=".length);
       if (MODULES.has(candidate)) module = candidate;
@@ -112,7 +115,7 @@ function parseArgs(argv) {
       index += 1;
     }
   }
-  return { module, screenshot, version };
+  return { module, screenshot, version, main };
 }
 
 function normalizeModule(module, tab = "") {
@@ -195,8 +198,14 @@ function createWindow(module = "overview", show = true, tab = "") {
   window.once("ready-to-show", () => {
     if (show) window.show();
   });
+  window.on("focus", () => {
+    lastActiveModule = module;
+  });
   window.on("closed", () => {
     windows.delete(module);
+    if (lastActiveModule === module) {
+      lastActiveModule = Array.from(windows.keys())[0] || "overview";
+    }
     if (module === "sentinels") backend.cancelProcess(activeSentinels);
   });
   window.on("minimize", () => {
@@ -204,12 +213,7 @@ function createWindow(module = "overview", show = true, tab = "") {
     allMinimized = open.length > 0 && open.every((win) => win.isMinimized());
   });
   window.on("restore", () => {
-    if (!allMinimized) return;
     allMinimized = false;
-    if (Date.now() - lastLaunchAt < 1500) return;
-    setTimeout(() => {
-      if (Date.now() - lastLaunchAt >= 1500) showWindow("overview");
-    }, 150);
   });
   windows.set(module, window);
   return window;
@@ -230,6 +234,32 @@ function showWindow(module = "overview", tab = "") {
   window.focus();
   allMinimized = false;
   return window;
+}
+
+function isDashboardWindow(window) {
+  if (!window || window.isDestroyed()) return false;
+  return window === settingsWindow
+    || Array.from(windows.values()).includes(window);
+}
+
+function focusLaunchWindow() {
+  // A generic launcher click must not raise Overview over the module window
+  // the operator is using. Keep the focused QA window, otherwise restore the
+  // last active one, and only create Overview when no QA window exists.
+  const focused = BrowserWindow.getFocusedWindow();
+  if (isDashboardWindow(focused)) return focused;
+  const ordered = [
+    windows.get(lastActiveModule),
+    ...windows.values(),
+  ].filter((window, index, list) =>
+    window && !window.isDestroyed() && list.indexOf(window) === index);
+  const target = ordered[0];
+  if (!target) return showWindow("overview");
+  if (target.isMinimized()) target.restore();
+  target.show();
+  target.focus();
+  allMinimized = false;
+  return target;
 }
 
 function openSettingsWindow(requester = null) {
@@ -678,7 +708,10 @@ const initial = parseArgs(process.argv.slice(1));
 if (initial.version) {
   console.log(app.getVersion());
   app.exit(0);
-} else if (!app.requestSingleInstanceLock({ module: initial.module })) {
+} else if (!app.requestSingleInstanceLock({
+  module: initial.module,
+  main: initial.main,
+})) {
   app.quit();
 } else {
   startupModule = initial.module;
@@ -689,10 +722,15 @@ if (initial.version) {
   Menu.setApplicationMenu(null);
 
   app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
-    lastLaunchAt = Date.now();
-    const next = (additionalData && additionalData.module)
-      || parseArgs(argv.slice(1)).module;
-    showWindow(next || "overview");
+    const parsed = parseArgs(argv.slice(1));
+    const next = (additionalData && additionalData.module) || parsed.module;
+    if ((additionalData && additionalData.main) || parsed.main) {
+      showWindow("overview");
+    } else if (!next || next === "overview") {
+      focusLaunchWindow();
+    } else {
+      showWindow(next);
+    }
   });
 
   app.whenReady().then(() => {
@@ -715,7 +753,7 @@ if (initial.version) {
         }, 1500);
       });
     }
-    app.on("activate", () => showWindow("overview"));
+    app.on("activate", () => focusLaunchWindow());
   });
 
   app.on("before-quit", () => {

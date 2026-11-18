@@ -1,3 +1,4 @@
+import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import Shell from "gi://Shell";
@@ -12,6 +13,8 @@ const APP_IDS = [
 
 export default class QADashboardThemeExtension extends Extension {
     enable() {
+        this._iconSignals = new Map();
+        this._lastShiftLaunch = 0;
         this._settings = new Gio.Settings({
             schema_id: "org.gnome.desktop.interface",
         });
@@ -24,6 +27,7 @@ export default class QADashboardThemeExtension extends Extension {
     }
 
     disable() {
+        this._disconnectIcons();
         if (this._settings && this._settingsSignal)
             this._settings.disconnect(this._settingsSignal);
         if (this._appSystem && this._appSystemSignal)
@@ -107,9 +111,69 @@ export default class QADashboardThemeExtension extends Extension {
         return icons;
     }
 
+    _launchMainDashboard(appIcon) {
+        try {
+            const info = appIcon.app && appIcon.app.get_app_info
+                ? appIcon.app.get_app_info() : null;
+            const executable = info ? info.get_executable() : "";
+            if (executable) {
+                Gio.Subprocess.new(
+                    [executable, "--main"],
+                    Gio.SubprocessFlags.STDOUT_SILENCE |
+                    Gio.SubprocessFlags.STDERR_SILENCE);
+                return;
+            }
+        } catch (error) {
+            console.error("qa-dashboard: cannot launch main window", error);
+        }
+        try {
+            GLib.spawn_command_line_async("qa-dashboard --main");
+        } catch (error) {
+            console.error("qa-dashboard: cannot spawn qa-dashboard", error);
+        }
+    }
+
+    _onIconButton(appIcon, event) {
+        if (event.get_button() !== 1)
+            return Clutter.EVENT_PROPAGATE;
+        if (!(event.get_state() & Clutter.ModifierType.SHIFT_MASK))
+            return Clutter.EVENT_PROPAGATE;
+        const now = Date.now();
+        if (now - this._lastShiftLaunch > 1000) {
+            this._lastShiftLaunch = now;
+            this._launchMainDashboard(appIcon);
+        }
+        return Clutter.EVENT_STOP;
+    }
+
+    _connectIcon(appIcon) {
+        if (this._iconSignals.has(appIcon))
+            return;
+        this._iconSignals.set(appIcon, [
+            appIcon.connect("button-press-event",
+                (actor, event) => this._onIconButton(actor, event)),
+            appIcon.connect("button-release-event",
+                (actor, event) => this._onIconButton(actor, event)),
+        ]);
+    }
+
+    _disconnectIcons() {
+        for (const [appIcon, signals] of this._iconSignals) {
+            for (const signal of signals) {
+                try {
+                    appIcon.disconnect(signal);
+                } catch (error) {
+                    // The actor may already be destroyed with the dock.
+                }
+            }
+        }
+        this._iconSignals = new Map();
+    }
+
     _setDockIcon() {
         const gicon = new Gio.ThemedIcon({ name: this._iconName() });
         for (const appIcon of this._appIcons()) {
+            this._connectIcon(appIcon);
             const texture = this._findIconTexture(appIcon);
             if (texture)
                 texture.set_gicon(gicon);

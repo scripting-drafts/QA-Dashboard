@@ -1,6 +1,6 @@
 "use strict";
 
-const { Gio, GLib, Shell } = imports.gi;
+const { Clutter, Gio, GLib, Shell } = imports.gi;
 const Main = imports.ui.main;
 
 const APP_IDS = [
@@ -13,6 +13,8 @@ let appSystem = null;
 let appSystemSignal = 0;
 let timerId = 0;
 let attempts = 0;
+let iconSignals = new Map();
+let lastShiftLaunch = 0;
 
 function iconName() {
     return settings &&
@@ -63,9 +65,67 @@ function appIcons() {
     return icons;
 }
 
+function launchMainDashboard(appIcon) {
+    try {
+        const info = appIcon.app && appIcon.app.get_app_info
+            ? appIcon.app.get_app_info() : null;
+        const executable = info ? info.get_executable() : "";
+        if (executable) {
+            Gio.Subprocess.new(
+                [executable, "--main"],
+                Gio.SubprocessFlags.STDOUT_SILENCE |
+                Gio.SubprocessFlags.STDERR_SILENCE);
+            return;
+        }
+    } catch (error) {
+        logError(error, "qa-dashboard: cannot launch main window");
+    }
+    try {
+        GLib.spawn_command_line_async("qa-dashboard --main");
+    } catch (error) {
+        logError(error, "qa-dashboard: cannot spawn qa-dashboard");
+    }
+}
+
+function onIconButton(appIcon, event) {
+    if (event.get_button() !== 1)
+        return Clutter.EVENT_PROPAGATE;
+    if (!(event.get_state() & Clutter.ModifierType.SHIFT_MASK))
+        return Clutter.EVENT_PROPAGATE;
+    const now = Date.now();
+    if (now - lastShiftLaunch > 1000) {
+        lastShiftLaunch = now;
+        launchMainDashboard(appIcon);
+    }
+    return Clutter.EVENT_STOP;
+}
+
+function connectIcon(appIcon) {
+    if (iconSignals.has(appIcon))
+        return;
+    iconSignals.set(appIcon, [
+        appIcon.connect("button-press-event", onIconButton),
+        appIcon.connect("button-release-event", onIconButton),
+    ]);
+}
+
+function disconnectIcons() {
+    for (const [appIcon, signals] of iconSignals) {
+        for (const signal of signals) {
+            try {
+                appIcon.disconnect(signal);
+            } catch (error) {
+                // The actor may already be destroyed with the dock.
+            }
+        }
+    }
+    iconSignals = new Map();
+}
+
 function setDockIcon() {
     const gicon = new Gio.ThemedIcon({ name: iconName() });
     for (const appIcon of appIcons()) {
+        connectIcon(appIcon);
         const texture = findIconTexture(appIcon, 0);
         if (texture)
             texture.set_gicon(gicon);
@@ -103,6 +163,7 @@ function enable() {
 }
 
 function disable() {
+    disconnectIcons();
     if (settings && settingsSignal)
         settings.disconnect(settingsSignal);
     if (appSystem && appSystemSignal)
