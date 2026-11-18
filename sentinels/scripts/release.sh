@@ -97,7 +97,8 @@ series_version() {
 }
 
 series_release() {
-  curl -fsS --max-time 30 "$PPA_HOST/dists/$1/Release" >/dev/null 2>&1
+  curl -fsS --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
+    "$PPA_HOST/dists/$1/Release" >/dev/null 2>&1
 }
 
 version_matches() {
@@ -110,12 +111,15 @@ version_matches() {
 }
 
 published_version() {
-  local series="$1"
-  curl -fsS --max-time 30 \
-    "$PPA_HOST/dists/$series/main/binary-amd64/Packages.gz" 2>/dev/null \
-    | gunzip -c 2>/dev/null \
-    | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}' \
-    || true
+  local series="$1" tmp
+  tmp="$(mktemp)"
+  if curl -fsS --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
+      -o "$tmp" "$PPA_HOST/dists/$series/main/binary-amd64/Packages.gz" 2>/dev/null \
+      && gzip -t "$tmp" 2>/dev/null; then
+    gzip -dc "$tmp" 2>/dev/null \
+      | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}'
+  fi
+  rm -f "$tmp"
 }
 
 version_files_ok() {
