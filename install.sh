@@ -98,7 +98,7 @@ EOF
 write_desktop qa-dashboard "QA Dashboard" \
     "Local QA operations dashboard" "overview" "qa-dashboard"
 write_desktop qa-sentinels "QA Sentinels" \
-    "Evidence collection and failure correlation" "sentinels" "qa-dashboard"
+    "Evidence collection and failure correlation" "sen-overview" "qa-dashboard"
 
 # Remove the former GNOME top-bar icon and tray autostart.
 if command -v gnome-extensions >/dev/null 2>&1; then

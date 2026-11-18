@@ -70,7 +70,9 @@ than application windows.
 There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
 Overview and is also the desktop favourite; `install.sh` migrates an existing
 QA Sentinels favourite to it. The per-app `.desktop` file calls
-`qa-dashboard --module=sentinels` for the standalone Database window.
+`qa-dashboard --module=sen-overview` for the standalone Sentinels Overview
+window; the Database remains available from the Overview and the main
+Dashboard.
 
 All launches share one Electron instance. A second launch forwards its module
 argument to the running process; a module launcher restores and focuses that

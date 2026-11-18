@@ -3,7 +3,8 @@
 Targets: Windows 11 x64 and ARM64.
 
 - Electron Dashboard from the repository root.
-- QA Sentinels engine from `sentinels/`.
+- QA Sentinels engine from `sentinels/`, bundled only — Windows has no
+  standalone Sentinels installer or supported standalone CLI.
 - Bundled Python runtime for the engine.
 - Per-user NSIS/MSI installer and portable ZIP.
 - TPM 2.0 required for the commercial edition; unsigned test builds do not

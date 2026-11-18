@@ -2,7 +2,7 @@
 Type=Application
 Name=QA Sentinels
 Comment=Evidence collection and failure correlation
-Exec=/usr/bin/qa-dashboard --module=sentinels
+Exec=/usr/bin/qa-dashboard --module=sen-overview
 Icon=qa-dashboard
 Terminal=false
 Categories=System;Security;Monitor;

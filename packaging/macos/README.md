@@ -3,7 +3,8 @@
 Targets: macOS 13+ Intel and Apple Silicon.
 
 - Electron Dashboard from the repository root.
-- QA Sentinels engine from `sentinels/`.
+- QA Sentinels engine from `sentinels/`, bundled only — macOS has no
+  standalone Sentinels installer or supported standalone CLI.
 - Bundled universal2 Python runtime for the engine.
 - DMG/PKG with Developer ID signing and notarization when credentials exist.
 - Secure Enclave required for the commercial edition; unsigned test builds do

@@ -6,13 +6,13 @@ unchanged.
 
 ## Supported targets
 
-- Linux: existing Ubuntu 22.04–26.10 baseline.
-- Windows 11 x64/ARM64.
-- macOS 13+ Intel/Apple Silicon.
+- Linux: standalone QA Sentinels package and CLI; existing Ubuntu 22.04–26.10 baseline.
+- Windows 11 x64/ARM64: bundled QA Set engine only; no standalone installer or supported standalone CLI.
+- macOS 13+ Intel/Apple Silicon: bundled QA Set engine only; no standalone installer or supported standalone CLI.
 
 ## Current status
 
-Working on Windows/macOS source checkouts:
+The engine is used by the QA Set bundle on Windows/macOS:
 
 - `qa init`, `qa platform`, `qa platform --collect`, `qa cycle`, `qa status`,
   `qa query`, `qa findings`, `qa legal`, `qa compat`, `qa preflight`.
@@ -25,7 +25,8 @@ Working on Windows/macOS source checkouts:
 Still being ported to full parity: boot classification, deep hardware,
 per-finding network rules, fault-core/CPU-affinity rules, ETW/DTrace depth,
 ticket/report/evidence parity, native installers and scheduler integration.
-Linux packages and Debian files are unchanged.
+Linux packages and Debian files are unchanged. Windows/macOS do not expose a
+standalone Sentinels package; their engine is shipped inside QA Set.
 
 ## Platform contract
 

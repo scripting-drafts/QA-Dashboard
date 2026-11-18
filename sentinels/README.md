@@ -49,10 +49,11 @@ sudo apt install qa-sentinels
 qa status
 ```
 
-QA Sentinels is standalone and does not require the GUI. The optional
-`qa-dashboard` package is an Electron front end and Recommends
-`qa-sentinels`; it is published from `ppa:toomanypatterns/qa-dashboard` and
-installed separately with:
+On Linux, QA Sentinels is standalone and does not require the GUI. Windows and
+macOS have no standalone Sentinels package or supported CLI; there it ships only
+as the engine inside QA Set. The optional `qa-dashboard` Linux package is an
+Electron front end and Recommends `qa-sentinels`; it is published from
+`ppa:toomanypatterns/qa-dashboard` and installed separately with:
 
 ```bash
 sudo add-apt-repository ppa:toomanypatterns/qa-dashboard

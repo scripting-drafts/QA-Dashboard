@@ -307,7 +307,12 @@ The installed launcher can also be used:
 ```bash
 qa-dashboard
 qa-dashboard --module=sentinels
+qa-dashboard --module=sen-overview
 ```
+
+The QA Sentinels menu entry opens `--module=sen-overview`, the Sentinels
+Overview. The Database remains available from the main Dashboard and the
+Overview.
 
 ## Security and process execution
 

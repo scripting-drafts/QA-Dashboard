@@ -16,6 +16,16 @@ test("sentinels actions map to fixed argv", () => {
   assert.throws(() => backend.sentinelsArgs("evidence"), /unknown/);
 });
 
+test("standalone Sentinels launcher opens the Sentinels Overview", () => {
+  const root = path.join(__dirname, "..");
+  const desktop = fs.readFileSync(
+    path.join(root, "debian", "qa-sentinels.desktop"), "utf8");
+  assert.match(desktop, /--module=sen-overview/);
+  const installer = fs.readFileSync(path.join(root, "install.sh"), "utf8");
+  assert.match(installer,
+    /write_desktop qa-sentinels[\s\S]*?sen-overview[\s\S]*?qa-dashboard/);
+});
+
 test("query arguments cover categories, SQL and limits", () => {
   assert.deepEqual(backend.queryArgs({ category: "inbox", limit: 25 }),
     ["query", "--json", "--category", "inbox", "--limit", "25"]);
