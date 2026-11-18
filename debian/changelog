@@ -1,0 +1,107 @@
+qa-sentinels (1.4.1) jammy; urgency=medium
+
+  * Make component inference total and evidence-first: faulting module
+    project, process/executable, event unit, finding rule/subject, then
+    `unassigned`. `unknown` is no longer produced, including for locally
+    classified findings.
+  * Resolve ownership content fallbacks against the crash header and the
+    faulting frame only, never the module dump. Python and Electron crashes
+    that load `libsystemd`, `libdbus` or `libnvidia` no longer become systemd
+    or NVIDIA tickets.
+  * Keep vendor tracker components real: Mozilla clamps GTK/X11 and cairo
+    frames to Bugzilla components, GNOME uses its project names, and the
+    local queue uses descriptive labels such as `python3.10` or
+    `smartmontools`.
+  * Recognise `org.gnome.*` unit names in the GNOME content rule, so shell
+    and session journal events are not left ownerless.
+  * Add tests for module-dump isolation, totality, finding/event labels and
+    wrong-vendor independence; document the chain in `docs/TICKETS.md`.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 19:55:00 +0100
+
+qa-sentinels (1.4.0) jammy; urgency=medium
+
+  * Route crashes by faulting module and crashing process instead of by any
+    library name in the core: GNOME Shell embeds SpiderMonkey (`libmozjs`), so
+    its stacks no longer become Mozilla tickets, and Firefox stacks no longer
+    become GNOME tickets from GTK frames. Faults inside the NVIDIA driver are
+    still routed to NVIDIA.
+  * Derive the ticket component from the faulting frame and process instead of
+    a vendor-wide constant: mutter, gjs, gnome-terminal, gnome-software,
+    WebRender, JavaScript Engine, or Firefox :: Untriaged.
+  * Keep the crashing stack in the draft: drop the `Found module` dump, name
+    the faulting frame past the process's SIGSEGV handler, list crash-thread
+    modules and state when a symbol is only the nearest export.
+  * Select reproduction steps by component: GNOME session/extension steps for
+    mutter and gjs, Firefox steps only for Firefox crashes, and no page-load
+    guess for events.
+  * Claim the fault-core correlation only when a row's own affinity included
+    the fault CPUs, not because the vendor rule matched a shared library.
+  * Stop redaction from turning `Core :: Graphics` into `Core <ip> Graphics`
+    and systemd unit names such as `org.gnome.Shell@x11.service` into
+    `<email>`.
+  * Rename the vendor prefix and rewrite the manifest when an existing staged
+    ticket is re-routed.
+  * Add `docs/TICKETS.md` and tests for ownership, component choice, crash
+    digests and redaction.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 19:12:33 +0100
+
+qa-sentinels (1.3.0) jammy; urgency=medium
+
+  * Add the network and connectivity tier: interfaces, addresses, routes,
+    policy rules, DNS/resolved state, Netplan file drift, NetworkManager
+    profiles, Wi-Fi signal, WireGuard/OpenVPN/tailscale state, firewall
+    summary, conntrack, neighbours, socket counters and the net sysctl tree.
+  * Fix listener collection to key on the local address instead of Send-Q, and
+    move listening sockets out of the software inventory.
+  * Redact IPv6 addresses and network item keys in evidence bundles, and hash
+    SSIDs, BSSIDs, WireGuard keys and peer endpoints.
+  * Add `qa network collect|show|check`, query categories, report section,
+    retention and tests.
+  * Summarize retired or offline fault CPUs as "Fault Injection CPUs
+    Offline" without listing the unavailable CPUs, omit the fault-core
+    correlation section, and state an orientative reproduction viability
+    percentage in ticket drafts.
+  * Use the configured faultlab CPU set in correlation headings instead of
+    a fixed core number.
+  * Honor manual ticket bucket moves: reconciliation and staging leave the
+    ticket where the operator put it and do not recreate a draft copy.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 12:00:00 +0100
+
+qa-sentinels (1.2.1) jammy; urgency=medium
+
+  * Close the legal register trademark review with a documented affiliation
+    notice in docs/LEGAL.md.
+  * Refresh companion versions in the legal register.
+  * Publish from the dedicated qa-sentinels PPA instead of ubuntu-backup.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 09:25:49 +0100
+
+qa-sentinels (1.2.0) jammy; urgency=medium
+
+  * Add the `qa legal` own-product license and legal compliance register.
+  * Add LICENSE, third-party notices, privacy, contribution, security,
+    and release-policy documents.
+  * Install the legal manifest and license texts with the package.
+  * Remove the unconfirmed-license warning from debian/copyright.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 16 Nov 2026 10:00:00 +0100
+
+qa-sentinels (1.1.1) jammy; urgency=medium
+
+  * Make the fault-core integration optional and report its state in status
+    and preflight.
+  * Accept non-numeric settings only from a typed whitelist, so
+    config/settings.json cannot inject arbitrary environment values.
+  * Document every Linux install path, including the local .deb.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 15 Nov 2026 21:25:00 +0100
+
+qa-sentinels (1.1.0) jammy; urgency=medium
+
+  * Initial APT package: per-user QA Sentinels CLI seed and workspace
+    bootstrap. Existing ~/QA-Sentinels checkouts are left untouched.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 15 Nov 2026 13:00:00 +0100

@@ -1,0 +1,12 @@
+tar-ignore = .git
+tar-ignore = evidence
+tar-ignore = journal
+tar-ignore = var
+tar-ignore = tickets
+tar-ignore = triage
+tar-ignore = reports
+tar-ignore = toolchain
+tar-ignore = config/hardware-sources.json
+tar-ignore = config/identity.env
+tar-ignore = config/security-policy.json
+tar-ignore = config/settings.json

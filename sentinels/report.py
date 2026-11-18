@@ -1,0 +1,672 @@
+"""Startup, daily and on-demand QA reports plus the running journal."""
+from __future__ import annotations
+
+import json
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+
+from . import (
+    boot, config, db, deep, detect, faultcore, hardware, lsm, network, posture,
+    triage,
+)
+from .util import (
+    fmt_duration, human_bytes, iso, parse_iso, read_text, redact,
+    write_text_atomic,
+)
+
+SEV_ORDER = {"critical": 0, "error": 1, "warning": 2, "info": 3}
+
+
+# --------------------------------------------------------------- queries
+def events_since(conn, since_iso: str, severities=("critical", "error", "warning")):
+    marks = ",".join("?" for _ in severities)
+    return conn.execute(
+        f"SELECT * FROM events WHERE ts>=? AND severity IN ({marks}) "
+        "ORDER BY ts DESC",
+        (since_iso, *severities),
+    ).fetchall()
+
+
+def crashes_since(conn, since_iso: str):
+    return conn.execute(
+        "SELECT * FROM crashes WHERE ts>=? ORDER BY ts DESC", (since_iso,)
+    ).fetchall()
+
+
+def _event_groups(rows) -> list[dict]:
+    from .classify import signature
+
+    groups: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        sig = signature(row["message"])
+        unit = (row["unit"] or "").split(".")[0]
+        key = (unit, sig)
+        n = int(row["count"] or 1) if "count" in row.keys() else 1
+        g = groups.setdefault(
+            key,
+            {
+                "unit": unit,
+                "signature": sig,
+                "count": 0,
+                "first": row["ts"],
+                "last": row["ts"],
+                "severity": row["severity"],
+                "example": row["message"],
+            },
+        )
+        g["count"] += n
+        g["first"] = min(g["first"], row["ts"])
+        g["last"] = max(g["last"], row["ts"])
+        if SEV_ORDER.get(row["severity"], 9) < SEV_ORDER.get(g["severity"], 9):
+            g["severity"] = row["severity"]
+    return sorted(groups.values(), key=lambda g: (-g["count"], g["unit"]))
+
+
+def _sample_stats(conn, since_iso: str) -> dict:
+    rows = conn.execute(
+        "SELECT ts, payload FROM samples WHERE ts>=? ORDER BY ts", (since_iso,)
+    ).fetchall()
+    stats = {
+        "samples": len(rows),
+        "cpu": {"mean_busy": None, "max_busy": None, "mean_iowait": None, "max_iowait": None},
+        "faultcore": {"mean_busy": None, "max_busy": None},
+        "mem_available_min_kb": None,
+        "swap_free_min_kb": None,
+        "psi": {"cpu_max": None, "io_max": None, "memory_max": None, "memory_full_max": None},
+        "temp_max_c": None,
+        "oom_kills": 0,
+        "load_max": None,
+    }
+    if not rows:
+        return stats
+
+    payloads = [json.loads(r["payload"]) for r in rows]
+    busy_all, iowait_all, faultcore_busy = [], [], []
+    mem_min = swap_min = temp_max = load_max = None
+    oom_first = oom_last = None
+
+    for prev, cur in zip(payloads, payloads[1:]):
+        prev_cpus = {c["cpu"]: c for c in prev.get("cpus", [])}
+        for c in cur.get("cpus", []):
+            p = prev_cpus.get(c["cpu"])
+            if not p:
+                continue
+            fields = ("user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal")
+            d = {f: max(0, c.get(f, 0) - p.get(f, 0)) for f in fields}
+            total = sum(d.values())
+            if not total:
+                continue
+            busy = 100.0 * (total - d["idle"] - d["iowait"]) / total
+            iow = 100.0 * d["iowait"] / total
+            busy_all.append(busy)
+            iowait_all.append(iow)
+            if c["cpu"] in config.FAULT_CORE_CPUS:
+                faultcore_busy.append(busy)
+
+    for p in payloads:
+        mem = p.get("mem", {})
+        if mem.get("MemAvailable") is not None:
+            mem_min = mem["MemAvailable"] if mem_min is None else min(mem_min, mem["MemAvailable"])
+        if mem.get("SwapFree") is not None:
+            swap_min = mem["SwapFree"] if swap_min is None else min(swap_min, mem["SwapFree"])
+        for t in p.get("thermal", []):
+            v = t.get("millideg_c", 0) / 1000.0
+            if -20 < v < 200:
+                temp_max = v if temp_max is None else max(temp_max, v)
+        load = p.get("loadavg") or []
+        if len(load) >= 3:
+            load_max = load[0] if load_max is None else max(load_max, load[0])
+        if oom_first is None:
+            oom_first = p.get("oom_kill")
+        oom_last = p.get("oom_kill")
+
+    def _psi_max(key: str, kind: str):
+        vals = []
+        for p in payloads:
+            try:
+                vals.append(p["psi"][key][kind]["avg300"])
+            except (KeyError, TypeError):
+                continue
+        return max(vals) if vals else None
+
+    stats.update(
+        {
+            "cpu": {
+                "mean_busy": round(sum(busy_all) / len(busy_all), 1) if busy_all else None,
+                "max_busy": round(max(busy_all), 1) if busy_all else None,
+                "mean_iowait": round(sum(iowait_all) / len(iowait_all), 1) if iowait_all else None,
+                "max_iowait": round(max(iowait_all), 1) if iowait_all else None,
+            },
+            "faultcore": {
+                "mean_busy": round(sum(faultcore_busy) / len(faultcore_busy), 1) if faultcore_busy else None,
+                "max_busy": round(max(faultcore_busy), 1) if faultcore_busy else None,
+            },
+            "mem_available_min_kb": mem_min,
+            "swap_free_min_kb": swap_min,
+            "psi": {
+                "cpu_max": _psi_max("cpu", "some"),
+                "io_max": _psi_max("io", "some"),
+                "memory_max": _psi_max("memory", "some"),
+                "memory_full_max": _psi_max("memory", "full"),
+            },
+            "temp_max_c": round(temp_max, 1) if temp_max is not None else None,
+            "load_max": load_max,
+            "oom_kills": (oom_last - oom_first) if (oom_last is not None and oom_first is not None) else 0,
+        }
+    )
+    return stats
+
+
+
+def _hardware_section(conn) -> str:
+    data = hardware.latest(conn, complete=True)
+    if not data:
+        return "## Hardware tier\n\n_No hardware run yet._"
+    run = data["run"]
+    try:
+        sources = json.loads(run.get("sources") or "{}")
+    except ValueError:
+        sources = {}
+    lines = [
+        "## Hardware tier",
+        "",
+        f"- Last run: `{run.get('ts')}` status **{run.get('status')}** "
+        f"({run.get('duration_ms')} ms)",
+        "",
+        "| source | status |",
+        "|---|---|",
+    ]
+    for name, status in sorted(sources.items()):
+        lines.append(f"| {name} | {status} |")
+    notable = []
+    for item in data["items"]:
+        key = item["item"].lower()
+        if any(token in key for token in (
+            "ue_count", "ce_count", "smart_passed", "media_errors", "critical_warning",
+            "percentage_used", "available_spare", "ecc_uncorrected", "retired_pages",
+            "throttle_active", "temperature", "apei/table", "bmc/ipmi",
+        )):
+            notable.append(item)
+    if notable:
+        lines += ["", "| source | item | value |", "|---|---|---|"]
+        for item in notable[:40]:
+            value = redact(str(item["value"]))[:160].replace("|", "\\|")
+            lines.append(f"| {item['source']} | `{item['item']}` | {value} |")
+    return "\n".join(lines)
+
+
+
+def _lsm_section(conn) -> str:
+    data = lsm.latest(conn)
+    if not data:
+        return "## Linux Security Modules\n\n_No LSM run yet._"
+    state = data.get("state") or {}
+    denials = data.get("denials") or {}
+    apparmor = state.get("apparmor") or {}
+    profiles = apparmor.get("profiles") or {}
+    selinux = state.get("selinux") or {}
+    lines = [
+        "## Linux Security Modules",
+        "",
+        f"- Last run: `{data.get('ts')}` digest `{str(data.get('digest') or '')[:12]}`",
+        f"- Active: `{', '.join(state.get('active') or []) or 'none'}`",
+        f"- AppArmor: enabled={apparmor.get('enabled') or 'n/a'} "
+        f"profiles={profiles.get('total', 0)} "
+        f"(enforce={profiles.get('enforce', 0)}, complain={profiles.get('complain', 0)})",
+        f"- SELinux: present={selinux.get('present')} enforce={selinux.get('enforce') or 'n/a'}",
+        f"- Yama ptrace_scope: `{(state.get('yama') or {}).get('ptrace_scope') or 'n/a'}`; "
+        f"lockdown: `{(state.get('lockdown') or {}).get('selected') or 'n/a'}`",
+        f"- IMA policy: {'present' if (state.get('ima') or {}).get('present') else 'absent'}; "
+        f"BPF LSM: {state.get('bpf_lsm')}",
+        f"- Denials since `{denials.get('since') or 'n/a'}`: "
+        f"`{denials.get('counts') or {}}`",
+    ]
+    return "\n".join(lines)
+
+
+def _network_section(conn) -> str:
+    data = network.latest(conn)
+    if not data:
+        return "## Network and connectivity\n\n_No network run yet._"
+    run = data["run"]
+    values = {
+        (item["kind"], item["item"]): item["value"] or ""
+        for item in data.get("items", [])
+    }
+    metrics = {
+        (metric["scope"], metric["metric"]): metric["value"]
+        for metric in data.get("metrics", [])
+    }
+    interfaces = sorted({
+        item.split("/", 1)[0]
+        for kind, item in values
+        if kind == "interface" and "/" in item
+    })
+    up = sum(
+        1 for iface in interfaces
+        if values.get(("interface", f"{iface}/operstate"), "").lower() == "up"
+    )
+    defaults = [
+        f"`{key.split('/', 1)[1]}`: {redact(value)}"
+        for (kind, key), value in sorted(values.items())
+        if kind == "route" and key.startswith("default/")
+    ]
+    tunnels = sorted(
+        item.split("/", 1)[1]
+        for (kind, item) in values
+        if kind == "tunnel" and item.startswith("interface/")
+    )
+    listeners = (
+        f"tcp {metrics.get(('listener', 'tcp'), 'n/a')}, "
+        f"udp {metrics.get(('listener', 'udp'), 'n/a')} "
+        f"(filtered ephemeral {metrics.get(('listener', 'udp_ephemeral_filtered'), 'n/a')})"
+    )
+    lines = [
+        "## Network and connectivity",
+        "",
+        f"- Last run: `{run.get('ts')}` status **{run.get('status')}** "
+        f"({run.get('duration_ms')} ms), digest `{str(run.get('digest') or '')[:12]}…`",
+        f"- Items: `{run.get('counts')}`",
+        f"- Interfaces: **{len(interfaces)}** ({up} up); "
+        f"default route: {'; '.join(defaults) or 'none'}",
+        f"- Connectivity: network-online={values.get(('connectivity', 'network-online.target'), 'n/a')}, "
+        f"networkd={values.get(('connectivity', 'networkd/oper_state'), 'n/a')}",
+        f"- DNS upstream servers: **{values.get(('dns', 'upstream_count'), 'n/a')}**; "
+        f"listeners: {listeners}",
+        f"- Tunnels: {', '.join(f'`{name}`' for name in tunnels) or 'none'}; "
+        f"firewall: `{values.get(('firewall', 'active'), 'unknown')}`",
+        f"- Sources: `{run.get('sources')}`",
+    ]
+    diffs = data.get("diffs") or []
+    if diffs:
+        lines += ["", f"| network change | item |", "|---|---|"]
+        for diff in diffs[:30]:
+            lines.append(
+                f"| {diff['change']} | "
+                f"`{redact(diff['kind'])}/{redact(diff['item'])}` |"
+            )
+        if len(diffs) > 30:
+            lines.append(f"| … | {len(diffs) - 30} more in the database |")
+    return "\n".join(lines)
+
+
+def _faultcore_section(conn, since_iso: str) -> str:
+    if not config.FAULT_CORE_ENABLE or not config.FAULT_CORE_CPUS:
+        return "## Fault-core integration\n\n" + faultcore.integration_state() + "."
+    crashes = crashes_since(conn, since_iso)
+    yes = [c for c in crashes if c["faultcore_involved"] == 1]
+    no = [c for c in crashes if c["faultcore_involved"] == 0]
+    unknown = [c for c in crashes if c["faultcore_involved"] is None]
+    topo = faultcore.topology()
+
+    row = conn.execute("SELECT payload FROM samples ORDER BY ts DESC LIMIT 1").fetchone()
+    current_line = "no sample yet"
+    firefox_line = "no Firefox ESR process in the latest sample"
+    if row:
+        data = json.loads(row["payload"])
+        sample_topo = data.get("faultcore") or data.get("core2") or {}
+        current_line = (
+            f"online CPUs `{data.get('online_cpus')}`; "
+            f"{faultcore.label(topo)} logical CPUs `{sample_topo.get('logical')}`"
+        )
+        ff = [p for p in data.get("procs", [])
+              if "firefox" in (p.get("comm") or "").lower()
+              or "firefox" in (p.get("exe") or "").lower()]
+        if ff:
+            masks = Counter(p.get("cpus_allowed") or "unknown" for p in ff)
+            firefox_line = "; ".join(f"`{m}` x{n}" for m, n in masks.most_common())
+
+    lines = [
+        "## Fault core evidence",
+        "",
+        f"- Topology now: {current_line}.",
+        f"- Firefox ESR affinity in latest sample: {firefox_line}.",
+        f"- Crashes in window: **{len(crashes)}** | affinity included {faultcore.label(topo)}: "
+        f"**{len(yes)}** | excluded: **{len(no)}** | unknown affinity: **{len(unknown)}**.",
+    ]
+    if yes:
+        lines.append("")
+        lines.append("| time (UTC) | process | signal | allowed CPUs |")
+        lines.append("|---|---|---|---|")
+        for c in yes[:15]:
+            lines.append(
+                f"| {c['ts']} | `{c['comm'] or c['exe']}` | {c['sig']} | `{c['cpus_allowed']}` |"
+            )
+    lines += [
+        "",
+        "Correlation, not proof: affinity is read from the last `/proc/<pid>/status` "
+        "snapshot before the crash. Unknown affinity is reported as unknown, never dropped. "
+        "These rows are part of the QA record and are not omitted from vendor tickets.",
+    ]
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------- reports
+# Deprecated shims: the implementation lives in boot.py now.
+def _boot_info() -> dict:
+    return boot.boot_info()
+
+
+def _boot_journal(boot_ref: str, limit: int = 40, tail_only: bool = False
+                  ) -> tuple[int, list[str]]:
+    return boot.journal_tail(boot_ref, limit=limit, tail_only=tail_only)
+
+
+def _num(value, suffix: str = "", digits: int = 1) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, float):
+        return f"{value:.{digits}f}{suffix}"
+    return f"{value}{suffix}"
+
+
+def _environment_block() -> list[str]:
+    cpu = ""
+    for line in read_text("/proc/cpuinfo").splitlines():
+        if line.lower().startswith("model name"):
+            cpu = line.split(":", 1)[1].strip()
+            break
+    os_name = ""
+    for line in read_text("/etc/os-release").splitlines():
+        if line.startswith("PRETTY_NAME="):
+            os_name = line.split("=", 1)[1].strip('"')
+            break
+    return [
+        f"- Kernel: `{read_text('/proc/sys/kernel/osrelease')}`",
+        f"- OS: `{os_name}`",
+        f"- CPU: `{cpu}`",
+    ]
+
+
+def build_report(conn, kind: str = "daily", hours: int = 24) -> tuple[str, str]:
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events = events_since(conn, since)
+    groups = _event_groups(events)
+    crashes = crashes_since(conn, since)
+    stats = _sample_stats(conn, since)
+    inv = conn.execute("SELECT * FROM inventory_runs ORDER BY id DESC LIMIT 1").fetchone()
+    inv_diffs = []
+    if inv:
+        inv_diffs = conn.execute(
+            "SELECT * FROM inventory_diffs WHERE run_id=? ORDER BY layer, change, item",
+            (inv["id"],),
+        ).fetchall()
+
+    counts = Counter()
+    total_events = 0
+    for e in events:
+        n = int(e["count"] or 1) if "count" in e.keys() else 1
+        counts[e["severity"]] += n
+        total_events += n
+    title = f"{kind.capitalize()} QA report — {now.strftime('%Y-%m-%d %H:%M UTC')}"
+    body = [f"# {title}", ""]
+    body += _environment_block()
+    body.append(f"- Posture: {posture.line()}")
+    body.append(f"- Window: last {hours} h (`{since}` → `{iso(now)}`)")
+    body += [
+        "",
+        "## Headline",
+        "",
+        f"- Events: **{total_events}** (critical {counts.get('critical', 0)}, "
+        f"error {counts.get('error', 0)}, warning {counts.get('warning', 0)}); "
+        f"{len(groups)} distinct signatures",
+        f"- Crashes/coredumps/minidumps: **{len(crashes)}** "
+        f"(fault-core affinity {sum(1 for c in crashes if c['faultcore_involved'] == 1)})",
+        f"- CPU busy mean/max: **{_num(stats['cpu']['mean_busy'], '%')} / "
+        f"{_num(stats['cpu']['max_busy'], '%')}**, iowait max {_num(stats['cpu']['max_iowait'], '%')}",
+        f"- Memory available min: **{human_bytes(stats['mem_available_min_kb']) if stats['mem_available_min_kb'] is not None else 'n/a'}**; "
+        f"swap free min {human_bytes(stats['swap_free_min_kb']) if stats['swap_free_min_kb'] is not None else 'n/a'}",
+        f"- PSI max (avg300): cpu {_num(stats['psi']['cpu_max'])}, io {_num(stats['psi']['io_max'])}, "
+        f"memory {_num(stats['psi']['memory_max'])} (full {_num(stats['psi']['memory_full_max'])})",
+        f"- Hottest sensor: **{_num(stats['temp_max_c'], ' °C')}**; load max {_num(stats['load_max'])}; "
+        f"OOM kills in window {stats['oom_kills']}",
+    ]
+
+    if kind == "startup":
+        boot_info = boot.boot_info()
+        body += [
+            "",
+            "## Boot",
+            "",
+            f"- Current boot: `{boot_info['boot_time']}` (uptime {boot_info['uptime']} s)",
+        ]
+        boundary = boot.latest(conn)
+        if boundary:
+            line = (
+                f"- Previous boot boundary: **{boot.verdict(boundary)}** "
+                f"(`{boundary['boot_id'][:8]}`, last entry {boundary['last_ts']})"
+            )
+            if boundary.get("ended_clean") == 0:
+                line += (
+                    " — the journal ends without `systemd-shutdown`, so the machine "
+                    "stopped before a shutdown sequence began"
+                )
+            body.append(line)
+            counts = boot.scan_counts(boundary)
+            hits = ", ".join(
+                f"{v['label']} {v['count']}" for v in counts.values() if v.get("count")
+            )
+            body.append(
+                f"- Boot evidence: {hits or 'no failure signatures'}; "
+                f"pstore {boundary.get('pstore')}, "
+                f"kexec_crash_loaded {boundary.get('kexec_loaded')}"
+            )
+        prev_count, prev_lines = boot.journal_tail("-1")
+        _cur_count, cur_lines = boot.journal_tail("0", tail_only=True)
+        cur_flag = conn.execute(
+            "SELECT severity, COALESCE(SUM(count),0) n FROM events WHERE ts>=? GROUP BY severity",
+            (boot_info["boot_time"],),
+        ).fetchall()
+        cur_total = sum(int(r["n"]) for r in cur_flag)
+        cur_detail = ", ".join(f"{r['severity']} {r['n']}" for r in cur_flag) or "none"
+        body += [
+            f"- Previous boot raw warnings-or-worse (journal priority): **{prev_count}**",
+            f"- Current boot flagged events (sentinel classifier): **{cur_total}** ({cur_detail})",
+            "",
+            "### Previous boot tail (oldest → newest, redacted)",
+            "",
+            "```",
+            redact("\n".join(prev_lines)) or "(none)",
+            "```",
+            "",
+            "### Current boot tail",
+            "",
+            "```",
+            redact("\n".join(cur_lines)) or "(none)",
+            "```",
+        ]
+
+    body += ["", "## Top recurring events", ""]
+    if groups:
+        body += ["| count | severity | unit | signature |", "|---:|---|---|---|"]
+        for g in groups[:20]:
+            sig = g["signature"].replace("|", "\\|")[:140]
+            body.append(f"| {g['count']} | {g['severity']} | `{g['unit']}` | {sig} |")
+    else:
+        body.append("_No warning-or-worse events in this window._")
+
+    body += ["", "## Crashes", ""]
+    if crashes:
+        body += ["| time (UTC) | process | signal | allowed CPUs | fault core in mask |",
+                 "|---|---|---|---|---|"]
+        for c in crashes[:25]:
+            verdict = {1: "yes", 0: "no", None: "unknown"}[c["faultcore_involved"]]
+            body.append(
+                f"| {c['ts']} | `{c['comm'] or c['exe']}` | {c['sig']} | "
+                f"`{c['cpus_allowed'] or 'unknown'}` | {verdict} |"
+            )
+    else:
+        body.append("_No crashes recorded in this window._")
+
+    body += ["", _faultcore_section(conn, since)]
+    body += ["", _hardware_section(conn)]
+    body += ["", _lsm_section(conn)]
+    body += ["", _network_section(conn)]
+
+    tri = triage.summary(conn)
+    tri_rows = triage.cases(conn, limit=12)
+    body += [
+        "",
+        "## Fault-core triage side queue",
+        "",
+        f"- Cases: **{tri['total']}** — by status `{tri['by_status']}`, "
+        f"by verdict `{tri['by_verdict']}`",
+        f"- Dossier: [`../../triage/faultcore/index.md`](../../triage/faultcore/index.md) "
+        f"(one file per case, kept for investigation)",
+        "",
+    ]
+    if tri_rows:
+        body += ["| case | verdict | status | process | last event |", "|---|---|---|---|---|"]
+        for row in tri_rows:
+            body.append(
+                f"| [{row['id']}](../../triage/faultcore/case-{row['id']:04d}.md) | {row['verdict']} | "
+                f"{row['status']} | `{row['process']}` | {row['event_ts']} |"
+            )
+    else:
+        body.append(
+            "_No fault-core cases recorded yet. Confirmed, suspected, control and "
+            "unresolved-affinity events will appear here automatically._"
+        )
+    body += [
+        "",
+        "Side-queue policy: fault-core cases are separated for focused investigation, "
+        "not removed from the main record or from vendor evidence.",
+    ]
+
+    findings = detect.list_findings(conn, limit=12, status="open")
+    fcounts = {
+        r["severity"]: r["n"]
+        for r in conn.execute(
+            "SELECT severity, COUNT(*) n FROM findings WHERE status='open' GROUP BY severity"
+        )
+    }
+    body += [
+        "",
+        "## Layer 1 — real-time detection",
+        "",
+        f"- Open findings: **{sum(fcounts.values())}** {fcounts or ''}",
+    ]
+    if findings:
+        body += ["| id | severity | rule | subject | count | detail |",
+                 "|---:|---|---|---|---:|---|"]
+        for row in findings:
+            detail = redact(row["detail"] or "").replace("|", "\\|")[:110]
+            body.append(
+                f"| {row['id']} | {row['severity']} | `{row['rule']}` | `{row['subject']}` | "
+                f"{row['count']} | {detail} |"
+            )
+    else:
+        body.append("_No open layer-1 findings._")
+
+    deep_rows = [
+        dict(r) for r in conn.execute(
+            "SELECT * FROM deep_runs ORDER BY id DESC LIMIT 8"
+        )
+    ]
+    body += [
+        "",
+        "## Layer 2 — deep investigation",
+        "",
+        f"- Pending requests: **{len(deep.pending_requests())}** "
+        f"(`triage/faultcore/deep-requests/`)",
+        f"- Deep runs: **{conn.execute('SELECT COUNT(*) FROM deep_runs').fetchone()[0]}** "
+        f"(`triage/faultcore/deep/index.md`)",
+    ]
+    if deep_rows:
+        body += ["| run | case | status | trace lines | fault-core % | path |",
+                 "|---:|---|---|---:|---:|---|"]
+        for row in deep_rows:
+            try:
+                summary = json.loads(row["summary"] or "{}")
+            except json.JSONDecodeError:
+                summary = {}
+            body.append(
+                f"| {row['id']} | {row['case_id'] or '—'} | {row['status']} | "
+                f"{summary.get('trace_lines', '—')} | "
+                f"{summary.get('faultcore_pct', summary.get('core2_pct', '—'))} | "
+                f"`{row['path']}` |"
+            )
+    else:
+        body.append("_No deep runs yet. Layer 1 queues one for critical findings; "
+                    "install the layer-2 path unit with `sudo root/install-system.sh`._")
+
+    body += ["", "## Inventory (every ~3 h)", ""]
+    if inv:
+        interval = db.meta_get(conn, "inventory_interval_s")
+        next_ts = db.meta_get(conn, "next_inventory_ts")
+        body += [
+            f"- Latest run: `{inv['ts']}` (run {inv['id']}), digest `{inv['digest'][:16]}…`",
+            f"- Items per layer: `{inv['counts']}`",
+            f"- Changes vs previous run: **{len(inv_diffs)}**",
+            f"- Adaptive renewal: next `{next_ts or 'n/a'}` "
+            f"(interval {fmt_duration(int(interval)) if interval else 'n/a'}, note `{inv['note']}`)",
+        ]
+        if inv_diffs:
+            body += ["", "| layer | change | item |", "|---|---|---|"]
+            for d in inv_diffs[:40]:
+                body.append(f"| {d['layer']} | {d['change']} | `{d['item']}` |")
+    else:
+        body.append("_No inventory yet._")
+
+    body += ["", "## Sentinel health", ""]
+    last_sample = db.meta_get(conn, "last_sample_ts") or "never"
+    last_ingest = db.meta_get(conn, "last_journal_ingest") or "never"
+    failed_runs = conn.execute(
+        "SELECT task, ts, detail FROM runs WHERE ok=0 ORDER BY id DESC LIMIT 5"
+    ).fetchall()
+    body += [
+        f"- Last sample: `{last_sample}`",
+        f"- Last journal ingest: `{last_ingest}`",
+        f"- Last inventory: `{inv['ts'] if inv else 'never'}`",
+        f"- Next inventory: `{db.meta_get(conn, 'next_inventory_ts') or 'n/a'}` "
+        f"(adaptive interval {db.meta_get(conn, 'inventory_interval_s') or config.INVENTORY_INTERVAL_S}s)",
+        f"- Privilege posture: {posture.line()}",
+    ]
+    if failed_runs:
+        body.append("- Recent failed sentinel runs:")
+        for r in failed_runs:
+            body.append(f"  - `{r['ts']}` {r['task']}: {r['detail'][:160]}")
+    else:
+        body.append("- Recent failed sentinel runs: none")
+
+    return title, "\n".join(body) + "\n"
+
+
+def append_journal(conn, title: str, body: str, kind: str) -> None:
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    path = config.JOURNAL_DIR / f"{day}.md"
+    stamp = iso()
+    if not path.exists():
+        write_text_atomic(
+            path,
+            f"# {config.PROJECT_NAME} journal — {day}\n\n"
+            "Append-only record. Newest entry at the bottom. Times are UTC.\n",
+        )
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"\n---\n\n## {stamp} · {kind} · {title}\n\n{body}\n")
+    db.meta_set(conn, "last_journal_entry", f"{stamp}|{kind}|{title}")
+
+
+def write_report(conn, kind: str = "daily", hours: int = 24) -> dict:
+    title, body = build_report(conn, kind, hours)
+    config.REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    path = config.REPORT_DIR / f"{kind}-{stamp}.md"
+    write_text_atomic(path, body)
+    append_journal(conn, title, body, kind)
+    summary = next(
+        (ln for ln in body.splitlines() if ln.startswith("- Events:")), title
+    )
+    conn.execute(
+        "INSERT INTO reports(ts, kind, path, summary) VALUES(?,?,?,?)",
+        (iso(), kind, str(path), summary),
+    )
+    return {"title": title, "path": str(path), "body": body, "summary": summary}
+
+
+def latest_inventory_age(conn) -> float | None:
+    last = db.meta_get(conn, "last_inventory_ts")
+    if not last:
+        return None
+    return (datetime.now(timezone.utc) - parse_iso(last)).total_seconds()

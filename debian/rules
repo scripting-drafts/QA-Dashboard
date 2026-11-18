@@ -1,0 +1,52 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	$(MAKE) -C src clean
+	dh_clean
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	$(MAKE) -C src
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -d debian/qa-sentinels/usr/share/qa-sentinels
+	cp -a bin sentinels docs legal \
+		LICENSE THIRD-PARTY-NOTICES.md CONTRIBUTING.md SECURITY.md \
+		README.md debian/qa-sentinels/usr/share/qa-sentinels/
+	rm -rf debian/qa-sentinels/usr/share/qa-sentinels/bin/__pycache__ \
+		debian/qa-sentinels/usr/share/qa-sentinels/sentinels/__pycache__
+	rm -f debian/qa-sentinels/usr/share/qa-sentinels/bin/qa_ebpf \
+		debian/qa-sentinels/usr/share/qa-sentinels/bin/qa_ebpf.build.json \
+		debian/qa-sentinels/usr/share/qa-sentinels/bin/qa_trace.bpf.o
+	install -m 0755 src/qa_sample debian/qa-sentinels/usr/share/qa-sentinels/bin/qa_sample
+	install -d debian/qa-sentinels/usr/share/qa-sentinels/config
+	install -m 0644 config/modes.md \
+		debian/qa-sentinels/usr/share/qa-sentinels/config/modes.md
+	install -m 0644 config/hardware-sources.example.json \
+		debian/qa-sentinels/usr/share/qa-sentinels/config/hardware-sources.example.json
+	install -m 0644 config/identity.env.example \
+		debian/qa-sentinels/usr/share/qa-sentinels/config/identity.env.example
+	install -D -m 0644 debian/copyright \
+		debian/qa-sentinels/usr/share/qa-sentinels/debian/copyright
+	install -D -m 0755 debian/qa-wrapper debian/qa-sentinels/usr/bin/qa
+	install -D -m 0644 debian/README.Debian debian/qa-sentinels/usr/share/doc/qa-sentinels/README.Debian
+	install -D -m 0644 LICENSE \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/LICENSE
+	install -D -m 0644 THIRD-PARTY-NOTICES.md \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/THIRD-PARTY-NOTICES.md
+	install -D -m 0644 CONTRIBUTING.md \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/CONTRIBUTING.md
+	install -D -m 0644 SECURITY.md \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/SECURITY.md
+	install -D -m 0644 docs/PRIVACY.md \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/PRIVACY.md
+	install -D -m 0644 docs/LEGAL.md \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/LEGAL.md
+	install -D -m 0644 legal/manifest.json \
+		debian/qa-sentinels/usr/share/doc/qa-sentinels/legal/manifest.json

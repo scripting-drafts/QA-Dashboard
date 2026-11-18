@@ -1,0 +1,49 @@
+#!/bin/sh
+# APT entry point: use an existing QA-Sentinels checkout, or seed a per-user
+# workspace from /usr/share/qa-sentinels on first use.
+set -eu
+
+seed=/usr/share/qa-sentinels
+[ -n "${HOME:-}" ] || { echo "qa: HOME is not set" >&2; exit 1; }
+root=${QA_SENTINELS_HOME:-"$HOME/QA-Sentinels"}
+
+if [ ! -x "$root/bin/qa" ]; then
+    if [ -e "$root" ] && [ ! -d "$root" ]; then
+        echo "qa: $root exists and is not a directory" >&2
+        exit 1
+    fi
+    if [ -d "$root" ] && [ -n "$(ls -A "$root" 2>/dev/null || true)" ]; then
+        echo "qa: $root exists but does not contain bin/qa; refusing to overwrite" >&2
+        exit 1
+    fi
+
+    lock="$root.lock"
+    i=0
+    until mkdir "$lock" 2>/dev/null; do
+        [ -x "$root/bin/qa" ] && break
+        i=$((i + 1))
+        if [ "$i" -ge 30 ]; then
+            echo "qa: timed out initializing $root" >&2
+            exit 1
+        fi
+        sleep 1
+    done
+
+    if [ -d "$lock" ]; then
+        trap 'rmdir "$lock" 2>/dev/null || true' EXIT HUP INT TERM
+        if [ ! -x "$root/bin/qa" ]; then
+            if [ -d "$root" ] && [ -z "$(ls -A "$root" 2>/dev/null || true)" ]; then
+                cp -a --no-preserve=ownership "$seed"/. "$root"/
+            else
+                cp -a --no-preserve=ownership "$seed" "$root"
+            fi
+            chmod -R u+rwX "$root"
+            "$root/bin/qa" init >/dev/null 2>&1 || true
+        fi
+        rm -rf "$lock"
+        trap - EXIT HUP INT TERM
+    fi
+fi
+
+export QA_SENTINELS_HOME="$root"
+exec "$root/bin/qa" "$@"

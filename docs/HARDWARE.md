@@ -1,0 +1,206 @@
+# Hardware-health tier
+
+The hardware tier collects **hardware health telemetry exposed by the kernel,
+drivers, firmware, and vendor tools**. It is not a logic analyzer, JTAG probe,
+or full PCIe/DRAM trace.
+
+## Sources
+
+| Source | Data | Typical privilege |
+|---|---|---|
+| `ras` | `ras-mc-ctl --summary/--errors`, rasdaemon state, EDAC UE/CE, PCIe AER counters, ACPI APEI tables, pstore summaries | EDAC/AER often readable; rasdaemon DB and ACPI may need root |
+| `storage` | `smartctl -a -j`, `nvme smart-log -o json`, SMART health, media errors, wear, spare, temperature | root or CAP_SYS_RAWIO |
+| `gpu` | `nvidia-smi -q -x`, temperature, utilization, memory, ECC, retired pages, throttle reasons, power | user |
+| `bmc` | `ipmitool sel elist` or optional Redfish SEL | root/CAP_DAC_OVERRIDE |
+| `sensors` | `sensors -j` temperatures and limits | user |
+| `turbostat` | package/core summary | root/CAP_SYS_RAWIO |
+| `pcm` | Intel PCM one-second sample | root |
+| `uncore` | selected `perf` uncore PMU events | CAP_PERFMON |
+| `vendor` | configured firmware/BMC log files | file read access |
+
+## Commands
+
+```bash
+./bin/qa hardware collect
+./bin/qa hardware show
+./bin/qa hardware check
+./bin/qa hardware collect --sources ras,storage,gpu,bmc,sensors
+./bin/qa findings --only open
+```
+
+`cycle` runs the tier every `QA_HARDWARE_INTERVAL_S` seconds (default 900) when
+`QA_HARDWARE_ENABLE=1`. Each source records `ok`, `partial`, `needs-root`, or
+`unavailable`; no missing tool fails the cycle.
+
+## Privileged scheduling
+
+The ordinary user cron cannot read SMART/NVMe raw devices, IPMI, or uncore
+counters. Install the capability-scoped timers:
+
+```bash
+sudo ./root/install-hardware.sh
+systemctl status qa-hardware.timer
+journalctl -u qa-hardware.service -n 50
+```
+
+The hardware timer runs as the operator with narrow capabilities:
+`CAP_DAC_OVERRIDE`, `CAP_DAC_READ_SEARCH`, `CAP_SYS_PTRACE`,
+`CAP_SYS_RAWIO`, `CAP_PERFMON`, `CAP_BPF`, and `CAP_SYS_ADMIN`. The Python
+collector and the QA database stay operator-owned; no root probe or handoff
+file is installed.
+
+The capability set covers SMART/NVMe device access and the root-only rasdaemon
+database. Layer 1 (`root/install-system.sh`) uses the same capabilities, so
+`qa cycle` can collect storage and RAS state without running as root.
+
+`turbostat` is scoped out when `/dev/cpu/*/msr` is not readable: its
+`access(2)` check cannot be satisfied by ambient capabilities. No root helper
+is installed for it.
+
+Remove them:
+
+```bash
+sudo ./root/install-hardware.sh --uninstall
+```
+
+`qa hardware check` exits non-zero when a *required* tool is missing.
+`qa hardware collect` and the cycle exit non-zero when any required hardware
+source is not `ok` (missing tool, permission failure, or unreadable data).
+Required sources default to:
+
+```text
+ras,storage,gpu,bmc,sensors,turbostat,pcm,uncore,vendor
+```
+
+`qa hardware discover` writes the host's scoped contract to
+`config/hardware-sources.json`. Sources the platform cannot provide are listed
+under `not_applicable` with a reason and are omitted from `required_sources`.
+This host is an AMD desktop without a BMC and without readable MSR, so `pcm`
+(Intel-only), `bmc`, and `turbostat` are scoped out explicitly rather than
+reported as permanent failures. All other required sources must be `ok`;
+`failed_sources` must be empty.
+
+`vendor` is **mandatory**: configure `config/hardware-sources.json` with at
+least one readable vendor log, or the hardware source and cycle fail.
+Override the required list with `QA_HARDWARE_REQUIRED_SOURCES` only for a
+deliberate exception.
+
+## Findings
+
+Hardware findings use the existing `findings` table:
+
+- `hardware.edac.ue`, `hardware.edac.dimm_ue`, `hardware.edac.ce`
+- `hardware.aer.fatal`, `hardware.aer.nonfatal`, `hardware.aer.correctable`
+- `hardware.apei.pstore`
+- `hardware.storage.smart`, `hardware.storage.media`, `hardware.storage.wear`,
+  `hardware.storage.spare`, `hardware.storage.reallocated`,
+  `hardware.storage.pending`, `hardware.storage.uncorrectable`,
+  `hardware.storage.critical_warning`
+- `hardware.gpu.ecc_uncorrected`, `hardware.gpu.retired_pages`,
+  `hardware.gpu.temperature`, `hardware.gpu.throttle`
+- `hardware.bmc.sel`
+- `hardware.thermal.sensor`
+- `hardware.vendor.log`
+- `hardware.coverage` when key sources are unavailable or need privilege
+
+Thresholds are at the lowest meaningful trigger points by default:
+
+| Setting | Default | Meaning |
+|---|---:|---|
+| `QA_HARDWARE_CE_ALERT` | `1` | any corrected EDAC errors |
+| `QA_HARDWARE_AER_CE_ALERT` | `1` | any correctable PCIe AER error |
+| `QA_HARDWARE_NVME_USED_ALERT` | `1` | any NVMe wear percentage |
+| `QA_HARDWARE_NVME_SPARE_ALERT` | `100` | warn on any drop below 100% spare |
+| `QA_HARDWARE_GPU_TEMP_ALERT_C` | `65` | early GPU temperature warning |
+| `QA_HARDWARE_SENSOR_TEMP_ALERT_C` | `70` | early sensor temperature warning |
+| `QA_HARDWARE_STORAGE_TEMP_ALERT_C` | `50` | early SMART/NVMe temperature warning |
+
+Override them in the environment or in the service unit when a higher site
+threshold is required.
+
+## Vendor logs and Redfish
+
+Copy `config/hardware-sources.example.json` to `config/hardware-sources.json`
+and add at least one readable vendor log path; the vendor source is mandatory.
+Redfish remains opt-in and reads the bearer token from
+the environment variable named by `token_env`; credentials are never stored in
+the database or printed.
+
+```json
+{
+  "vendor_logs": ["/var/log/vendor-firmware.log"],
+  "redfish": {
+    "enabled": true,
+    "base_url": "https://bmc.example.invalid",
+    "token_env": "QA_REDFISH_TOKEN"
+  }
+}
+```
+
+## Optional fault-core isolation policy
+
+The hardware sources above cover error counters. A separate layer-1 check
+covers the policy that keeps a degrading core out of normal work. This
+integration is **optional**; faultlab is not a prerequisite for QA Sentinels.
+
+The fault core is identified by the logical CPU set in
+`/etc/faultlab/config` (`FAULT_CPUS`) or `QA_FAULT_CORE_CPUS`; its physical
+core number is derived from sysfs only while those CPUs are online. A retired
+core therefore stays **undetermined** — QA knows which CPUs are offline but
+does not invent a physical core id. With no fault core configured, these
+checks are disabled and normal sampling, reporting, evidence collection and
+tickets continue.
+
+### Standalone mode
+
+`QA_FAULT_CORE_ENABLE=auto` (default) enables the checks only when
+`FAULT_CPUS` is available from `/etc/faultlab/config` or
+`QA_FAULT_CORE_CPUS`; otherwise they stay disabled. Set
+`QA_FAULT_CORE_ENABLE=0` to disable explicitly, or `1` to require a configured
+core. The value can be placed in `config/settings.json` or the service
+environment. `QA_FAULT_CORE_CPUS` and the faultlab paths remain
+environment/faultlab inputs, not settings-file values. `QA_FAULT_CORE_ENFORCE`
+only overrides how the mode file is interpreted; it does not enable the
+integration.
+
+`/etc/faultlab/mode` selects `retired` (configured CPUs offlined) or `lab`
+(online, isolated, cgroup-fenced). `QA_FAULT_CORE_ENFORCE=lab|retired|off`
+overrides it; `auto` follows the file. The check runs every cycle and emits:
+
+| Rule | Severity | Meaning |
+|---|---|---|
+| `faultcore.retired.online` | critical | mode says retired, configured CPUs still online |
+| `faultcore.isolation.unfenced` | critical | `system.slice`/`user.slice` cpuset still includes the fault core |
+| `faultcore.isolation.missing` | warning | boot parameters or sysfs isolation incomplete |
+| `faultcore.lab.offline` | warning | lab mode but the CPUs are offline |
+| `faultcore.lab.slice_missing` | warning | `faultlab.slice` absent or without the fault CPUs |
+| `faultcore.irq.affinity` | warning | IRQ affinity still includes the fault core |
+| `faultcore.topology.changed` / `.absent` | warning | the configured core maps elsewhere or is genuinely absent |
+| `faultcore.ab.divergence` | critical | fault-lab A/B outputs differ |
+| `faultcore.ab.hw_suspect` | warning | faulty core failed where the control passed |
+| `faultcore.ab.control_unstable` | warning | the control core is unreliable |
+
+Retired or offline topology produces no `faultcore.topology.absent` finding;
+the policy rules above still report retired/lab drift.
+
+`faultlab-ab` appends one JSON object per verdict to
+`/var/log/faultlab/ab.jsonl`; the cycle consumes new lines from a persisted
+byte cursor, so restarts do not replay old results. MCE/EDAC events keep their
+existing `kernel.hardware`, `hardware.edac.ue` and `hardware.edac.ce` rules.
+
+Environment: `QA_FAULTLAB_CONFIG`, `QA_FAULT_CPU`, `QA_FAULT_CORE_CPUS`,
+`QA_FAULT_CORE_PHYSICAL_ID`, `QA_FAULT_CORE_ENABLE`, `QA_FAULT_CORE_ENFORCE`,
+`QA_FAULT_CORE_MODE_FILE`, `QA_FAULT_CORE_CPU_ROOT`,
+`QA_FAULT_CORE_CGROUP_ROOT`, `QA_FAULT_CORE_AB_RESULTS`. Legacy `QA_CORE2_*`
+variables are accepted as aliases.
+
+## Limits
+
+- SMART/NVMe, IPMI, PCM, turbostat and uncore often need privileges. This
+  host uses capability-scoped operator services and explicitly scopes out
+  sources the platform cannot provide.
+- ACPI tables are recorded as hashes/metadata, not fully decoded.
+- The tier does not read BMC firmware, PCIe analyzer captures, DRAM patrol
+  scrub, JTAG, or vendor debug registers.
+- Raw output is capped and redacted before evidence export; local database
+  retention defaults to 14 days.
