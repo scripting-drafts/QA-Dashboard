@@ -111,14 +111,19 @@ version_matches() {
 }
 
 published_version() {
-  local series="$1" tmp
+  local series="$1" tmp attempt
   tmp="$(mktemp)"
-  if curl -fsS --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
-      -o "$tmp" "$PPA_HOST/dists/$series/main/binary-amd64/Packages.gz" 2>/dev/null \
-      && gzip -t "$tmp" 2>/dev/null; then
-    gzip -dc "$tmp" 2>/dev/null \
-      | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}'
-  fi
+  for attempt in 1 2 3 4 5 6; do
+    if curl -fsS --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
+        -o "$tmp" "$PPA_HOST/dists/$series/main/binary-amd64/Packages.gz" 2>/dev/null \
+        && gzip -t "$tmp" 2>/dev/null; then
+      gzip -dc "$tmp" 2>/dev/null \
+        | awk -v p="$PKG" '$1=="Package:"{cur=$2} cur==p && $1=="Version:"{print $2; exit}'
+      rm -f "$tmp"
+      return
+    fi
+    sleep 4
+  done
   rm -f "$tmp"
 }
 
