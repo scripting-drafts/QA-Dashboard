@@ -96,10 +96,6 @@ series_version() {
   fi
 }
 
-series_release() {
-  curl -fsS --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
-    "$PPA_HOST/dists/$1/Release" >/dev/null 2>&1
-}
 
 version_matches() {
   local published="$1" series="$2"
@@ -153,13 +149,12 @@ if [[ "$MODE" == check ]]; then
   version_files_ok || drift=1
   for series in "${DEFAULT_SERIES[@]}"; do
     expected="$(series_version "$series")"
-    if ! series_release "$series"; then
+    published="$(published_version "$series")"
+    if [[ -z "$published" ]]; then
       echo "  $series: no published pocket yet (expected $expected)"
       drift=1
       continue
     fi
-    published="$(published_version "$series")"
-    published="${published:-not published}"
     echo "  $series: expected=$expected published=$published"
     version_matches "$published" "$series" || drift=1
   done
