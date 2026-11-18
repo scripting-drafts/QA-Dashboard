@@ -21,6 +21,8 @@ PPA_BASE="https://ppa.launchpadcontent.net/toomanypatterns"
 SIGN_KEY="${SIGN_KEY:-F104A3F1CE9A23540AEB8F24F31978E49E85DDCA}"
 WAIT_MAX="${WAIT_MAX:-10800}"
 WAIT_STEP="${WAIT_STEP:-60}"
+REVISION_EXPLICIT=0
+if [[ -n "${REVISION:-}" ]]; then REVISION_EXPLICIT=1; fi
 REVISION="${REVISION:-1}"
 DEFAULT_SERIES=(jammy noble resolute stonking)
 if [[ -n "${SERIES:-}" ]]; then
@@ -98,6 +100,15 @@ series_release() {
   curl -fsS --max-time 30 "$PPA_HOST/dists/$1/Release" >/dev/null 2>&1
 }
 
+version_matches() {
+  local published="$1" series="$2"
+  if [[ $REVISION_EXPLICIT -eq 1 ]]; then
+    [[ "$published" == "$(series_version "$series")" ]]
+    return
+  fi
+  [[ "$published" == "$BASE_VERSION"-0ubuntu*~"$series"1 ]]
+}
+
 published_version() {
   local series="$1"
   curl -fsS --max-time 30 \
@@ -141,7 +152,7 @@ if [[ "$MODE" == check ]]; then
     published="$(published_version "$series")"
     published="${published:-not published}"
     echo "  $series: expected=$expected published=$published"
-    [[ "$published" == "$expected" ]] || drift=1
+    version_matches "$published" "$series" || drift=1
   done
   if [[ $dirty -eq 0 && "$ahead_behind" == "0	0" && $drift -eq 0 ]]; then
     echo "status:     in sync"
@@ -180,8 +191,8 @@ echo "testing $PKG $BASE_VERSION"
 for series in "${DEFAULT_SERIES[@]}"; do
   expected="$(series_version "$series")"
   published="$(published_version "$series")"
-  if [[ "$published" == "$expected" ]]; then
-    echo "$PKG $expected is already published for $series"
+  if version_matches "$published" "$series"; then
+    echo "$PKG $published is already published for $series"
     continue
   fi
 
