@@ -1,0 +1,169 @@
+{
+  "coverage": {
+    "degraded": 5,
+    "planned": 3,
+    "ported": 12
+  },
+  "families": [
+    {
+      "linux": "boot.*",
+      "macos": "boot.* (log show)",
+      "note": "",
+      "prefix": "boot",
+      "status": "ported",
+      "windows": "boot.* (System log)"
+    },
+    {
+      "linux": "crash.*",
+      "macos": "crash.* (panic/ips)",
+      "note": "",
+      "prefix": "crash",
+      "status": "ported",
+      "windows": "crash.* (WER/bugcheck)"
+    },
+    {
+      "linux": "deep.*",
+      "macos": "trace.deep (DTrace)",
+      "note": "",
+      "prefix": "deep",
+      "status": "planned",
+      "windows": "trace.deep (ETW)"
+    },
+    {
+      "linux": "faultcore.*",
+      "macos": "cpu.affinity.*",
+      "note": "",
+      "prefix": "faultcore",
+      "status": "planned",
+      "windows": "cpu.affinity.*"
+    },
+    {
+      "linux": "gpu.*",
+      "macos": "gpu.* (panic/IOKit)",
+      "note": "",
+      "prefix": "gpu",
+      "status": "degraded",
+      "windows": "gpu.* (WHEA/TDR)"
+    },
+    {
+      "linux": "hardware.*",
+      "macos": "hardware.* (IOKit/SMC)",
+      "note": "",
+      "prefix": "hardware",
+      "status": "degraded",
+      "windows": "hardware.* (WMI/PDH)"
+    },
+    {
+      "linux": "io.*",
+      "macos": "io.* (vm/disk)",
+      "note": "",
+      "prefix": "io",
+      "status": "degraded",
+      "windows": "io.* (PDH queue)"
+    },
+    {
+      "linux": "journal.*",
+      "macos": "unifiedlog.*",
+      "note": "",
+      "prefix": "journal",
+      "status": "ported",
+      "windows": "eventlog.*"
+    },
+    {
+      "linux": "kernel.*",
+      "macos": "kernel.* (panic)",
+      "note": "",
+      "prefix": "kernel",
+      "status": "degraded",
+      "windows": "kernel.* (WER/bugcheck)"
+    },
+    {
+      "linux": "lsm.*",
+      "macos": "security.* (SIP/TCC)",
+      "note": "",
+      "prefix": "lsm",
+      "status": "ported",
+      "windows": "security.* (Defender/ASR)"
+    },
+    {
+      "linux": "memory.*",
+      "macos": "memory.*",
+      "note": "",
+      "prefix": "memory",
+      "status": "ported",
+      "windows": "memory.*"
+    },
+    {
+      "linux": "net.*",
+      "macos": "network.* (sysctl)",
+      "note": "",
+      "prefix": "net",
+      "status": "ported",
+      "windows": "network.* (TCP/IP stack)"
+    },
+    {
+      "linux": "network.*",
+      "macos": "network.* (ifconfig/PF)",
+      "note": "",
+      "prefix": "network",
+      "status": "ported",
+      "windows": "network.* (IP Helper/WFP)"
+    },
+    {
+      "linux": "security.*",
+      "macos": "security.* (SIP/ACL)",
+      "note": "",
+      "prefix": "security",
+      "status": "ported",
+      "windows": "security.* (Defender/ACL)"
+    },
+    {
+      "linux": "service.*",
+      "macos": "service.* (launchd)",
+      "note": "",
+      "prefix": "service",
+      "status": "ported",
+      "windows": "service.* (SCM)"
+    },
+    {
+      "linux": "storage.*",
+      "macos": "storage.* (SMART/IOKit)",
+      "note": "",
+      "prefix": "storage",
+      "status": "ported",
+      "windows": "storage.* (SMART/WMI)"
+    },
+    {
+      "linux": "system.*",
+      "macos": "system.* (Unified Log)",
+      "note": "",
+      "prefix": "system",
+      "status": "ported",
+      "windows": "system.* (Event Log)"
+    },
+    {
+      "linux": "trace.*",
+      "macos": "trace.* (DTrace)",
+      "note": "",
+      "prefix": "trace",
+      "status": "planned",
+      "windows": "trace.* (ETW)"
+    },
+    {
+      "linux": "update.*",
+      "macos": "update.* (softwareupdate)",
+      "note": "",
+      "prefix": "update",
+      "status": "ported",
+      "windows": "update.* (Windows Update)"
+    },
+    {
+      "linux": "usb.*",
+      "macos": "usb.* (IOKit)",
+      "note": "",
+      "prefix": "usb",
+      "status": "degraded",
+      "windows": "usb.* (WMI/Event Log)"
+    }
+  ]
+}

@@ -1,0 +1,397 @@
+{
+  "linux": {
+    "capabilities": {
+      "boot": {
+        "area": "boot",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "crashes": {
+        "area": "crashes",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "deep": {
+        "area": "deep",
+        "detail": "requires root",
+        "source": "tracefs/perf",
+        "status": "supported"
+      },
+      "faultcore": {
+        "area": "faultcore",
+        "detail": "requires faultlab topology",
+        "source": "procfs/cgroup",
+        "status": "supported"
+      },
+      "hardware": {
+        "area": "hardware",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "host": {
+        "area": "host",
+        "detail": "",
+        "source": "python",
+        "status": "supported"
+      },
+      "kernel": {
+        "area": "kernel",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "logs": {
+        "area": "logs",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "lsm": {
+        "area": "lsm",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "network": {
+        "area": "network",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "processes": {
+        "area": "processes",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "python": {
+        "area": "python",
+        "detail": "",
+        "source": "runtime",
+        "status": "supported"
+      },
+      "scheduler": {
+        "area": "scheduler",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "security": {
+        "area": "security",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "services": {
+        "area": "services",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "sqlite": {
+        "area": "sqlite",
+        "detail": "",
+        "source": "runtime",
+        "status": "supported"
+      },
+      "storage": {
+        "area": "storage",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      },
+      "trace": {
+        "area": "trace",
+        "detail": "requires root",
+        "source": "ebpf/tracefs",
+        "status": "supported"
+      },
+      "updates": {
+        "area": "updates",
+        "detail": "",
+        "source": "linux",
+        "status": "supported"
+      }
+    },
+    "display": "Linux",
+    "family": "linux",
+    "minimum_release": [
+      5,
+      15
+    ],
+    "permissions": [
+      "root for deep tracing",
+      "journal access"
+    ]
+  },
+  "macos": {
+    "capabilities": {
+      "boot": {
+        "area": "boot",
+        "detail": "",
+        "source": "log show",
+        "status": "degraded"
+      },
+      "crashes": {
+        "area": "crashes",
+        "detail": "",
+        "source": "DiagnosticReports",
+        "status": "supported"
+      },
+      "deep": {
+        "area": "deep",
+        "detail": "restricted by SIP",
+        "source": "DTrace",
+        "status": "planned"
+      },
+      "faultcore": {
+        "area": "faultcore",
+        "detail": "",
+        "source": "CPU topology/affinity",
+        "status": "planned"
+      },
+      "hardware": {
+        "area": "hardware",
+        "detail": "",
+        "source": "system_profiler",
+        "status": "supported"
+      },
+      "host": {
+        "area": "host",
+        "detail": "",
+        "source": "python",
+        "status": "supported"
+      },
+      "kernel": {
+        "area": "kernel",
+        "detail": "",
+        "source": "panic reports",
+        "status": "degraded"
+      },
+      "logs": {
+        "area": "logs",
+        "detail": "",
+        "source": "Unified Logging",
+        "status": "supported"
+      },
+      "lsm": {
+        "area": "lsm",
+        "detail": "",
+        "source": "SIP/TCC/Gatekeeper",
+        "status": "degraded"
+      },
+      "network": {
+        "area": "network",
+        "detail": "",
+        "source": "ifconfig/netstat/scutil",
+        "status": "supported"
+      },
+      "processes": {
+        "area": "processes",
+        "detail": "",
+        "source": "ps/libproc",
+        "status": "supported"
+      },
+      "python": {
+        "area": "python",
+        "detail": "",
+        "source": "runtime",
+        "status": "supported"
+      },
+      "scheduler": {
+        "area": "scheduler",
+        "detail": "",
+        "source": "launchd",
+        "status": "supported"
+      },
+      "security": {
+        "area": "security",
+        "detail": "",
+        "source": "spctl/csrutil/fdesetup",
+        "status": "supported"
+      },
+      "services": {
+        "area": "services",
+        "detail": "",
+        "source": "launchctl",
+        "status": "supported"
+      },
+      "sqlite": {
+        "area": "sqlite",
+        "detail": "",
+        "source": "runtime",
+        "status": "supported"
+      },
+      "startup": {
+        "area": "startup",
+        "detail": "",
+        "source": "launchctl",
+        "status": "supported"
+      },
+      "storage": {
+        "area": "storage",
+        "detail": "",
+        "source": "system_profiler",
+        "status": "supported"
+      },
+      "trace": {
+        "area": "trace",
+        "detail": "restricted by SIP",
+        "source": "DTrace",
+        "status": "planned"
+      },
+      "updates": {
+        "area": "updates",
+        "detail": "",
+        "source": "softwareupdate",
+        "status": "supported"
+      }
+    },
+    "display": "macOS",
+    "family": "darwin",
+    "minimum_release": [
+      13,
+      0
+    ],
+    "permissions": [
+      "Full Disk Access for protected logs",
+      "root for PF/firewall detail"
+    ]
+  },
+  "windows": {
+    "capabilities": {
+      "boot": {
+        "area": "boot",
+        "detail": "",
+        "source": "System event log",
+        "status": "degraded"
+      },
+      "crashes": {
+        "area": "crashes",
+        "detail": "",
+        "source": "Windows Event Log/WER",
+        "status": "degraded"
+      },
+      "deep": {
+        "area": "deep",
+        "detail": "",
+        "source": "ETW",
+        "status": "planned"
+      },
+      "faultcore": {
+        "area": "faultcore",
+        "detail": "",
+        "source": "CPU topology/core parking",
+        "status": "planned"
+      },
+      "hardware": {
+        "area": "hardware",
+        "detail": "",
+        "source": "CIM/PDH",
+        "status": "degraded"
+      },
+      "host": {
+        "area": "host",
+        "detail": "",
+        "source": "python",
+        "status": "supported"
+      },
+      "kernel": {
+        "area": "kernel",
+        "detail": "",
+        "source": "WER bugcheck events",
+        "status": "degraded"
+      },
+      "logs": {
+        "area": "logs",
+        "detail": "",
+        "source": "Windows Event Log",
+        "status": "supported"
+      },
+      "lsm": {
+        "area": "lsm",
+        "detail": "",
+        "source": "Defender/AppLocker/ASR",
+        "status": "degraded"
+      },
+      "network": {
+        "area": "network",
+        "detail": "",
+        "source": "NetTCPIP/CIM",
+        "status": "supported"
+      },
+      "processes": {
+        "area": "processes",
+        "detail": "",
+        "source": "CIM Win32_Process",
+        "status": "supported"
+      },
+      "python": {
+        "area": "python",
+        "detail": "",
+        "source": "runtime",
+        "status": "supported"
+      },
+      "scheduler": {
+        "area": "scheduler",
+        "detail": "",
+        "source": "Task Scheduler",
+        "status": "supported"
+      },
+      "security": {
+        "area": "security",
+        "detail": "",
+        "source": "Defender/Firewall/BitLocker/TPM",
+        "status": "supported"
+      },
+      "services": {
+        "area": "services",
+        "detail": "",
+        "source": "SCM/Get-Service",
+        "status": "supported"
+      },
+      "sqlite": {
+        "area": "sqlite",
+        "detail": "",
+        "source": "runtime",
+        "status": "supported"
+      },
+      "startup": {
+        "area": "startup",
+        "detail": "",
+        "source": "Win32_StartupCommand",
+        "status": "supported"
+      },
+      "storage": {
+        "area": "storage",
+        "detail": "",
+        "source": "CIM/MSFT_Disk",
+        "status": "supported"
+      },
+      "trace": {
+        "area": "trace",
+        "detail": "",
+        "source": "ETW",
+        "status": "planned"
+      },
+      "updates": {
+        "area": "updates",
+        "detail": "",
+        "source": "Get-HotFix",
+        "status": "supported"
+      }
+    },
+    "display": "Windows",
+    "family": "windows",
+    "minimum_release": [
+      10,
+      0
+    ],
+    "permissions": [
+      "Administrator for services, security and event logs"
+    ]
+  }
+}

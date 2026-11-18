@@ -5,6 +5,15 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.venv/
+sentinels/var/
+sentinels/evidence/
+sentinels/journal/
+sentinels/tickets/
+sentinels/triage/
+sentinels/config/settings.json
+sentinels/config/identity.env
+sentinels/toolchain/
 
 # Debian build artifacts
 debian/files
