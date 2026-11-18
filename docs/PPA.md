@@ -179,3 +179,21 @@ after all requested series are enabled. The two PPAs remain separate:
 ppa:toomanypatterns/qa-dashboard
 ppa:toomanypatterns/qa-sentinels
 ```
+
+## Published revisions
+
+Each series can carry a higher Ubuntu revision if a build must be replaced:
+
+```bash
+SERIES="noble" REVISION=2 scripts/release.sh --package qa-dashboard
+```
+
+`--check` accepts any already-published revision with the same base version and
+series suffix. Use `REVISION=N` only when uploading a replacement.
+
+Current new-series state:
+
+| Package | noble | resolute | stonking |
+|---|---|---|---|
+| qa-dashboard | `0.5.9-0ubuntu2~noble1` | `0.5.9-0ubuntu1~resolute1` | `0.5.9-0ubuntu1~stonking1` |
+| qa-sentinels | `1.4.1-0ubuntu1~noble1` | `1.4.1-0ubuntu1~resolute1` | `1.4.1-0ubuntu1~stonking1` |
