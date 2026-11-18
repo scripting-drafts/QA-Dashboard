@@ -1,0 +1,240 @@
+"""Small stdlib-only helpers shared by every sentinel."""
+from __future__ import annotations
+
+import hashlib
+import ipaddress
+import json
+import os
+import re
+import socket
+import subprocess
+import tempfile
+import time
+from datetime import datetime, timezone
+
+from . import config
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def iso(dt: datetime | None = None) -> str:
+    return (dt or utcnow()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def parse_iso(value: str) -> datetime:
+    value = value.strip().replace("Z", "+00:00")
+    return datetime.fromisoformat(value).astimezone(timezone.utc)
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_text(text: str) -> str:
+    return sha256_bytes(text.encode("utf-8", "replace"))
+
+
+def sha256_file(path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def run(cmd: list[str], timeout: int = 20) -> tuple[int, str, str]:
+    try:
+        p = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+            check=False,
+        )
+        return p.returncode, p.stdout, p.stderr
+    except FileNotFoundError:
+        return 127, "", f"{cmd[0]}: not found"
+    except subprocess.TimeoutExpired:
+        return 124, "", f"{cmd[0]}: timed out after {timeout}s"
+
+
+def read_text(path, default: str = "") -> str:
+    try:
+        with open(path, "r", errors="replace") as fh:
+            return fh.read().strip()
+    except OSError:
+        return default
+
+
+_HOSTNAME = socket.gethostname()
+_USER = os.environ.get("USER") or os.environ.get("LOGNAME") or "user"
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+# systemd unit templates and instance names look like e-mail addresses:
+# ``org.gnome.Shell@x11.service``, ``user@1000.service``. Their suffix is the
+# discriminator; a real address does not end in a unit type.
+_UNIT_SUFFIX_RE = re.compile(
+    r"@[A-Za-z0-9_.-]*\.(?:service|scope|slice|socket|target|mount|automount|"
+    r"path|timer|device|swap)$"
+)
+_MAC_RE = re.compile(r"\b(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\b")
+_UUID_RE = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+_CRASH_ID_RE = re.compile(r"\bbp-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+_IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_IPV6_RE = re.compile(
+    r"(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}(?:%[\w.-]+)?(?![\w:])"
+)
+_SERIAL_RE = re.compile(r"(?i)\b(serial(?:\s*(?:number|no\.?))?\s*[:=]\s*)\S+")
+
+
+def _ipv6_sub(match: re.Match) -> str:
+    candidate = match.group(0)
+    address = candidate.split("%", 1)[0]
+    # ``::`` alone parses as the unspecified IPv6 address, but in C++ and
+    # component names it is prose ("Core :: Graphics", "ns :: detail"). Keep
+    # it unless there is at least one hexadecimal digit to identify an address.
+    if not re.search(r"[0-9A-Fa-f]", address):
+        return candidate
+    try:
+        if ipaddress.ip_address(address).version == 6:
+            return "<ip>"
+    except ValueError:
+        pass
+    return candidate
+
+
+def _email_sub(match: re.Match) -> str:
+    candidate = match.group(0)
+    # Unit instance names are not operator identity and are useful evidence:
+    # ``org.gnome.Shell@x11.service`` names the crashed session.
+    if _UNIT_SUFFIX_RE.search(candidate):
+        return candidate
+    return "<email>"
+
+
+def redact(text: str) -> str:
+    """Remove operator-identifying data before anything leaves the host.
+
+    Vendor tickets must contain the hardware/software facts, never the operator.
+    Paths keep their shape so stack traces remain useful.
+    """
+    if not text:
+        return ""
+    text = text.replace(str(config.HOME), "/home/<user>")
+    text = text.replace(os.path.expanduser("~"), "/home/<user>")
+    if _HOSTNAME and _HOSTNAME not in ("localhost",):
+        text = text.replace(_HOSTNAME, "<host>")
+    text = _EMAIL_RE.sub(_email_sub, text)
+    text = _MAC_RE.sub("<mac>", text)
+    # A submitted Mozilla crash ID is a public report locator, not operator
+    # identity. Preserve it so the ticket can be matched to the report; all
+    # other UUIDs are still removed.
+    crash_ids: list[str] = []
+
+    def _hold_crash_id(match: re.Match) -> str:
+        crash_ids.append(match.group(0))
+        return f"\x00crashid{len(crash_ids) - 1}\x00"
+
+    text = _CRASH_ID_RE.sub(_hold_crash_id, text)
+    text = _UUID_RE.sub("<uuid>", text)
+    text = _IPV6_RE.sub(_ipv6_sub, text)
+    text = _IPV4_RE.sub("<ip>", text)
+    text = _SERIAL_RE.sub(r"\1<serial>", text)
+    if _USER and len(_USER) > 2:
+        text = re.sub(rf"\b{re.escape(_USER)}\b", "<user>", text)
+    for index, crash_id in enumerate(crash_ids):
+        text = text.replace(f"\x00crashid{index}\x00", crash_id)
+    return text
+
+
+def load_identity() -> dict[str, str]:
+    """Read optional ticket identity. Empty by default; never synthesised.
+
+    The file is intentionally outside every export/bundle: an operator must
+    opt in with TICKET_CONSENT=1 before a draft carries their name or links.
+    """
+    identity: dict[str, str] = {}
+    if not config.IDENTITY_FILE.exists():
+        return identity
+    for line in config.IDENTITY_FILE.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        identity[key.strip()] = value.strip().strip('"').strip("'")
+    return identity
+
+
+def identity_for_ticket() -> tuple[dict[str, str], bool]:
+    ident = load_identity()
+    consent = ident.get("TICKET_CONSENT", "0").lower() in ("1", "yes", "true")
+    fields = {
+        k: ident.get(k, "")
+        for k in ("FULL_NAME", "LINKEDIN", "GITHUB")
+        if ident.get(k)
+    }
+    return fields, consent
+
+
+def fmt_duration(seconds: float) -> str:
+    seconds = int(max(0, seconds))
+    d, rem = divmod(seconds, 86400)
+    h, rem = divmod(rem, 3600)
+    m, s = divmod(rem, 60)
+    if d:
+        return f"{d}d{h:02d}h"
+    if h:
+        return f"{h}h{m:02d}m"
+    if m:
+        return f"{m}m{s:02d}s"
+    return f"{s}s"
+
+
+def human_bytes(kib: float) -> str:
+    value = float(kib) * 1024
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if abs(value) < 1024 or unit == "TiB":
+            return f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} TiB"
+
+
+def write_text_atomic(path, text: str, mode: int = 0o600) -> None:
+    """Write a file through a same-directory temporary inode and rename it.
+
+    This avoids leaving a truncated report or ticket after an interrupted
+    write, and does not follow a pre-existing symlink at the target path.
+    """
+    target = os.fspath(path)
+    parent = os.path.dirname(target) or "."
+    os.makedirs(parent, mode=0o700, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(
+        prefix=f".{os.path.basename(target)}.", dir=parent, text=True
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", errors="replace") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(tmp, mode)
+        os.replace(tmp, target)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def write_json(path, payload) -> None:
+    write_text_atomic(
+        path,
+        json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n",
+    )
+
+
+def append_jsonl(path, payload) -> None:
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, sort_keys=True, default=str) + "\n")

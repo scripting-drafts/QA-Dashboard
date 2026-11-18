@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "product": "QA Sentinels",
+  "spdx": "MIT",
+  "copyright": "Copyright (c) 2026 Gerard Sala",
+  "source": "https://github.com/scripting-drafts/QA-Sentinels",
+  "homepage": "https://github.com/scripting-drafts/QA-Sentinels",
+  "lastReviewed": "2026-11-17",
+  "reviewedVersion": "1.4.1",
+  "reviewedComponents": {
+    "qa-sentinels": "1.4.1",
+    "python3": "3.10+",
+    "sqlite": "3.37+",
+    "qa-dashboard": "0.5.9",
+    "qa-license-scanner": "0.1.0"
+  },
+  "components": [
+    {
+      "id": "qa-sentinels",
+      "name": "QA Sentinels",
+      "version": "1.4.1",
+      "versionFrom": "qa-sentinels",
+      "license": "MIT",
+      "scope": "project"
+    },
+    {
+      "id": "c-sampler",
+      "name": "C sampler (qa_sample)",
+      "version": "1.4.1",
+      "license": "MIT",
+      "scope": "shipped"
+    },
+    {
+      "id": "ebpf-tracer",
+      "name": "eBPF tracer sources",
+      "version": "1.4.1",
+      "license": "MIT",
+      "scope": "shipped"
+    },
+    {
+      "id": "python3",
+      "name": "Python 3 standard library",
+      "version": "3.10+",
+      "versionFrom": "python",
+      "license": "PSF-2.0",
+      "scope": "runtime",
+      "url": "https://docs.python.org/3/license.html"
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite",
+      "version": "3.37+",
+      "versionFrom": "sqlite",
+      "license": "LicenseRef-Public-Domain",
+      "scope": "runtime",
+      "url": "https://www.sqlite.org/copyright.html"
+    },
+    {
+      "id": "libbpf",
+      "name": "libbpf (optional)",
+      "license": "LGPL-2.1-only OR BSD-2-Clause",
+      "scope": "runtime",
+      "url": "https://github.com/libbpf/libbpf"
+    },
+    {
+      "id": "qa-dashboard",
+      "name": "QA Dashboard",
+      "version": "0.5.9",
+      "license": "MIT",
+      "scope": "companion",
+      "url": "https://github.com/scripting-drafts/QA-Dashboard"
+    },
+    {
+      "id": "qa-siem",
+      "name": "QA SIEM",
+      "license": "MIT",
+      "scope": "companion",
+      "url": "https://github.com/scripting-drafts/QA-SIEM"
+    },
+    {
+      "id": "qa-license-scanner",
+      "name": "QA License Scanner",
+      "version": "0.1.0",
+      "license": "MIT",
+      "scope": "companion",
+      "url": "https://github.com/scripting-drafts/QA-License-Scanner"
+    }
+  ],
+  "documents": [
+    {
+      "id": "license",
+      "label": "MIT License",
+      "path": "LICENSE",
+      "kind": "text"
+    },
+    {
+      "id": "third-party",
+      "label": "Third-party notices",
+      "path": "THIRD-PARTY-NOTICES.md",
+      "kind": "text"
+    },
+    {
+      "id": "debian-copyright",
+      "label": "Debian copyright",
+      "path": "debian/copyright",
+      "kind": "text"
+    },
+    {
+      "id": "privacy",
+      "label": "Privacy and data handling",
+      "path": "docs/PRIVACY.md",
+      "kind": "text"
+    },
+    {
+      "id": "contributions",
+      "label": "Contributing and DCO",
+      "path": "CONTRIBUTING.md",
+      "kind": "text"
+    },
+    {
+      "id": "security",
+      "label": "Security policy",
+      "path": "SECURITY.md",
+      "kind": "text"
+    },
+    {
+      "id": "legal-policy",
+      "label": "Legal and release policy",
+      "path": "docs/LEGAL.md",
+      "kind": "text"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "licensing",
+      "category": "licensing",
+      "status": "reviewed",
+      "date": "2026-11-16",
+      "note": "MIT LICENSE, package metadata, and third-party notices added."
+    },
+    {
+      "id": "distribution",
+      "category": "distribution",
+      "status": "reviewed",
+      "date": "2026-11-16",
+      "note": "Debian copyright and install rules include the legal artifacts."
+    },
+    {
+      "id": "privacy",
+      "category": "privacy",
+      "status": "reviewed",
+      "date": "2026-11-16",
+      "note": "Local-only collection; data paths and retention documented."
+    },
+    {
+      "id": "export",
+      "category": "export",
+      "status": "reviewed",
+      "date": "2026-11-16",
+      "note": "No cryptographic functionality; optional tracing tools are host-supplied."
+    },
+    {
+      "id": "trademark",
+      "category": "trademark",
+      "status": "reviewed",
+      "date": "2026-11-17",
+      "note": "Trademark and PPA affiliation notice added to docs/LEGAL.md; the QA name is descriptive and no endorsement is claimed."
+    },
+    {
+      "id": "contributions",
+      "category": "contributions",
+      "status": "reviewed",
+      "date": "2026-11-16",
+      "note": "Inbound=outbound MIT with DCO sign-off."
+    },
+    {
+      "id": "accessibility",
+      "category": "accessibility",
+      "status": "not-applicable",
+      "date": "2026-11-16",
+      "note": "CLI and plain-text output; no interactive graphical interface."
+    }
+  ]
+}

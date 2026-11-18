@@ -1,0 +1,22 @@
+Source: qa-sentinels
+Section: utils
+Priority: optional
+Maintainer: Gerard Sala <creative.gsp@gmail.com>
+Build-Depends: debhelper-compat (= 13), build-essential
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/scripting-drafts/QA-Sentinels
+
+Package: qa-sentinels
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3
+Description: local QA Sentinels monitoring and evidence CLI
+ QA Sentinels periodically samples the host, examines journal and crash
+ records, and organizes the results into findings, reports, evidence bundles
+ and ticket drafts.
+ .
+ This package installs the QA Sentinels CLI and a read-only seed tree. The
+ first invocation of /usr/bin/qa creates a per-user workspace at
+ ~/QA-Sentinels unless one already exists. It never overwrites an existing
+ checkout. Scheduling is not enabled automatically; use `qa install-cron` or
+ let the QA Dashboard manage the fallback cycle.
