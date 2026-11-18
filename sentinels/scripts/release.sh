@@ -21,6 +21,7 @@ PPA_BASE="https://ppa.launchpadcontent.net/toomanypatterns"
 SIGN_KEY="${SIGN_KEY:-F104A3F1CE9A23540AEB8F24F31978E49E85DDCA}"
 WAIT_MAX="${WAIT_MAX:-10800}"
 WAIT_STEP="${WAIT_STEP:-60}"
+REVISION="${REVISION:-1}"
 DEFAULT_SERIES=(jammy noble resolute stonking)
 if [[ -n "${SERIES:-}" ]]; then
   read -r -a DEFAULT_SERIES <<< "$SERIES"
@@ -89,7 +90,7 @@ series_version() {
   if [[ "$BASE_VERSION" == *-* ]]; then
     printf '%s+%s\n' "$BASE_VERSION" "$series"
   else
-    printf '%s-0ubuntu1~%s1\n' "$BASE_VERSION" "$series"
+    printf '%s-0ubuntu%s~%s1\n' "$BASE_VERSION" "$REVISION" "$series"
   fi
 }
 
