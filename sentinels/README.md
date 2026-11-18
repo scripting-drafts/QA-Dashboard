@@ -32,11 +32,11 @@ Some information may be unavailable without journal permissions or elevated capa
 
 | Method | System | Notes |
 | --- | --- | --- |
-| Launchpad PPA | Ubuntu 22.04 (jammy) | signed package, automatic updates |
+| Launchpad PPA | Ubuntu 22.04, 24.04, 26.04, 26.10 | signed package, automatic updates |
 | Local `.deb` | Ubuntu/Debian | offline or pinned version |
 | Source installer | any Linux | layer 2, root helpers and development |
 
-### Ubuntu 22.04 (PPA)
+### Supported Ubuntu series (PPA)
 
 The `qa-sentinels` package installs the CLI and a read-only seed tree. On
 first use, `/usr/bin/qa` creates `~/QA-Sentinels` unless a checkout already

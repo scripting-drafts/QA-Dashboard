@@ -16,7 +16,7 @@ from pathlib import Path
 from .util import read_text, run
 
 SUPPORTED_OS = (
-    (22, 4), (24, 4), (24, 10), (25, 4), (25, 10), (26, 4), (26, 10),
+    (22, 4), (24, 4), (26, 4), (26, 10),
 )
 MIN_PYTHON = (3, 10)
 MIN_SQLITE = (3, 37)

@@ -183,11 +183,11 @@ Python, GTK4, PyGObject, ClamAV, YARA, and a QA SIEM service are not required.
 
 | Method | System | Notes |
 | --- | --- | --- |
-| Launchpad PPA | Ubuntu 22.04 (jammy) | signed packages, automatic updates |
+| Launchpad PPA | Ubuntu 22.04, 24.04, 26.04, 26.10 | signed packages, automatic updates |
 | Local `.deb` | Ubuntu/Debian | offline or pinned version |
 | [Source install](#install-from-source) | any Linux | development |
 
-### Ubuntu 22.04 (PPA)
+### Supported Ubuntu series (PPA)
 
 QA Sentinels and QA Dashboard are separate packages in dedicated Launchpad
 PPAs. QA Dashboard is only a front end: it **Recommends** `qa-sentinels` but

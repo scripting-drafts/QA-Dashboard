@@ -20,11 +20,10 @@ optional eBPF tracer are rebuilt on the host.
 |---|---|
 | 22.04 LTS | baseline, tested |
 | 24.04 LTS | supported |
-| 24.10 | supported |
-| 25.04 | supported |
-| 25.10 | supported |
 | 26.04 LTS | supported |
 | 26.10 | supported |
+
+Ubuntu 24.10, 25.04, and 25.10 are end-of-life and are not PPA targets.
 
 ## Verify a host
 

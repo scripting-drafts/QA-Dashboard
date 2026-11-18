@@ -6,7 +6,7 @@ from sentinels import compat
 
 class CompatTests(unittest.TestCase):
     def test_supported_matrix(self):
-        for version in ("22.04", "24.04", "24.10", "25.04", "25.10", "26.04", "26.10"):
+        for version in ("22.04", "24.04", "26.04", "26.10"):
             result = compat.evaluate(
                 "ubuntu", version, "3.10.12", "3.37.2", "249", "6.8.0"
             )

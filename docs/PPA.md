@@ -128,3 +128,54 @@ sudo apt install --no-install-recommends qa-dashboard
 `qa-dashboard` Recommends `qa-sentinels`; `qa-sentinels` is standalone and
 does not depend on the Dashboard. Removing the engine leaves the GUI
 installed but non-functional.
+
+## Supported Ubuntu series
+
+Both PPAs publish the same source version for the supported series:
+
+```text
+jammy      22.04 LTS
+noble      24.04 LTS
+resolute   26.04 LTS
+stonking   26.10
+```
+
+Enable all four series in each Launchpad PPA before uploading. The release
+script checks the series and refuses to build if one is missing.
+
+Each series receives a collision-free, upgrade-safe Debian version:
+
+```text
+qa-dashboard 0.5.9-0ubuntu1~jammy1
+qa-dashboard 0.5.9-0ubuntu1~noble1
+qa-dashboard 0.5.9-0ubuntu1~resolute1
+qa-dashboard 0.5.9-0ubuntu1~stonking1
+```
+
+The package version without the series suffix remains in `package.json`,
+`package-lock.json`, and `README.md`.
+
+Release both packages from the umbrella:
+
+```bash
+scripts/release.sh --package qa-dashboard --check
+scripts/release.sh --package qa-sentinels --check
+
+scripts/release.sh --package qa-dashboard
+scripts/release.sh --package qa-sentinels
+```
+
+For a partial upload, limit the series explicitly:
+
+```bash
+SERIES="jammy" scripts/release.sh --package qa-dashboard
+```
+
+The script derives the package name from `debian/changelog`, verifies it against
+`--package`, checks every series' `Packages.gz`, and uploads with `dput` only
+after all requested series are enabled. The two PPAs remain separate:
+
+```text
+ppa:toomanypatterns/qa-dashboard
+ppa:toomanypatterns/qa-sentinels
+```
