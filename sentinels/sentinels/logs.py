@@ -171,6 +171,25 @@ def _last_crosscheck(conn) -> str:
     return f"{row['ts']} (drift {row['drift']})"
 
 
+def unit_matches_root(unit: str = DEEP_UNIT,
+                      root: Path | str | None = None) -> bool:
+    """True when the systemd unit belongs to this Sentinels workspace."""
+    expected = Path(root or config.ROOT).resolve()
+    rc, out, _err = run(
+        ["systemctl", "show", "-p", "Environment", "--value", unit],
+        timeout=5,
+    )
+    if rc != 0:
+        return False
+    for token in shlex.split(out or ""):
+        if token.startswith("QA_SENTINELS_HOME="):
+            try:
+                return Path(token.split("=", 1)[1]).resolve() == expected
+            except OSError:
+                return False
+    return False
+
+
 def journal_tail(unit: str = DEEP_UNIT, lines: int = 20) -> list[str]:
     """Recent layer-2 service lines from the journal."""
     rc, out, err = run(
@@ -200,14 +219,23 @@ def all_layers(path, lines: int = 20, color: bool = True,
     def emit(line: str) -> None:
         print(line, flush=True)
 
-    emit(format_line(f"[monitor] layer 2: {DEEP_UNIT}", color))
-    for line in journal_tail(DEEP_UNIT, lines):
-        emit(format_line(line, color))
+    layer2 = unit_matches_root()
+    if layer2:
+        emit(format_line(f"[monitor] layer 2: {DEEP_UNIT}", color))
+        for line in journal_tail(DEEP_UNIT, lines):
+            emit(format_line(line, color))
+    else:
+        emit(format_line(
+            f"[monitor] layer 2: {DEEP_UNIT} not deployed for {config.ROOT}",
+            color))
     emit(format_line(f"[monitor] layer 1: {path}", color))
 
     if not follow_mode:
         for line in tail_lines(path, lines):
             emit(format_line(line, color))
+        return
+    if not layer2:
+        follow(path, lines=lines, color=color, emit=emit)
         return
 
     try:

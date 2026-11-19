@@ -362,6 +362,21 @@ class LayerTests(unittest.TestCase):
         self.assertEqual(rows["sysv"], "resolved")
         self.assertEqual(rows["native"], "open")
 
+    def test_layer2_logs_are_scoped_to_the_sentinels_root(self):
+        import pathlib
+        from sentinels import logs
+
+        with mock.patch.object(logs.config, "ROOT", pathlib.Path("/tmp/qa-a")), \
+             mock.patch.object(logs, "run", return_value=(
+                 0, "QA_SENTINELS_HOME=/tmp/qa-a PYTHONUNBUFFERED=1", "")):
+            self.assertTrue(logs.unit_matches_root())
+        with mock.patch.object(logs.config, "ROOT", pathlib.Path("/tmp/qa-b")), \
+             mock.patch.object(logs, "run", return_value=(
+                 0, "QA_SENTINELS_HOME=/tmp/qa-a PYTHONUNBUFFERED=1", "")):
+            self.assertFalse(logs.unit_matches_root())
+        with mock.patch.object(logs, "run", return_value=(1, "", "unavailable")):
+            self.assertFalse(logs.unit_matches_root())
+
     def test_trace_summary(self):
         from sentinels import deep
 
