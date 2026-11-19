@@ -295,10 +295,24 @@ def parse_uncore_events(text: str, limit: int = 6) -> list[str]:
 
 
 # ---------------------------------------------------------------- adapters
-def _collect_ras() -> dict:
-    items = []
-    findings = []
-    statuses = []
+def cxl_present(path: str | Path = "/sys/bus/cxl/devices") -> bool:
+    """True when the CXL subsystem has at least one device."""
+    try:
+        return any(Path(path).iterdir())
+    except OSError:
+        return False
+
+
+def _collect_rasdaemon() -> tuple[list[tuple[str, object]], list[str], str]:
+    """Collect rasdaemon state only on CXL-capable systems.
+
+    Desktop systems without CXL hardware do not need rasdaemon or its
+    database, so their absence must not make the RAS source partial.
+    """
+    if not cxl_present():
+        return [], [], ""
+    items: list[tuple[str, object]] = []
+    statuses: list[str] = []
     tools = _which("ras-mc-ctl")
     raw = []
     if tools:
@@ -317,6 +331,17 @@ def _collect_ras() -> dict:
     items.append(("rasdaemon/active", (out or "unknown").strip()))
     if rc != 0 and not tools:
         statuses.append("unavailable")
+    return items, statuses, "\n".join(raw)
+
+
+def _collect_ras() -> dict:
+    items = []
+    findings = []
+    statuses = []
+    daemon_items, daemon_statuses, daemon_raw = _collect_rasdaemon()
+    items.extend(daemon_items)
+    statuses.extend(daemon_statuses)
+    raw = [daemon_raw] if daemon_raw else []
 
     edac_items, edac_findings = parse_edac()
     for key, value in edac_items.items():
@@ -1077,7 +1102,7 @@ def check() -> dict:
     sources_config = _load_sources()
     required = required_sources()
     tool_sources = {
-        "ras": ("ras-mc-ctl",),
+        "ras": ("ras-mc-ctl",) if cxl_present() else (),
         "storage": ("smartctl", "nvme"),
         "gpu": ("nvidia-smi",),
         "bmc": ("ipmitool",),

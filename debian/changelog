@@ -7,14 +7,16 @@ qa-dashboard (0.5.9) jammy; urgency=medium
   * Keep the focused QA window in front when the generic launcher is clicked
     instead of always raising Overview.
   * Open the main Dashboard on Shift+click of the QA launcher icon.
-  * Sync the vendored QA Sentinels tree to 1.4.1 (e2fa946) and add a vendor
+  * Sync the vendored QA Sentinels tree to 1.4.1 (c9ac41f) and add a vendor
     alignment check. Windows and macOS bundles now include the engine; Linux
     keeps the external qa-sentinels package and does not bundle it.
   * Follow the configured Sentinels root for the Tickets window.
   * Only show the layer-2 deep journal when it belongs to the configured
     Sentinels workspace.
+  * Skip rasdaemon probes on desktops without CXL hardware and still collect
+    EDAC, AER, APEI and pstore state.
 
- -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 13:55:00 +0100
+ -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 17:05:00 +0100
 
 qa-dashboard (0.5.8) jammy; urgency=medium
 

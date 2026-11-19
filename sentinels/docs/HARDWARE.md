@@ -8,7 +8,7 @@ or full PCIe/DRAM trace.
 
 | Source | Data | Typical privilege |
 |---|---|---|
-| `ras` | `ras-mc-ctl --summary/--errors`, rasdaemon state, EDAC UE/CE, PCIe AER counters, ACPI APEI tables, pstore summaries | EDAC/AER often readable; rasdaemon DB and ACPI may need root |
+| `ras` | EDAC UE/CE, PCIe AER counters, ACPI APEI tables, pstore summaries; `ras-mc-ctl` and rasdaemon state only when CXL hardware is present | EDAC/AER often readable; rasdaemon DB and ACPI may need root |
 | `storage` | `smartctl -a -j`, `nvme smart-log -o json`, SMART health, media errors, wear, spare, temperature | root or CAP_SYS_RAWIO |
 | `gpu` | `nvidia-smi -q -x`, temperature, utilization, memory, ECC, retired pages, throttle reasons, power | user |
 | `bmc` | `ipmitool sel elist` or optional Redfish SEL | root/CAP_DAC_OVERRIDE |
@@ -17,6 +17,11 @@ or full PCIe/DRAM trace.
 | `pcm` | Intel PCM one-second sample | root |
 | `uncore` | selected `perf` uncore PMU events | CAP_PERFMON |
 | `vendor` | configured firmware/BMC log files | file read access |
+
+`rasdaemon` and `ras-mc-ctl` are used only when `/sys/bus/cxl/devices`
+contains at least one device. Desktops without CXL hardware do not need
+rasdaemon, and its absence is not reported as missing coverage. EDAC, AER,
+APEI, and pstore collection stay enabled on every host.
 
 IPMI is read directly with `ipmitool` (or Redfish when configured). The
 `openipmi` package is an LSB/SysV init script. On systemd 250+ (all later
@@ -37,7 +42,8 @@ in inventory. Jammy (systemd 249) keeps the legacy path. `openipmi` is optional.
 
 `cycle` runs the tier every `QA_HARDWARE_INTERVAL_S` seconds (default 900) when
 `QA_HARDWARE_ENABLE=1`. Each source records `ok`, `partial`, `needs-root`, or
-`unavailable`; no missing tool fails the cycle.
+`unavailable`; no missing tool fails the cycle. `ras-mc-ctl` is required only
+when CXL hardware is present.
 
 ## Privileged scheduling
 
@@ -56,9 +62,10 @@ The hardware timer runs as the operator with narrow capabilities:
 collector and the QA database stay operator-owned; no root probe or handoff
 file is installed.
 
-The capability set covers SMART/NVMe device access and the root-only rasdaemon
-database. Layer 1 (`root/install-system.sh`) uses the same capabilities, so
-`qa cycle` can collect storage and RAS state without running as root.
+The capability set covers SMART/NVMe device access and, on CXL-capable
+systems, the root-only rasdaemon database. Layer 1 (`root/install-system.sh`)
+uses the same capabilities, so `qa cycle` can collect storage and RAS state
+without running as root.
 
 `turbostat` is scoped out when `/dev/cpu/*/msr` is not readable: its
 `access(2)` check cannot be satisfied by ambient capabilities. No root helper

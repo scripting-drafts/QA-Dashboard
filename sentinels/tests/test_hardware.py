@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from sentinels import config, hardware
 
@@ -26,6 +27,57 @@ class EdacTests(unittest.TestCase):
             items, findings = hardware.parse_edac(tmp)
         self.assertEqual(items["mc0/ue_count"], 2)
         self.assertIn("hardware.edac.ue", {f["rule"] for f in findings})
+
+
+class CxlTests(unittest.TestCase):
+    def test_cxl_presence_is_device_based(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(hardware.cxl_present(tmp))
+            (Path(tmp) / "mem0").mkdir()
+            self.assertTrue(hardware.cxl_present(tmp))
+        self.assertFalse(hardware.cxl_present("/nonexistent/cxl/devices"))
+
+    def test_rasdaemon_is_not_probed_without_cxl(self):
+        with mock.patch.object(hardware, "cxl_present", return_value=False), \
+             mock.patch.object(hardware, "_which") as which, \
+             mock.patch.object(hardware, "_run") as run:
+            items, statuses, raw = hardware._collect_rasdaemon()
+        self.assertEqual(items, [])
+        self.assertEqual(statuses, [])
+        self.assertEqual(raw, "")
+        which.assert_not_called()
+        run.assert_not_called()
+
+    def test_rasdaemon_is_probed_with_cxl(self):
+        with mock.patch.object(hardware, "cxl_present", return_value=True), \
+             mock.patch.object(hardware, "_which", return_value="/usr/sbin/ras-mc-ctl"), \
+             mock.patch.object(hardware, "_run", side_effect=[
+                 (0, "", ""), (0, "", ""), (0, "active\n", ""),
+             ]):
+            items, statuses, raw = hardware._collect_rasdaemon()
+        self.assertEqual(items, [("rasdaemon/active", "active")])
+        self.assertEqual(statuses, ["ok", "ok"])
+        self.assertIn("# ras-mc-ctl --summary", raw)
+
+    def test_check_requires_ras_mc_ctl_only_with_cxl(self):
+        def which(name):
+            return None if name == "ras-mc-ctl" else f"/usr/bin/{name}"
+
+        with mock.patch.object(hardware, "_ensure_vendor_config"), \
+             mock.patch.object(hardware, "required_sources", return_value=("ras", "vendor")), \
+             mock.patch.object(hardware, "_load_sources", return_value={
+                 "vendor_logs": ["/tmp/vendor.log"],
+             }), \
+             mock.patch.object(hardware.shutil, "which", side_effect=which):
+            with mock.patch.object(hardware, "cxl_present", return_value=False):
+                without_cxl = hardware.check()
+            with mock.patch.object(hardware, "cxl_present", return_value=True):
+                with_cxl = hardware.check()
+
+        self.assertNotIn("ras-mc-ctl", without_cxl["missing_required_tools"])
+        self.assertEqual(without_cxl["missing_sources"], [])
+        self.assertIn("ras-mc-ctl", with_cxl["missing_required_tools"])
+        self.assertEqual(with_cxl["missing_sources"], ["ras"])
 
 
 class RequiredSourceTests(unittest.TestCase):
