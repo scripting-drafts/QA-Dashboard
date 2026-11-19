@@ -717,7 +717,7 @@ def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool) -> t
             f"A recurring {issue['kind']} cluster was observed by the local QA sentinel:"
         )
     lines += [
-        "## What happens",
+        "## Description",
         "",
         summary,
         "",

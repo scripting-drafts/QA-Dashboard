@@ -22,6 +22,8 @@ class ReporterTests(unittest.TestCase):
         _, body = tickets._draft(issue, None, identity, True)
         self.assertIn("## Reporter", body)
         self.assertIn("- Name: Test Reporter", body)
+        self.assertIn("## Description", body)
+        self.assertNotIn("## What happens", body)
         self.assertNotIn("Consent:", body)
 
     def test_staged_ticket_keeps_the_consented_linkedin(self):
