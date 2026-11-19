@@ -22,8 +22,10 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     reads the existing workspace identity; Windows and macOS start empty.
   * Ship the hidden GNOME Shell helper in the APT package and enable it on
     first login, restoring Shift+click on the QA launcher.
+  * Reopen the last active window and tab, including the Tickets view, when
+    the generic launcher starts without a module argument.
 
- -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 18:05:00 +0100
+ -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 20:30:00 +0100
 
 qa-dashboard (0.5.8) jammy; urgency=medium
 

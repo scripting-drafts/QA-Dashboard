@@ -85,7 +85,7 @@ write_desktop() {
 Type=Application
 Name=$title
 Comment=$comment
-Exec="$BIN" --module=$module
+Exec="$BIN"${module:+ --module=$module}
 Icon=$icon
 Terminal=false
 Categories=System;Security;Monitor;
@@ -96,7 +96,7 @@ EOF
 }
 
 write_desktop qa-dashboard "QA Dashboard" \
-    "Local QA operations dashboard" "overview" "qa-dashboard"
+    "Local QA operations dashboard" "" "qa-dashboard"
 write_desktop qa-sentinels "QA Sentinels" \
     "Evidence collection and failure correlation" "sen-overview" "qa-dashboard"
 

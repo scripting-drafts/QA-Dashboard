@@ -67,9 +67,10 @@ than application windows.
 
 ## Launchers and single instance
 
-There is no tray or top-bar icon. `qa-dashboard.desktop` opens the compact
-Overview and is also the desktop favourite; `install.sh` migrates an existing
-QA Sentinels favourite to it. The per-app `.desktop` file calls
+There is no tray or top-bar icon. `qa-dashboard.desktop` is the desktop
+favourite; `install.sh` migrates an existing QA Sentinels favourite to it. With
+no module argument it reopens the last active window and tab, using the compact
+Overview on first run. The per-app `.desktop` file calls
 `qa-dashboard --module=sen-overview` for the standalone Sentinels Overview
 window; the Database remains available from the Overview and the main
 Dashboard.
@@ -78,11 +79,15 @@ All launches share one Electron instance. A second launch forwards its module
 argument to the running process; a module launcher restores and focuses that
 window. A generic launcher click keeps the focused QA window, otherwise it
 restores the last active one, and only creates Overview when no QA window
-exists. Desktop entries set `StartupNotify=false` so single-instance handoff
-cannot leave a stuck busy pointer. Closing all windows exits the process, so the
-next launcher click starts a fresh instance. The Shell theme extension also
-intercepts Shift+click on the QA launcher and sends `qa-dashboard --main`, which
-forces the Overview window forward.
+exists. A module argument takes precedence over the remembered window; when it
+matches the remembered module, its remembered tab is restored too. Desktop
+entries set `StartupNotify=false` so single-instance handoff cannot leave a
+stuck busy pointer. Closing all windows exits the process, so the next launcher
+click starts a fresh instance. The Shell theme extension also intercepts
+Shift+click on the QA launcher and sends `qa-dashboard --main`, which forces the
+Overview window forward. The remembered module and tab live in
+`last-view.json` under Electron's user-data directory; unknown or malformed
+values fall back to Overview.
 
 The brand mark is the brush-enso artwork, converted to a transparent alpha mask
 at `assets/qa-dashboard-enso.png`. CSS tints it for the active light or dark

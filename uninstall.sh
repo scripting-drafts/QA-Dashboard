@@ -74,6 +74,7 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APPS" >/dev/null 2>&1 || true
 fi
 if [ "${1:-}" = "--purge-config" ]; then
-    rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/qa-dashboard/config.json"
+    rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/qa-dashboard/config.json" \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/QA Dashboard/last-view.json"
 fi
 echo "QA Dashboard removed. Configuration is kept unless --purge-config was used."

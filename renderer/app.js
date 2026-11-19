@@ -130,6 +130,9 @@ function setSenTab(tab, load = true) {
   if (senPane === "tickets") tab = "tickets";
   else if (senPane === "overview") tab = "overview";
   senTab = tab === "tickets" ? "tickets" : "overview";
+  if (window.qa && window.qa.setTab) {
+    window.qa.setTab(senTab).catch(() => {});
+  }
   $$("[data-sen-tab]").forEach((button) => {
     const active = button.dataset.senTab === senTab;
     button.classList.toggle("active", active);

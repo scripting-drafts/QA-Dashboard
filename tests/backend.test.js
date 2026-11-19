@@ -26,6 +26,16 @@ test("standalone Sentinels launcher opens the Sentinels Overview", () => {
     /write_desktop qa-sentinels[\s\S]*?sen-overview[\s\S]*?qa-dashboard/);
 });
 
+test("generic launcher restores the remembered view", () => {
+  const root = path.join(__dirname, "..");
+  const desktop = fs.readFileSync(
+    path.join(root, "debian", "qa-dashboard.desktop"), "utf8");
+  assert.match(desktop, /^Exec=\/usr\/bin\/qa-dashboard$/m);
+  const installer = fs.readFileSync(path.join(root, "install.sh"), "utf8");
+  assert.match(installer,
+    /write_desktop qa-dashboard[\s\S]*?""[\s\S]*?qa-dashboard/);
+});
+
 test("APT package ships the launcher Shift+click helper", () => {
   const root = path.join(__dirname, "..");
   const rules = fs.readFileSync(path.join(root, "debian", "rules"), "utf8");

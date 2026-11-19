@@ -2,7 +2,7 @@
 Type=Application
 Name=QA Dashboard
 Comment=Local QA operations dashboard
-Exec=/usr/bin/qa-dashboard --module=overview
+Exec=/usr/bin/qa-dashboard
 Icon=qa-dashboard
 Terminal=false
 Categories=System;Security;Monitor;
