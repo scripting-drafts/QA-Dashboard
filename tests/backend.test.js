@@ -108,6 +108,71 @@ test("config round-trips with private permissions", () => {
   }
 });
 
+test("reporter identity is configurable and private", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-dashboard-reporter-"));
+  const root = path.join(temp, "sentinels");
+  fs.mkdirSync(path.join(root, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(root, "bin", "qa"), "", { mode: 0o755 });
+  const previous = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = path.join(temp, "config");
+  try {
+    const cfg = backend.loadConfig();
+    cfg.sentinelsRoot = root;
+    assert.deepEqual(backend.readReporterIdentity(cfg), {
+      name: "", linkedin: "", github: "", consent: false,
+    });
+    assert.equal(backend.identityPath(cfg),
+      path.join(root, "config", "identity.env"));
+
+    const identityPath = path.join(root, "config", "identity.env");
+    fs.mkdirSync(path.dirname(identityPath), { recursive: true });
+    fs.writeFileSync(identityPath, "CUSTOM=kept\n");
+    backend.saveReporterIdentity(cfg, {
+      name: "Test Reporter",
+      linkedin: "https://www.linkedin.com/in/test-reporter/",
+      github: "https://github.com/test-reporter",
+      consent: true,
+    });
+    const text = fs.readFileSync(identityPath, "utf8");
+    assert.match(text, /TICKET_CONSENT=1/);
+    assert.match(text, /FULL_NAME=Test Reporter/);
+    assert.match(text, /CUSTOM=kept/);
+    assert.equal(fs.statSync(identityPath).mode & 0o777, 0o600);
+    assert.deepEqual(backend.readReporterIdentity(cfg), {
+      name: "Test Reporter",
+      linkedin: "https://www.linkedin.com/in/test-reporter/",
+      github: "https://github.com/test-reporter",
+      consent: true,
+    });
+    assert.deepEqual(backend.configView(cfg).reporter,
+      backend.readReporterIdentity(cfg));
+
+    assert.throws(
+      () => backend.normalizeReporterIdentity({ name: "a\nb" }),
+      /single line/,
+    );
+    assert.throws(
+      () => backend.normalizeReporterIdentity({ linkedin: "http://example.com" }),
+      /https URL/,
+    );
+    assert.throws(
+      () => backend.normalizeReporterIdentity({ consent: true }),
+      /requires a name or link/,
+    );
+  } finally {
+    if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = previous;
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("Windows and macOS bundles exclude the Linux reporter identity", () => {
+  const yml = fs.readFileSync(
+    path.join(__dirname, "..", "electron-builder.yml"), "utf8");
+  const filters = yml.match(/- "!config\/identity\.env"/g) || [];
+  assert.equal(filters.length, 2);
+});
+
 test("sentinels settings normalize defaults and reject bad values", () => {
   assert.deepEqual(backend.normalizeSentinelsSettings({}), {
     sentinelsCycleHours: "1",

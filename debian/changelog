@@ -18,8 +18,10 @@ qa-dashboard (0.5.9) jammy; urgency=medium
   * Preserve the consented LinkedIn URL when staging tickets instead of
     redacting the username inside it.
   * Rename the ticket summary heading from "What happens" to "Description".
+  * Add optional reporter identity fields to QA Sentinels Settings. Linux
+    reads the existing workspace identity; Windows and macOS start empty.
 
- -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 17:05:00 +0100
+ -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 18:05:00 +0100
 
 qa-dashboard (0.5.8) jammy; urgency=medium
 

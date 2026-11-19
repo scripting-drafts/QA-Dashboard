@@ -5,7 +5,7 @@
   "copyright": "Copyright (c) 2026 Gerard Sala",
   "source": "https://github.com/scripting-drafts/QA-Dashboard",
   "homepage": "https://github.com/scripting-drafts/QA-Dashboard",
-  "lastReviewed": "2026-11-17",
+  "lastReviewed": "2026-11-19",
   "reviewedVersion": "0.5.9",
   "reviewedComponents": {
     "qa-dashboard": "0.5.9",
@@ -163,8 +163,8 @@
       "id": "privacy",
       "category": "privacy",
       "status": "reviewed",
-      "date": "2026-11-17",
-      "note": "No telemetry; local data paths and retention documented."
+      "date": "2026-11-19",
+      "note": "No telemetry; local data paths, retention, and optional reporter identity (consent-gated, mode 0600) documented."
     },
     {
       "id": "export",

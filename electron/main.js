@@ -537,7 +537,8 @@ function stopAutoRefresh() {
 function registerIpc() {
   ipcMain.handle("config:get", () => {
     const view = backend.configView(backend.loadConfig());
-    diagnostics.log("config.get", view);
+    const { reporter: _reporter, ...safeView } = view;
+    diagnostics.log("config.get", safeView);
     return view;
   });
   ipcMain.handle("config:save", (_event, incoming) => {
@@ -546,6 +547,11 @@ function registerIpc() {
       if (incoming && typeof incoming[key] === "string") {
         current[key] = incoming[key].trim();
       }
+    }
+    const reporter = incoming && incoming.reporter;
+    if (reporter && typeof reporter === "object" && !Array.isArray(reporter)) {
+      backend.normalizeReporterIdentity(reporter);
+      backend.saveReporterIdentity(current, reporter);
     }
     backend.saveConfig(current);
     refreshSentinelsCycleTimer();

@@ -42,6 +42,7 @@ win:
         - "!evidence/**"
         - "!reports/**"
         - "!toolchain/**"
+        - "!config/identity.env"
         - "!bin/qa_sample"
         - "!src/qa_sample"
     - from: PRERELEASE.md
@@ -98,6 +99,7 @@ mac:
         - "!evidence/**"
         - "!reports/**"
         - "!toolchain/**"
+        - "!config/identity.env"
         - "!bin/qa_sample"
         - "!src/qa_sample"
     - from: PRERELEASE.md

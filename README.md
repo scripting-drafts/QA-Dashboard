@@ -48,7 +48,7 @@ The application uses independent windows instead of one tabbed suite.
 | --- | --- |
 | **QA Dashboard** | Compact Overview with QA Sentinels, Database, and Ticket workflow cards |
 | **QA Sentinels Overview** | Status grid, Logs action, Documentation action |
-| **QA Sentinels Settings** | Command, repository, cycle, and retention; independent movable window |
+| **QA Sentinels Settings** | Command, repository, cycle, retention, reporter; independent movable window |
 | **QA Sentinels Database** | Read-only SQL console over `sentinels.db` |
 | **QA Sentinels Tickets** | Ticket buckets, refresh, open folder, Rules |
 | **QA Sentinels Logs** | Live `qa logs --all-layers --follow` stream |
@@ -167,7 +167,9 @@ Current fields:
 
 Settings open from the QA Sentinels Overview window in an independent, movable
 window. The window is single-instance: opening Settings again restores and
-focuses it. The Database and Tickets windows do not show the Settings button.
+focuses it. Reporter identity is optional; Linux reads the current workspace
+identity, while Windows and macOS start empty until configured. The Database
+and Tickets windows do not show the Settings button.
 
 There are no Malware Scan or SIEM configuration fields.
 

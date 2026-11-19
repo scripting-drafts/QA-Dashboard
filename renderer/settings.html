@@ -13,7 +13,7 @@
   <main class="settings-page">
     <section class="settings-panel">
       <h1>QA Sentinels settings</h1>
-      <p class="muted settings-intro">Command, repository, cycle, and retention.</p>
+      <p class="muted settings-intro">Command, repository, cycle, retention, and reporter.</p>
       <form id="settings-form">
         <label>QA Sentinels command <input id="set-sentinels-bin" type="text" placeholder="auto-detect" autofocus></label>
         <label>QA Sentinels root <input id="set-sentinels-root" type="text" placeholder="auto-detect"></label>
@@ -26,6 +26,15 @@
         <label>Samples retention (days) <input id="set-sen-samples-days" type="text" inputmode="numeric" placeholder="0"></label>
         <label>proc_snap retention (days) <input id="set-sen-proc-days" type="text" inputmode="numeric" placeholder="0"></label>
         <label>Inventory retention (days) <input id="set-sen-inventory-days" type="text" inputmode="numeric" placeholder="0"></label>
+        <p class="settings-group">Reporter</p>
+        <p class="muted settings-note">Optional identity for generated tickets. Leave empty to withhold it.</p>
+        <label class="settings-check">
+          <input id="set-reporter-consent" type="checkbox">
+          Include reporter details in generated tickets
+        </label>
+        <label>Full name <input id="set-reporter-name" type="text" autocomplete="name" maxlength="200"></label>
+        <label>LinkedIn <input id="set-reporter-linkedin" type="url" maxlength="500" placeholder="https://www.linkedin.com/in/..."></label>
+        <label>GitHub <input id="set-reporter-github" type="url" maxlength="500" placeholder="https://github.com/..."></label>
         <p id="settings-status" class="settings-status" role="status" aria-live="polite" hidden></p>
         <div class="settings-actions">
           <button id="settings-close" type="button">Close</button>

@@ -1106,7 +1106,15 @@ body.database-sidebar-open .database-sidebar { display: flex; }
 }
 
 .settings-panel label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); }
+.settings-panel label.settings-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
 .settings-panel input { color: var(--text); }
+.settings-panel input[type="checkbox"] { width: auto; margin: 0; }
+.settings-note { margin: -4px 0 0; font-size: 12px; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
 .settings-status {

@@ -94,12 +94,12 @@ appearance and adds no top-bar item.
 ## Settings and auto-refresh
 
 Settings open from the QA Sentinels Overview window and cover the command,
-repository root, cycle, and retention. They run in an independent, movable,
-non-modal window without a parent, so the window can leave the Sentinels window
-and the dashboard stays usable. The window is single-instance; the Settings
-button restores and focuses an existing window. A restricted preload exposes
-only configuration read/save and window close to the settings page. The
-Database window shares the Sentinels configuration.
+repository root, cycle, retention, and optional reporter identity. They run in
+an independent, movable, non-modal window without a parent, so the window can
+leave the Sentinels window and the dashboard stays usable. The window is
+single-instance; the Settings button restores and focuses an existing window.
+A restricted preload exposes only configuration read/save and window close to
+the settings page. The Database window shares the Sentinels configuration.
 
 The main process refreshes Sentinels status for the Overview every 10 seconds.
 The Database window is query-driven and refreshes when a category, the Refresh

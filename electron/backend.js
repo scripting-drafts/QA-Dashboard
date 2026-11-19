@@ -56,6 +56,12 @@ for (const [key, spec] of Object.entries(SENTINELS_SETTING_KEYS)) {
   DEFAULT_CONFIG[key] = spec.default;
 }
 
+const REPORTER_FIELDS = {
+  name: { env: "FULL_NAME", label: "Full name", max: 200 },
+  linkedin: { env: "LINKEDIN", label: "LinkedIn", max: 500 },
+  github: { env: "GITHUB", label: "GitHub", max: 500 },
+};
+
 const TICKET_BUCKETS = ["raise", "raised", "rejected", "standby"];
 const QUERY_CATEGORIES = [
   "inbox", "errors", "findings", "cycles", "new-findings", "events", "crashes",
@@ -94,6 +100,105 @@ function rootHasQa(root) {
 function sentinelsSettingsPath(cfg) {
   const root = resolveSentinelsRoot(cfg);
   return root ? path.join(root, "config", "settings.json") : "";
+}
+
+function identityPath(cfg) {
+  const root = resolveSentinelsRoot(cfg);
+  return root ? path.join(root, "config", "identity.env") : "";
+}
+
+function parseEnvText(text) {
+  const data = {};
+  for (const line of String(text || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+    const index = trimmed.indexOf("=");
+    const key = trimmed.slice(0, index).trim();
+    let value = trimmed.slice(index + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key) data[key] = value;
+  }
+  return data;
+}
+
+function readReporterIdentity(cfg) {
+  const target = identityPath(cfg);
+  const empty = { name: "", linkedin: "", github: "", consent: false };
+  if (!target) return empty;
+  let data = {};
+  try {
+    data = parseEnvText(fs.readFileSync(target, "utf8"));
+  } catch (_error) {
+    return empty;
+  }
+  return {
+    name: String(data.FULL_NAME || "").trim(),
+    linkedin: String(data.LINKEDIN || "").trim(),
+    github: String(data.GITHUB || "").trim(),
+    consent: /^(1|yes|true)$/i.test(String(data.TICKET_CONSENT || "").trim()),
+  };
+}
+
+function normalizeReporterIdentity(input = {}) {
+  const out = {};
+  for (const [key, spec] of Object.entries(REPORTER_FIELDS)) {
+    const value = String(input[key] ?? "").trim();
+    if (/[\0\r\n]/.test(value)) {
+      throw new Error(`${spec.label} must be a single line`);
+    }
+    if (value.length > spec.max) {
+      throw new Error(`${spec.label} is longer than ${spec.max} characters`);
+    }
+    if ((key === "linkedin" || key === "github") && value &&
+        !/^https:\/\/\S+$/i.test(value)) {
+      throw new Error(`${spec.label} must be an https URL`);
+    }
+    out[key] = value;
+  }
+  const consent = input.consent === true || input.consent === "true" ||
+    input.consent === "1" || input.consent === "yes";
+  if (consent && !out.name && !out.linkedin && !out.github) {
+    throw new Error("Reporter consent requires a name or link");
+  }
+  out.consent = consent;
+  return out;
+}
+
+function saveReporterIdentity(cfg, input = {}) {
+  const target = identityPath(cfg);
+  if (!target) throw new Error("QA Sentinels root is not configured");
+  const reporter = normalizeReporterIdentity(input);
+  const existing = (() => {
+    try {
+      return parseEnvText(fs.readFileSync(target, "utf8"));
+    } catch (_error) {
+      return {};
+    }
+  })();
+  existing.TICKET_CONSENT = reporter.consent ? "1" : "0";
+  for (const [key, spec] of Object.entries(REPORTER_FIELDS)) {
+    existing[spec.env] = reporter[key];
+  }
+  const order = ["TICKET_CONSENT", ...Object.values(REPORTER_FIELDS).map((s) => s.env)];
+  const lines = [
+    "# Reporter identity for vendor ticket drafts.",
+    "# Managed by QA Dashboard settings.",
+  ];
+  for (const key of order) {
+    lines.push(`${key}=${existing[key] || ""}`);
+  }
+  for (const key of Object.keys(existing).sort()) {
+    if (!order.includes(key)) lines.push(`${key}=${existing[key]}`);
+  }
+  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  const tmp = `${target}.tmp`;
+  fs.writeFileSync(tmp, `${lines.join("\n")}\n`, { mode: 0o600 });
+  fs.renameSync(tmp, target);
+  fs.chmodSync(target, 0o600);
+  return target;
 }
 
 function sentinelsSchedulerPresent(options = {}) {
@@ -419,10 +524,12 @@ function ticketPath(root, bucket, name) {
 function configView(cfg) {
   return {
     ...cfg,
+    reporter: readReporterIdentity(cfg),
     resolved: {
       sentinelsBin: resolveSentinelsBin(cfg),
       sentinelsRoot: resolveSentinelsRoot(cfg),
       sentinelsSettings: sentinelsSettingsPath(cfg),
+      reporterIdentity: identityPath(cfg),
     },
   };
 }
@@ -594,17 +701,22 @@ function parseStatus(text) {
 
 module.exports = {
   DEFAULT_CONFIG,
+  REPORTER_FIELDS,
   TICKET_BUCKETS,
   cancelProcess,
   configPath,
   configView,
+  identityPath,
   listTickets,
   loadConfig,
+  normalizeReporterIdentity,
   parseStatus,
+  readReporterIdentity,
   resolveSentinelsBin,
   resolveSentinelsRoot,
   runCapture,
   saveConfig,
+  saveReporterIdentity,
   SENTINELS_SETTING_KEYS,
   loadSentinelsSettings,
   normalizeSentinelsSettings,

@@ -15,6 +15,12 @@ const FIELDS = {
   sentinelsInventoryRetentionDays: "#set-sen-inventory-days",
 };
 
+const REPORTER_FIELDS = {
+  name: "#set-reporter-name",
+  linkedin: "#set-reporter-linkedin",
+  github: "#set-reporter-github",
+};
+
 let busy = false;
 
 function setStatus(message, error = false) {
@@ -34,6 +40,11 @@ function fill(config) {
   for (const [key, selector] of Object.entries(FIELDS)) {
     $(selector).value = config[key] ?? "";
   }
+  const reporter = config.reporter || {};
+  for (const [key, selector] of Object.entries(REPORTER_FIELDS)) {
+    $(selector).value = reporter[key] ?? "";
+  }
+  $("#set-reporter-consent").checked = Boolean(reporter.consent);
 }
 
 function collect() {
@@ -41,6 +52,11 @@ function collect() {
   for (const [key, selector] of Object.entries(FIELDS)) {
     payload[key] = $(selector).value;
   }
+  payload.reporter = {};
+  for (const [key, selector] of Object.entries(REPORTER_FIELDS)) {
+    payload.reporter[key] = $(selector).value;
+  }
+  payload.reporter.consent = $("#set-reporter-consent").checked;
   return payload;
 }
 
