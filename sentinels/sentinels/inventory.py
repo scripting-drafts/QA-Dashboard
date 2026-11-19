@@ -20,7 +20,7 @@ import socket
 from collections import Counter
 from datetime import timedelta
 
-from . import config, db, faultcore
+from . import compat, config, db, faultcore
 from .util import iso, parse_iso, read_text, run, sha256_text, utcnow
 
 
@@ -149,7 +149,12 @@ def _services(out: dict) -> None:
     if rc == 0:
         for line in failed.splitlines():
             unit = line.split()[0] if line.split() else ""
-            if unit:
+            if not unit:
+                continue
+            if compat.ignore_sysv_failure(line):
+                _put(out, "L2-services", f"sysv-failed/{unit}",
+                     "SysV generator is deprecated; failure ignored")
+            else:
                 _put(out, "L2-services", f"failed/{unit}", line.strip())
 
     rc, enabled, _ = run(

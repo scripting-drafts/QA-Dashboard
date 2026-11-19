@@ -340,6 +340,28 @@ class LayerTests(unittest.TestCase):
         self.assertEqual(len(detect.scan(conn)), 1)
         self.assertEqual(detect.scan(conn), [])
 
+    def test_sysv_lsb_findings_are_resolved_on_noble(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO findings(fingerprint,ts,rule,subject,detail,status)"
+            " VALUES('sysv','2026-11-19T09:00:00Z','systemd.service_start',"
+            "'init','Failed to start LSB: OpenIPMI Driver init script.','open')"
+        )
+        conn.execute(
+            "INSERT INTO findings(fingerprint,ts,rule,subject,detail,status)"
+            " VALUES('native','2026-11-19T09:00:00Z','systemd.service_start',"
+            "'init','Failed to start Network Manager Wait Online.','open')"
+        )
+        with mock.patch.object(detect.compat, "sysv_available",
+                               return_value=False):
+            self.assertEqual(detect.resolve_sysv_findings(conn), 1)
+        rows = {row["fingerprint"]: row["status"] for row in conn.execute(
+            "SELECT fingerprint,status FROM findings")}
+        self.assertEqual(rows["sysv"], "resolved")
+        self.assertEqual(rows["native"], "open")
+
     def test_trace_summary(self):
         from sentinels import deep
 

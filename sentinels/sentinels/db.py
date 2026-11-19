@@ -421,6 +421,16 @@ def init() -> None:
 
 
 @contextmanager
+def read_session():
+    """Read-only session for live views; never takes the schema write lock."""
+    conn = connect_readonly()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@contextmanager
 def session():
     init()
     conn = connect()

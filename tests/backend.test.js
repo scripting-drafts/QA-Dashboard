@@ -191,6 +191,31 @@ test("sentinels settings mirror to the engine root", () => {
   }
 });
 
+test("tickets root follows the configured Sentinels root", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-tickets-root-"));
+  const root = path.join(temp, "QA-Sentinels");
+  fs.mkdirSync(path.join(root, "bin"), { recursive: true });
+  fs.mkdirSync(path.join(root, "tickets"), { recursive: true });
+  fs.writeFileSync(path.join(root, "bin", "qa"), "");
+  const configHome = path.join(temp, "config");
+  fs.mkdirSync(path.join(configHome, "qa-dashboard"), { recursive: true });
+  fs.writeFileSync(path.join(configHome, "qa-dashboard", "config.json"),
+    JSON.stringify({ sentinelsRoot: root }));
+  const previousConfig = process.env.XDG_CONFIG_HOME;
+  const previousRoot = process.env.QA_SENTINELS_ROOT;
+  process.env.XDG_CONFIG_HOME = configHome;
+  delete process.env.QA_SENTINELS_ROOT;
+  try {
+    assert.equal(backend.ticketsRoot(), path.join(root, "tickets"));
+  } finally {
+    if (previousConfig === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = previousConfig;
+    if (previousRoot === undefined) delete process.env.QA_SENTINELS_ROOT;
+    else process.env.QA_SENTINELS_ROOT = previousRoot;
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
 test("ticket buckets list titles and legacy folders", () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "qa-tickets-"));
   const root = path.join(temp, "tickets");

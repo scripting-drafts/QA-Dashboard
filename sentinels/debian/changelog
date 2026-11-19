@@ -16,6 +16,13 @@ qa-sentinels (1.4.1) jammy; urgency=medium
     and session journal events are not left ownerless.
   * Add tests for module-dump isolation, totality, finding/event labels and
     wrong-vendor independence; document the chain in `docs/TICKETS.md`.
+  * Support systemd 259 alongside Noble's 255 on the 249+ baseline. On
+    systemd 250+ (all later releases), assume the SysV generator is
+    unavailable: ignore `LSB:` service failures such as openipmi and record
+    them as `sysv-failed/` in inventory. Jammy (systemd 249) keeps the
+    SysV/openipmi path. No Ubuntu release version is needed at install time.
+  * Match legal-register minimums numerically, so Noble's Python 3.12 and
+    SQLite 3.45 satisfy `3.10+` and `3.37+` without warnings.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Tue, 17 Nov 2026 19:55:00 +0100
 

@@ -23,7 +23,7 @@ import re
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from . import classify, config
+from . import classify, compat, config
 from .util import iso, parse_iso, redact, run, sha256_text, utcnow
 
 SCHEMA_VERSION = 2
@@ -218,6 +218,8 @@ def _redact_message(msg: str, mode: str) -> str:
 def _match(entry: dict, phase: str = "shutdown", mode: str | None = None) -> dict | None:
     msg = _message(entry)
     if not msg:
+        return None
+    if compat.ignore_sysv_failure(msg):
         return None
     for rule, label, pattern in FAILURE_RULES:
         if not pattern.search(msg):

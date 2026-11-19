@@ -33,6 +33,8 @@ class LegalRegisterTests(unittest.TestCase):
 
     def test_version_prefix_matching(self):
         self.assertTrue(legal._version_matches("3.10+", "3.10.12"))
+        self.assertTrue(legal._version_matches("3.10+", "3.12.3"))
+        self.assertTrue(legal._version_matches("3.37+", "3.45.1"))
         self.assertTrue(legal._version_matches("1.2.0", "1.2.0"))
         self.assertFalse(legal._version_matches("3.10+", "3.9.19"))
 

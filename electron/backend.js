@@ -289,6 +289,11 @@ function resolveSentinelsBin(cfg) {
 }
 
 function ticketsRoot() {
+  const configured = resolveSentinelsRoot(loadConfig());
+  if (configured) {
+    const candidate = path.join(configured, "tickets");
+    if (fs.existsSync(candidate)) return candidate;
+  }
   const bases = [os.homedir()];
   if (process.platform === "win32") {
     bases.unshift(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"));

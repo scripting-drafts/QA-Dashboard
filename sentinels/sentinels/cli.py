@@ -664,9 +664,13 @@ def cmd_logs(args) -> int:
     path = config.VAR / "cron.log"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch(exist_ok=True)
-    with db.session() as conn:
-        for line in logs.header(conn):
-            print(line, flush=True)
+    try:
+        with db.read_session() as conn:
+            for line in logs.header(conn):
+                print(line, flush=True)
+    except sqlite3.OperationalError:
+        print(f"{config.PROJECT_NAME} live monitor\n")
+        print("  database       unavailable (initialise with `qa init`)\n")
     if args.all_layers:
         logs.all_layers(path, lines=args.lines, color=color,
                         follow_mode=args.follow)
@@ -715,7 +719,7 @@ def cmd_status(args) -> int:
         with db.session() as conn:
             _platform_status(conn)
         return 0
-    with db.session() as conn:
+    with db.read_session() as conn:
         def scalar(sql, args=()):
             return conn.execute(sql, args).fetchone()[0]
 
@@ -1334,7 +1338,9 @@ def cmd_cycle(args) -> int:
                     "denials": lr["denials"].get("counts", {}),
                 }
                 if lr["state"].get("errors"):
-                    failed += 1
+                    # Unreadable optional LSM interfaces (for example AppArmor
+                    # profiles without the root handoff) are coverage limits,
+                    # not a failed cycle.
                     result["lsm_state_errors"] = lr["state"]["errors"]
                 if lr["new"]:
                     findings_dirty = True
@@ -1369,9 +1375,13 @@ def cmd_cycle(args) -> int:
                     "new": hw["new"],
                     "by_severity": hw["by_severity"],
                 }
-                if hw["failed"]:
-                    failed += 1
+                if hw["failed_sources"]:
                     result["hardware_failed_sources"] = hw["failed_sources"]
+                if "vendor" in hw["failed_sources"]:
+                    # Only the mandatory vendor source fails the cycle. Other
+                    # sources are privilege/coverage limits already recorded as
+                    # hardware.coverage findings.
+                    failed += 1
                 if hw["new"]:
                     findings_dirty = True
                     from . import report as report_mod

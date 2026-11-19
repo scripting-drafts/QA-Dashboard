@@ -2,13 +2,13 @@ PYTHON ?= python3
 SENTINELS := sentinels
 
 .PHONY: deps test test-sentinels test-dashboard contracts contracts-check \
-	build-linux build-windows build-macos build-logs release-check \
+	vendor-check build-linux build-windows build-macos build-logs release-check \
 	start install uninstall clean
 
 deps:
 	npm ci --no-audit --no-fund
 
-test: test-dashboard test-sentinels contracts-check
+test: test-dashboard test-sentinels contracts-check vendor-check
 
 test-dashboard:
 	npm test
@@ -21,6 +21,9 @@ contracts:
 
 contracts-check:
 	$(PYTHON) tools/export_contracts.py --check
+
+vendor-check:
+	$(PYTHON) tools/check_vendor.py
 
 build-linux:
 	npm run pack:linux
@@ -36,6 +39,7 @@ build-logs:
 
 release-check:
 	cd $(SENTINELS) && ./bin/qa legal --check
+	$(PYTHON) tools/check_vendor.py
 	npm test
 
 start:

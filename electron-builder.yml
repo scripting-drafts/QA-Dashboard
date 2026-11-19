@@ -27,6 +27,25 @@ forceCodeSigning: false
 
 win:
   icon: build/icon.ico
+  extraResources:
+    - from: sentinels
+      to: sentinels
+      filter:
+        - "**/*"
+        - "!**/__pycache__/**"
+        - "!**/*.pyc"
+        - "!tests/**"
+        - "!var/**"
+        - "!journal/**"
+        - "!tickets/**"
+        - "!triage/**"
+        - "!evidence/**"
+        - "!reports/**"
+        - "!toolchain/**"
+        - "!bin/qa_sample"
+        - "!src/qa_sample"
+    - from: PRERELEASE.md
+      to: PRERELEASE.md
   target:
     - target: nsis
       arch:
@@ -64,6 +83,25 @@ msi:
 mac:
   icon: build/icon.icns
   category: public.app-category.developer-tools
+  extraResources:
+    - from: sentinels
+      to: sentinels
+      filter:
+        - "**/*"
+        - "!**/__pycache__/**"
+        - "!**/*.pyc"
+        - "!tests/**"
+        - "!var/**"
+        - "!journal/**"
+        - "!tickets/**"
+        - "!triage/**"
+        - "!evidence/**"
+        - "!reports/**"
+        - "!toolchain/**"
+        - "!bin/qa_sample"
+        - "!src/qa_sample"
+    - from: PRERELEASE.md
+      to: PRERELEASE.md
   minimumSystemVersion: "13.0"
   identity: null
   hardenedRuntime: false

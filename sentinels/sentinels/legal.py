@@ -234,7 +234,9 @@ def _version_matches(expected: str, actual: str) -> bool:
     if not expected or not actual:
         return False
     if expected.endswith("+"):
-        return actual == expected[:-1] or actual.startswith(expected[:-1] + ".")
+        base = tuple(int(part) for part in re.findall(r"\d+", expected[:-1])[:3])
+        current = tuple(int(part) for part in re.findall(r"\d+", actual)[:3])
+        return bool(base and current and current >= base)
     return expected == actual
 
 

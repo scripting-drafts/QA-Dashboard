@@ -54,6 +54,16 @@ the documented minimums. `--strict` exits non-zero outside the baseline.
   stable `argparse`, `sqlite3`, `urllib`, `ssl`, and `datetime` interfaces.
 - **systemd:** unit files use directives available in 249 and later. Keep the
   capability-scoped `qa-sentinel.service` rather than running the cycle as root.
+  Ubuntu 24.04 (Noble) ships systemd 255 and 26.04 (Resolute) ships 259; both
+  are tested. Newer versions remain supported by the 249+ baseline until a
+  release-specific check is needed.
+- **SysV / openipmi:** `openipmi` is an LSB/SysV init script, not a native
+  systemd unit. The cutoff is inferred from systemd itself, not from a release
+  version supplied at install time: systemd 249 (jammy) keeps the SysV/openipmi
+  path, while systemd 250+ (all later releases, including Noble, Resolute and
+  Stonking) assumes the generator is unavailable. On those systems, `Failed to start LSB:` is ignored and inventory
+  records `sysv-failed/openipmi.service` instead of a systemd failure. IPMI is
+  read through `ipmitool`; `openipmi` is not required.
 - **eBPF:** the tracer is kernel-specific. `qa deep` checks the build stamp and
   refuses a stale object; rebuild after every kernel change.
 - **LSM:** the root LSM helper is optional and reports unavailable securityfs

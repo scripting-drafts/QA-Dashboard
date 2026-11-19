@@ -13,6 +13,9 @@ standalone project with its own service, API, and web dashboard.
 This repository is the QA Set umbrella: the Dashboard stays at the repository
 root so the existing Linux PPA packaging is unchanged; QA Sentinels is vendored
 under `sentinels/`; Windows and macOS bundle definitions live in `packaging/`.
+`sentinels-vendor.json` records the source version and commit, and
+`make vendor-check` verifies the tree is aligned. Linux continues to use the
+separate `qa-sentinels` package; only Windows and macOS bundle the engine.
 See `docs/DOWNLOADS.md` for PPA and platform downloads.
 
 ![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/overview.png)

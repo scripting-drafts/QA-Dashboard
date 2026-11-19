@@ -414,6 +414,9 @@ def run_request(conn, request: dict, duration: int | None = None,
 
     status = "dry-run" if dry_run else "complete"
     _collect_context(conn, outdir, request)
+    # Never hold a SQLite transaction across the 30-second trace: status,
+    # logs and the Dashboard must keep reading while layer 2 runs.
+    conn.commit()
 
     proc_files = _collect_proc(outdir, request.get("pid"))
     if dry_run:
@@ -639,6 +642,7 @@ def consume(conn, duration: int | None = None, dry_run: bool = False,
         except json.JSONDecodeError:
             continue
         result = run_request(conn, request, duration, dry_run, perf_record)
+        conn.commit()
         results.append(result)
         if result.get("status") == "needs-root":
             continue

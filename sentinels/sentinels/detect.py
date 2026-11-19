@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from datetime import timedelta
 
-from . import boot, classify, config, faultcore, db, holds, triage
+from . import boot, classify, compat, config, faultcore, db, holds, triage
 from .util import iso, parse_iso, sha256_text, utcnow
 
 # journal rules, highest severity first
@@ -142,6 +142,8 @@ def _event_findings(conn, since: str) -> list[dict]:
         msg = row["message"] or ""
         if SELF_NOISE.search(msg):
             continue
+        if compat.ignore_sysv_failure(msg):
+            continue
         matched = False
         for rule, severity, pattern in EVENT_RULES:
             if pattern.search(msg):
@@ -252,6 +254,24 @@ def _sample_findings(conn) -> list[dict]:
     return out
 
 
+def resolve_sysv_findings(conn) -> int:
+    """Close open LSB failures when the SysV generator is deprecated."""
+    if compat.sysv_available():
+        return 0
+    resolved = 0
+    for row in conn.execute(
+        "SELECT id, detail FROM findings WHERE status='open' "
+        "AND rule IN ('systemd.service_start', 'shutdown.service_start')"
+    ):
+        if compat.ignore_sysv_failure(row["detail"] or ""):
+            conn.execute(
+                "UPDATE findings SET status='resolved' WHERE id=?",
+                (row["id"],),
+            )
+            resolved += 1
+    return resolved
+
+
 def scan(conn, hours: int = 24) -> list[dict]:
     """Run layer-1 rules; return only newly created findings."""
     last = db.meta_get(conn, "last_finding_scan")
@@ -280,6 +300,7 @@ def scan(conn, hours: int = 24) -> list[dict]:
         created = _upsert(conn, finding)
         if created:
             new.append(created)
+    resolve_sysv_findings(conn)
     db.meta_set(conn, "last_finding_scan", iso(now))
     if backfill:
         db.meta_set(conn, "event_rules_backfill_v1", iso(now))
