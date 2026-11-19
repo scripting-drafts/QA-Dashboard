@@ -15,6 +15,8 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     Sentinels workspace.
   * Skip rasdaemon probes on desktops without CXL hardware and still collect
     EDAC, AER, APEI and pstore state.
+  * Preserve the consented LinkedIn URL when staging tickets instead of
+    redacting the username inside it.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 17:05:00 +0100
 

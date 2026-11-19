@@ -138,6 +138,27 @@ class RedactionTests(unittest.TestCase):
         self.assertIn("/home/<user>", out)
         self.assertIn("<serial>", out)
 
+    def test_consented_identity_can_be_preserved_in_a_ticket(self):
+        from sentinels import util
+
+        old_user = util._USER
+        util._USER = "gerard"
+        try:
+            raw = (
+                "Name: Gerard Sala\n"
+                "LinkedIn: https://www.linkedin.com/in/gerard-sala/\n"
+                f"path {config.HOME}/x\n"
+            )
+            out = redact(
+                raw,
+                preserve=("https://www.linkedin.com/in/gerard-sala/",),
+            )
+        finally:
+            util._USER = old_user
+        self.assertIn("gerard-sala", out)
+        self.assertIn("/home/<user>", out)
+        self.assertNotIn(f"{config.HOME}/x", out)
+
     def test_submitted_crash_id_is_preserved_but_other_uuids_are_not(self):
         crash_id = "bp-3bb56c4b-1d41-4581-b552-219800261026"
         local_id = "159a8019-9eaf-cfc0-2cc2-a20ac17e1332"

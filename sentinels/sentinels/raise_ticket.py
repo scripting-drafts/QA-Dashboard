@@ -482,6 +482,13 @@ def _ticket_with_lifecycle(text: str, directory) -> str:
     return f"{base}\n\n{section}\n" if base else f"{section}\n"
 
 
+def _redact_ticket_text(text: str) -> str:
+    """Redact a ticket while keeping the reporter's consented identity."""
+    identity, consent = util.identity_for_ticket()
+    keep = tuple(identity.values()) if consent else ()
+    return util.redact(text, preserve=keep)
+
+
 def _sync_ticket_lifecycle(directory) -> None:
     ticket = directory / "ticket.md"
     base = ""
@@ -497,7 +504,7 @@ def _sync_ticket_lifecycle(directory) -> None:
     elif base.lstrip().startswith(LIFECYCLE_HEADING):
         base = ""
     text = _ticket_with_lifecycle(base, directory)
-    digest = _write(ticket, util.redact(text))
+    digest = _write(ticket, _redact_ticket_text(text))
     manifest_path = directory / "evidence" / "manifest.json"
     if not manifest_path.exists():
         return
@@ -536,7 +543,7 @@ def stage(conn, draft: dict, issue: dict, verdict: dict, bundle: dict | None,
     if draft.get("path"):
         try:
             with open(draft["path"], encoding="utf-8", errors="replace") as fh:
-                ticket_text = util.redact(fh.read())
+                ticket_text = _redact_ticket_text(fh.read())
         except OSError:
             ticket_text = ""
     _ensure_classified(

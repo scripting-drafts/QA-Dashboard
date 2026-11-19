@@ -114,14 +114,23 @@ def _email_sub(match: re.Match) -> str:
     return "<email>"
 
 
-def redact(text: str) -> str:
+def redact(text: str, preserve: tuple[str, ...] = ()) -> str:
     """Remove operator-identifying data before anything leaves the host.
 
     Vendor tickets must contain the hardware/software facts, never the operator.
-    Paths keep their shape so stack traces remain useful.
+    Paths keep their shape so stack traces remain useful.  ``preserve`` holds
+    exact values that were explicitly consented for a ticket, such as the
+    reporter's LinkedIn URL; everything else is still redacted.
     """
     if not text:
         return ""
+    held: dict[str, str] = {}
+    for value in sorted({value for value in preserve if value}, key=len, reverse=True):
+        if value not in text:
+            continue
+        token = f"\x00preserve{len(held)}\x00"
+        text = text.replace(value, token)
+        held[token] = value
     text = text.replace(str(config.HOME), "/home/<user>")
     text = text.replace(os.path.expanduser("~"), "/home/<user>")
     if _HOSTNAME and _HOSTNAME not in ("localhost",):
@@ -146,6 +155,8 @@ def redact(text: str) -> str:
         text = re.sub(rf"\b{re.escape(_USER)}\b", "<user>", text)
     for index, crash_id in enumerate(crash_ids):
         text = text.replace(f"\x00crashid{index}\x00", crash_id)
+    for token, value in held.items():
+        text = text.replace(token, value)
     return text
 
 
