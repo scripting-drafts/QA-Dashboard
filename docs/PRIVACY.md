@@ -12,8 +12,6 @@ analytics, or crash reports, and it does not contact a license server.
 - Tickets, reports, evidence bundles, logs, and samples: under the workspace.
 - Optional QA Sentinels settings: `<root>/config/settings.json`.
 - Optional reporter identity: `<root>/config/identity.env` (mode `0600`).
-- Last active window and tab: `last-view.json` in the Electron user-data
-  directory (mode `0600`). It contains no ticket content.
 
 QA Sentinels can collect host data such as process names, command lines,
 journal records, hardware details, and crash context. That data remains local

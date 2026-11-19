@@ -319,10 +319,6 @@ The QA Sentinels menu entry opens `--module=sen-overview`, the Sentinels
 Overview. The Database remains available from the main Dashboard and the
 Overview.
 
-Without a module argument the launcher reopens the last active window and tab,
-including the Tickets view. Explicit `--module=...` launches still open that
-module; Shift+click on the QA launcher forces Overview.
-
 ## Security and process execution
 
 The renderer runs with:

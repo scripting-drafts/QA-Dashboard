@@ -11,7 +11,6 @@ contextBridge.exposeInMainWorld("qa", {
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   pickPath: (kind) => ipcRenderer.invoke("dialog:pick", kind),
   openModule: (module, tab) => ipcRenderer.invoke("app:open", module, tab),
-  setTab: (tab) => ipcRenderer.invoke("app:set-tab", tab),
   openRules: () => ipcRenderer.invoke("app:open-rules"),
   openDocs: () => ipcRenderer.invoke("app:open-docs"),
   openSettings: () => ipcRenderer.invoke("settings:open"),

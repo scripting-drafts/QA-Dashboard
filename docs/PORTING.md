@@ -17,20 +17,18 @@ platforms.
 ## Linux (this branch)
 
 - No tray or top-bar icon.
-- `qa-dashboard.desktop` reopens the last active window and tab and is used as
-  the favourite.
-- The QA Sentinels `.desktop` file opens the Sentinels Overview window directly.
+- `qa-dashboard.desktop` opens the Overview and is used as the favourite.
+- The QA Sentinels `.desktop` file opens the Database window directly.
 - All launches share one Electron instance and focus existing windows.
 
 ## Windows (later)
 
 - No tray icon; use Start-menu and desktop shortcuts.
-- The main shortcut reopens the last active view; module shortcuts use
-  `--module=...`.
+- The main shortcut opens the Overview; module shortcuts use `--module=...`.
 - Keep the single-instance module routing.
 
 ## macOS (later)
 
-- No menu-bar icon; the Dock/app icon reopens the last active view.
+- No menu-bar icon; the Dock/app icon opens the Overview.
 - Package as an app bundle and add per-module shortcuts or URL schemes.
 - Keep the same preloads, backend, and renderer code.

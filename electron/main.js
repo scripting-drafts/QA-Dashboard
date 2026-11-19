@@ -7,7 +7,6 @@ const {
   app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen, shell,
 } = require("electron");
 const backend = require("./backend");
-const viewState = require("./view-state");
 
 let diagnostics;
 try {
@@ -62,11 +61,9 @@ let logsError = "";
 const LOG_BUFFER_MAX = 4000;
 const logBuffer = [];
 let startupModule = "overview";
-let startupTab = "";
 let screenshotPath = "";
 let allMinimized = false;
 let lastActiveModule = "overview";
-const lastTabs = new Map();
 let sentinelsTimer = null;
 let sentinelsCycleTimer = null;
 let sentinelsRefreshing = false;
@@ -96,7 +93,6 @@ function syncWindowBackgrounds() {
 
 function parseArgs(argv) {
   let module = "overview";
-  let moduleSet = false;
   let screenshot = "";
   let version = false;
   let main = false;
@@ -107,11 +103,9 @@ function parseArgs(argv) {
     } else if (value === "--main") {
       main = true;
     } else if (value.startsWith("--module=")) {
-      moduleSet = true;
       const candidate = value.slice("--module=".length);
       if (MODULES.has(candidate)) module = candidate;
     } else if (value === "--module" && argv[index + 1]) {
-      moduleSet = true;
       if (MODULES.has(argv[index + 1])) module = argv[index + 1];
       index += 1;
     } else if (value.startsWith("--screenshot=")) {
@@ -121,44 +115,18 @@ function parseArgs(argv) {
       index += 1;
     }
   }
-  return { module, moduleSet, screenshot, version, main };
-}
-
-function normalizeTab(module, tab = "") {
-  if (module === "tickets") return "tickets";
-  if (module === "sen-overview") {
-    return tab === "tickets" ? "tickets" : "overview";
-  }
-  return "";
+  return { module, screenshot, version, main };
 }
 
 function normalizeModule(module, tab = "") {
-  const name = MODULES.has(module) ? module : "overview";
+  let name = MODULES.has(module) ? module : "overview";
   if (name === "findings" || name === "tickets") {
     return { module: "tickets", tab: "tickets" };
   }
-  return { module: name, tab: normalizeTab(name, tab) };
-}
-
-function readRememberedView() {
-  try {
-    const saved = viewState.load(app.getPath("userData"));
-    if (!saved || !MODULES.has(saved.module)) return null;
-    return normalizeModule(saved.module, saved.tab);
-  } catch (error) {
-    diagnostics.error("viewState.load", error);
-    return null;
+  if (name === "sen-overview") {
+    return { module: "sen-overview", tab: "overview" };
   }
-}
-
-function rememberView(module) {
-  if (screenshotPath) return;
-  const tab = lastTabs.get(module) || normalizeTab(module);
-  try {
-    viewState.save(app.getPath("userData"), module, tab);
-  } catch (error) {
-    diagnostics.error("viewState.save", error);
-  }
+  return { module: name, tab: "" };
 }
 
 function hardenWindow(window) {
@@ -186,7 +154,6 @@ function createWindow(module = "overview", show = true, tab = "") {
     }
     return existing;
   }
-  lastTabs.set(module, tab);
   const size = WINDOW_SIZES[module];
   const area = screen.getPrimaryDisplay().workArea;
   const offset = Math.min(windows.size, 5) * 28;
@@ -233,7 +200,6 @@ function createWindow(module = "overview", show = true, tab = "") {
   });
   window.on("focus", () => {
     lastActiveModule = module;
-    rememberView(module);
   });
   window.on("closed", () => {
     windows.delete(module);
@@ -620,17 +586,6 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle("app:set-tab", (event, tab) => {
-    const target = BrowserWindow.fromWebContents(event.sender);
-    const entry = Array.from(windows.entries())
-      .find(([, window]) => window === target);
-    if (!entry) return false;
-    const [module] = entry;
-    lastTabs.set(module, normalizeTab(module, String(tab || "")));
-    rememberView(module);
-    return true;
-  });
-
   ipcMain.handle("app:open-rules", async () => {
     const target = path.join(__dirname, "..", "renderer", "rules.html");
     const error = await shell.openPath(target);
@@ -789,14 +744,7 @@ if (initial.version) {
     nativeTheme.on("updated", syncWindowBackgrounds);
     startAutoRefresh();
     startBackgroundLogs();
-    const remembered = initial.main || screenshotPath
-      ? null : readRememberedView();
-    if (remembered && (!initial.moduleSet ||
-        remembered.module === normalizeModule(initial.module).module)) {
-      startupModule = remembered.module;
-      startupTab = remembered.tab;
-    }
-    const window = createWindow(startupModule, true, startupTab);
+    const window = createWindow(startupModule, true);
     if (screenshotPath) {
       window.webContents.once("did-finish-load", () => {
         setTimeout(async () => {
