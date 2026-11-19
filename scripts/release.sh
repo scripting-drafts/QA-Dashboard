@@ -24,7 +24,9 @@ WAIT_STEP="${WAIT_STEP:-60}"
 REVISION_EXPLICIT=0
 if [[ -n "${REVISION:-}" ]]; then REVISION_EXPLICIT=1; fi
 REVISION="${REVISION:-1}"
-DEFAULT_SERIES=(jammy noble resolute stonking)
+# Jammy stays on the legacy SysV/openipmi release. Pass SERIES=jammy
+# explicitly only when a jammy upload is intentional.
+DEFAULT_SERIES=(noble resolute stonking)
 if [[ -n "${SERIES:-}" ]]; then
   read -r -a DEFAULT_SERIES <<< "$SERIES"
 fi
