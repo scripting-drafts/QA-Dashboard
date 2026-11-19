@@ -208,7 +208,7 @@ for series in "${DEFAULT_SERIES[@]}"; do
       | tar -x -C "$tmp"
   else
     git -C "$REPO_ROOT" archive --format=tar HEAD \
-      | tar -x -C "$tmp" --exclude='sentinels'
+      | tar -x -C "$tmp"
   fi
 
   # The Dashboard source build needs the Electron distribution; it is ignored
