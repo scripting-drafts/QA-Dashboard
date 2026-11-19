@@ -1,5 +1,8 @@
 #!/usr/bin/make -f
 
+DISTRIBUTION := $(shell dpkg-parsechangelog -S Distribution)
+GNOME_EXT_SRC := $(if $(filter jammy,$(DISTRIBUTION)),gnome-extension/theme/legacy,gnome-extension/theme/modern)
+
 %:
 	dh $@
 
@@ -84,3 +87,10 @@ override_dh_auto_install:
 		debian/qa-dashboard/usr/share/doc/qa-dashboard/electron-LICENSE
 	install -D -m 0644 node_modules/electron/dist/LICENSES.chromium.html \
 		debian/qa-dashboard/usr/share/doc/qa-dashboard/chromium-LICENSES.html
+	install -d debian/qa-dashboard/usr/share/gnome-shell/extensions/qa-dashboard-theme@local
+	cp -a $(GNOME_EXT_SRC)/. \
+		debian/qa-dashboard/usr/share/gnome-shell/extensions/qa-dashboard-theme@local/
+	install -D -m 0755 debian/qa-dashboard-enable-extension \
+		debian/qa-dashboard/usr/lib/qa-dashboard/qa-dashboard-enable-extension
+	install -D -m 0644 debian/qa-dashboard-theme.desktop \
+		debian/qa-dashboard/etc/xdg/autostart/qa-dashboard-theme.desktop

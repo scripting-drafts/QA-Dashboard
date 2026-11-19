@@ -26,6 +26,18 @@ test("standalone Sentinels launcher opens the Sentinels Overview", () => {
     /write_desktop qa-sentinels[\s\S]*?sen-overview[\s\S]*?qa-dashboard/);
 });
 
+test("APT package ships the launcher Shift+click helper", () => {
+  const root = path.join(__dirname, "..");
+  const rules = fs.readFileSync(path.join(root, "debian", "rules"), "utf8");
+  assert.match(rules, /gnome-shell\/extensions\/qa-dashboard-theme@local/);
+  assert.match(rules, /qa-dashboard-enable-extension/);
+  assert.match(rules, /etc\/xdg\/autostart\/qa-dashboard-theme\.desktop/);
+  const metadata = JSON.parse(fs.readFileSync(
+    path.join(root, "gnome-extension", "theme", "modern", "metadata.json"),
+    "utf8"));
+  assert.ok(metadata["shell-version"].includes("50"));
+});
+
 test("query arguments cover categories, SQL and limits", () => {
   assert.deepEqual(backend.queryArgs({ category: "inbox", limit: 25 }),
     ["query", "--json", "--category", "inbox", "--limit", "25"]);

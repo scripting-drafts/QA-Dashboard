@@ -1,0 +1,22 @@
+#!/bin/sh
+# Enable the hidden QA Dashboard Shell helper once per user.
+set -eu
+
+command -v gnome-extensions >/dev/null 2>&1 || exit 0
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/qa-dashboard"
+marker="$config/shell-extension-enabled"
+[ -e "$marker" ] && exit 0
+
+# GNOME Shell scans /usr/share/gnome-shell/extensions at startup. Retry until
+# the session bus is ready, then remember that the user has had the choice.
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if gnome-extensions enable qa-dashboard-theme@local >/dev/null 2>&1; then
+        mkdir -p "$config"
+        : > "$marker"
+        chmod 0600 "$marker"
+        exit 0
+    fi
+    sleep 1
+done
+exit 0

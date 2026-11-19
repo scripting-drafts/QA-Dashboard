@@ -22,6 +22,8 @@ nothing to read or invoke. The package does not install a cron/systemd
 schedule itself; QA Dashboard keeps its fallback cycle when neither is
 present.
 
-The source installer also provides a hidden GNOME theme extension for the
-favourite icon. The APT package intentionally omits it; the application works
-without it.
+The package installs a hidden GNOME Shell helper for the favourite/dock icon.
+It enables the helper on the first graphical login, so Shift+click on the QA
+launcher opens the main Dashboard. If the package is installed during an active
+session, sign out and back in once so GNOME Shell scans the new extension.
+The application still works without the helper.

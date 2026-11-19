@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=QA Dashboard Shell helper
+Comment=Enable the QA Dashboard launcher Shift+click helper
+Exec=/usr/lib/qa-dashboard/qa-dashboard-enable-extension
+Icon=qa-dashboard
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

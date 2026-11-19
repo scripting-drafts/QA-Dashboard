@@ -20,6 +20,8 @@ qa-dashboard (0.5.9) jammy; urgency=medium
   * Rename the ticket summary heading from "What happens" to "Description".
   * Add optional reporter identity fields to QA Sentinels Settings. Linux
     reads the existing workspace identity; Windows and macOS start empty.
+  * Ship the hidden GNOME Shell helper in the APT package and enable it on
+    first login, restoring Shift+click on the QA launcher.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 18:05:00 +0100
 
