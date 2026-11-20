@@ -183,9 +183,10 @@ Audit findings depend on the QA audit rules in `root/audit/qa-security.rules`.
 
 `allowed_elevation_chains` and `allowed_cap_processes` accept exact process
 selectors: `exe`, `exe_basename`, `uid`, `parent_comm`, `parent_uid`,
-`cgroup_contains`, and `cmdline_contains`. The packaged policy uses them only for the documented
-libvirt dnsmasq root DHCP-script helper and LXD bridge dnsmasq capabilities.
-There is no general `dnsmasq` elevation-parent or capability allowlist.
+`cap_eff`, `cgroup_contains`, and `cmdline_contains`. The packaged policy uses
+them only for the documented libvirt dnsmasq root DHCP-script helper, LXD bridge
+dnsmasq capabilities, and GDM's user-manager `CAP_WAKE_ALARM`. There is no
+general `dnsmasq` elevation-parent or capability allowlist.
 
 ## Network rules
 

@@ -26,7 +26,7 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     silent while raise and ready-correlation alerts remain.
   * Add a Ctrl+F find bar scoped to the Logs output, with match navigation
     and retained keyboard focus.
-  * Sync the vendored QA Sentinels tree to 1.4.2 (c8028ef), including the
+  * Sync the vendored QA Sentinels tree to 1.4.2 (2544e7c), including the
     optional crash-feed ingestion, stored crash component labels, warning
     findings for non-critical kernel conditions, the complete rule register,
     and the host-aligned security-policy example.

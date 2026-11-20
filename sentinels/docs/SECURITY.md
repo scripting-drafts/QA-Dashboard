@@ -47,15 +47,18 @@ from a user path is deliberately approved.
 
 `allowed_elevation_chains` and `allowed_cap_processes` accept narrow process
 selectors: `exe`, `exe_basename`, `uid`, `parent_comm`, `parent_uid`,
-`cgroup_contains`, and `cmdline_contains`. The packaged example uses them for two known host patterns:
+`cap_eff`, `cgroup_contains`, and `cmdline_contains`. The packaged example uses
+three known host patterns:
 
 - libvirt's dnsmasq child that runs the `--dhcp-script` helper as root, scoped
   to `/usr/sbin/dnsmasq`, `system.slice/libvirtd.service`, and the exact
   `libvirt_leaseshelper` argument;
 - LXD's bridge dnsmasq capabilities, scoped to `parent_comm=lxd`,
-  `--interface=lxdbr0`, and its LXD lease file.
+  `--interface=lxdbr0`, and its LXD lease file;
+- GDM's user manager `CAP_WAKE_ALARM`, scoped to the exact
+  `user@1000.service/init.scope` cgroup and capability value.
 
-Both exceptions are deliberately narrower than adding `dnsmasq` to the general
+These exceptions are deliberately narrower than adding `dnsmasq` to the general
 elevation-parent or capability lists. The packaged example is installed at
 `/usr/share/qa-sentinels/config/security-policy.example.json`.
 

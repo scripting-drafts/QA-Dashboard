@@ -18,6 +18,12 @@
       ],
       "exe_basename": "dnsmasq",
       "parent_comm": "lxd"
+    },
+    {
+      "cap_eff": "0x800000000",
+      "cgroup_contains": "user@1000.service/init.scope",
+      "exe": "/usr/lib/systemd/systemd",
+      "uid": 1000
     }
   ],
   "allowed_elevation_chains": [

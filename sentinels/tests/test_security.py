@@ -127,6 +127,28 @@ class ProcessRuleTests(unittest.TestCase):
             proc, parent, security.load_policy())}
         self.assertNotIn("security.nonroot_caps", rules)
 
+    def test_gdm_user_manager_wake_alarm_is_allowed(self):
+        proc = self._proc(
+            pid=3058, ppid=1, comm="systemd", uid=1000, euid=1000,
+            cap_eff=0x800000000, cmdline=["/usr/lib/systemd/systemd", "--user"],
+            exe="/usr/lib/systemd/systemd", cwd="/",
+            cgroup="0::/user.slice/user-1000.slice/user@1000.service/init.scope",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, None, security.load_policy())}
+        self.assertNotIn("security.nonroot_caps", rules)
+
+    def test_user_manager_with_extra_capabilities_is_flagged(self):
+        proc = self._proc(
+            pid=3058, ppid=1, comm="systemd", uid=1000, euid=1000,
+            cap_eff=0x800000001, cmdline=["/usr/lib/systemd/systemd", "--user"],
+            exe="/usr/lib/systemd/systemd", cwd="/",
+            cgroup="0::/user.slice/user-1000.slice/user@1000.service/init.scope",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, None, security.load_policy())}
+        self.assertIn("security.nonroot_caps", rules)
+
     def test_unscoped_dnsmasq_capabilities_are_flagged(self):
         proc = self._proc(
             pid=5000, ppid=1, comm="dnsmasq", uid=998, euid=998,

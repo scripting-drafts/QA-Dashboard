@@ -79,6 +79,12 @@ DEFAULT_POLICY: dict = {
                 "dhcp-leasefile=/var/snap/lxd",
             ],
         },
+        {
+            "exe": "/usr/lib/systemd/systemd",
+            "uid": 1000,
+            "cgroup_contains": "user@1000.service/init.scope",
+            "cap_eff": "0x800000000",
+        },
     ],
     "allow_root_user_path": [],
     "allowed_root_owned_paths": [
@@ -270,6 +276,13 @@ def _selector_matches(proc: dict, parent: dict | None, selector: dict) -> bool:
             return False
     if "parent_uid" in selector:
         if not parent or int(parent.get("uid", -1)) != int(selector["parent_uid"]):
+            return False
+    if "cap_eff" in selector:
+        try:
+            expected = int(str(selector["cap_eff"]), 0)
+        except (TypeError, ValueError):
+            return False
+        if int(proc.get("cap_eff") or 0) != expected:
             return False
     cgroup = selector.get("cgroup_contains")
     if cgroup and cgroup not in (proc.get("cgroup") or ""):
