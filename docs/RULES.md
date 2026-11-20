@@ -212,7 +212,7 @@ network run.
 `QA_NETWORK_FIREWALL_REQUIRED=1`. TCP retransmission checks require at least
 `QA_NETWORK_TCP_MIN_SEGMENTS=100` outbound segments.
 
-## Portable platform rules
+## Portable platform rules (WIP)
 
 Implemented in `sentinels/platform_cycle.py` for Windows and macOS.
 
