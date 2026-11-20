@@ -963,7 +963,7 @@ class NotificationFlowTests(unittest.TestCase):
         self.assertNotIn("old", rows)
         self.assertIn("new", rows)
 
-    def test_new_draft_digest_supersedes_pending_ones(self):
+    def test_drafts_do_not_queue_notifications(self):
         import pathlib
         import tempfile
         from unittest import mock
@@ -982,15 +982,14 @@ class NotificationFlowTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp, \
              mock.patch.object(notify.config, "DRAFT_DIR", pathlib.Path(tmp)), \
-             mock.patch.object(notify, "_drafts_index", return_value=None), \
              mock.patch("sentinels.correlate.aggregate", return_value=[]):
             result = notify.collect(conn)
-        self.assertEqual(result["queued"], 1)
-        drafts = [r for r in conn.execute(
+        self.assertEqual(result["queued"], 0)
+        self.assertEqual(notify.pending_count(conn), 0)
+        rows = conn.execute(
             "SELECT * FROM notifications WHERE kind='draft' AND delivered=0"
-        )]
-        self.assertEqual(len(drafts), 1)
-        self.assertNotEqual(drafts[0]["key"], "drafts|old")
+        ).fetchall()
+        self.assertEqual(rows, [])
 
     def test_crosscheck_key_depends_on_drift_composition(self):
         from sentinels import crosscheck
@@ -2704,7 +2703,7 @@ class NotificationTraceCrosscheckTests(unittest.TestCase):
         self.assertEqual(result["sent"], 1)
         self.assertEqual(notify.pending_count(conn), 0)
 
-    def test_drafts_are_batched_into_one_digest(self):
+    def test_drafts_are_silent_but_ready_correlations_still_queue(self):
         from sentinels import notify
 
         conn = self._conn()
@@ -2719,15 +2718,23 @@ class NotificationTraceCrosscheckTests(unittest.TestCase):
         from unittest import mock
         from sentinels import config
 
+        cluster = {
+            "key": "abc123", "vendor": "nvidia", "signature": "NVRM: Xid 79",
+            "boots": 2, "total_unclean": 3, "occurrences": 5, "crashes": 1,
+            "score": 11, "threshold": 9, "ready": True,
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.object(config, "DRAFT_DIR", pathlib.Path(tmp)):
-                notify.collect(conn)
-                self.assertEqual(notify.pending_count(conn), 1)
-                notify.collect(conn)  # identical draft set must not re-notify
+            with mock.patch.object(config, "DRAFT_DIR", pathlib.Path(tmp)), \
+                 mock.patch("sentinels.correlate.aggregate",
+                            return_value=[cluster]), \
+                 mock.patch.object(notify, "_correlation_report",
+                                   return_value=str(pathlib.Path(tmp) / "corr.md")):
+                result = notify.collect(conn)
+                self.assertEqual(result["queued"], 1)
                 self.assertEqual(notify.pending_count(conn), 1)
                 row = notify.pending(conn)[0]
-                self.assertTrue(row["path"].endswith("INDEX.md"))
-                self.assertTrue(pathlib.Path(row["path"]).exists())
+                self.assertEqual(row["kind"], "correlation")
+                self.assertFalse((pathlib.Path(tmp) / "INDEX.md").exists())
 
     def test_click_opens_the_markdown_it_refers_to(self):
         import pathlib

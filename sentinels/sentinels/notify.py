@@ -1,8 +1,8 @@
-"""Desktop pop-ups for tickets that are about to be raised.
+"""Desktop pop-ups for consistent fault patterns that became ready.
 
-A draft sitting unnoticed in `tickets/drafts/` is worth nothing. This module
-turns "a ticket became ready" into a visible notification, once per cluster,
-and makes the notification **open the markdown it refers to**.
+A correlation nobody sees is worth nothing. This module turns a ready cluster
+into a visible notification, once per cluster, and makes the notification
+**open the markdown it refers to**. Draft ticket generation stays silent.
 
 Click handling needs the freedesktop notification action API, which
 `notify-send` 0.7.9 does not expose. When PyGObject is available the pop-up is
@@ -22,7 +22,7 @@ import sys
 from datetime import timedelta
 
 from . import config
-from .util import iso, parse_iso, sha256_text, utcnow, write_text_atomic
+from .util import iso, parse_iso, utcnow, write_text_atomic
 
 APP = config.PROJECT_NAME
 
@@ -308,33 +308,6 @@ def clear_pending(conn, kind: str) -> int:
     return cur.rowcount
 
 
-def _drafts_index(conn) -> str | None:
-    """One markdown page listing every draft, so a digest click has a target."""
-    rows = [dict(r) for r in conn.execute(
-        "SELECT * FROM ticket_drafts ORDER BY vendor, ts"
-    )]
-    if not rows:
-        return None
-    config.DRAFT_DIR.mkdir(parents=True, exist_ok=True)
-    path = config.DRAFT_DIR / "INDEX.md"
-    lines = [
-        "# Ticket drafts",
-        "",
-        f"Generated {iso()} by {config.PROJECT_NAME}. "
-        "Drafts are never submitted automatically.",
-        "",
-        "| vendor | title | draft |",
-        "|---|---|---|",
-    ]
-    for row in rows:
-        name = os.path.basename(row["path"] or "")
-        lines.append(
-            f"| {row['vendor']} | {row['title'][:110]} | [{name}]({name}) |"
-        )
-    write_text_atomic(path, "\n".join(lines) + "\n")
-    return str(path)
-
-
 def _correlation_report(conn, cluster: dict) -> str | None:
     """A markdown page per ready cluster, so its pop-up has a target too."""
     from . import trace
@@ -363,40 +336,16 @@ def _correlation_report(conn, cluster: dict) -> str | None:
 
 
 def collect(conn) -> dict:
-    """Queue notifications for drafts and for correlations that became ready.
+    """Queue notifications for correlations that became ready.
 
-    Drafts are batched into a single digest: ten drafts are one piece of news
-    ("ten tickets are ready"), not ten interruptions. Correlations stay
+    Draft ticket generation is intentionally silent. Correlations stay
     individual because each is a distinct fault pattern.
     """
     from . import correlate
 
     new = 0
-    drafts = [dict(r) for r in conn.execute("SELECT * FROM ticket_drafts ORDER BY ts")]
-    if drafts:
-        digest = sha256_text("|".join(sorted(d["issue_key"] for d in drafts)))[:16]
-        key = f"drafts|{digest}"
-        row = conn.execute(
-            "SELECT path FROM notifications WHERE key=?", (key,)
-        ).fetchone()
-        path = (
-            row["path"] if row and row["path"] and os.path.exists(row["path"])
-            else _drafts_index(conn)
-        )
-        vendors = sorted({d["vendor"] for d in drafts})
-        body = "\n".join(f"- {d['vendor']}: {d['title'][:110]}" for d in drafts[:8])
-        if len(drafts) > 8:
-            body += f"\n- … and {len(drafts) - 8} more"
-        new += enqueue(
-            conn, "draft", key,
-            f"{len(drafts)} ticket draft(s) ready ({', '.join(vendors)})",
-            body,
-            detail=str(config.DRAFT_DIR),
-            path=path,
-            supersede=True,
-        )
-    else:
-        clear_pending(conn, "draft")
+    # Remove alerts queued by older releases for draft ticket digests.
+    clear_pending(conn, "draft")
 
     for cluster in correlate.aggregate(conn, days=30):
         if not cluster["ready"]:

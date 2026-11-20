@@ -22,6 +22,8 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     reads the existing workspace identity; Windows and macOS start empty.
   * Ship the hidden GNOME Shell helper in the APT package and enable it on
     first login, restoring Shift+click on the QA launcher.
+  * Stop desktop notifications for draft tickets; draft generation stays
+    silent while raise and ready-correlation alerts remain.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Thu, 19 Nov 2026 18:05:00 +0100
 
