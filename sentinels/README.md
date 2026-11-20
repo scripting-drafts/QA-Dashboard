@@ -6,7 +6,7 @@
 
 QA Sentinels periodically samples the system, examines journal and crash records, and organizes findings into reports and verifiable evidence bundles. When an incident warrants closer inspection, it can queue a separate, more privileged tracing run. It also helps correlate repeated failures and prepare vendor bug-report drafts; it does not submit tickets automatically.
 
-Faultlab integration is optional: when `/etc/faultlab/config` or `QA_FAULT_CORE_CPUS` is present, QA Sentinels follows the configured fault core; otherwise fault-core checks are disabled and normal monitoring continues.
+Faultlab integration is optional: when `/etc/faultlab/config` or `QA_FAULT_CORE_CPUS` is present, QA Sentinels follows the configured fault core and can ingest an external crash feed with its component label; otherwise fault-core checks are disabled and normal monitoring continues.
 
 ## How it works
 

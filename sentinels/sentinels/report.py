@@ -326,11 +326,12 @@ def _faultcore_section(conn, since_iso: str) -> str:
     ]
     if yes:
         lines.append("")
-        lines.append("| time (UTC) | process | signal | allowed CPUs |")
-        lines.append("|---|---|---|---|")
+        lines.append("| time (UTC) | component | process | signal | allowed CPUs |")
+        lines.append("|---|---|---|---|---|")
         for c in yes[:15]:
             lines.append(
-                f"| {c['ts']} | `{c['comm'] or c['exe']}` | {c['sig']} | `{c['cpus_allowed']}` |"
+                f"| {c['ts']} | `{c['component'] or c['comm'] or c['exe'] or 'unassigned'}` | "
+                f"`{c['comm'] or c['exe']}` | {c['sig']} | `{c['cpus_allowed']}` |"
             )
     lines += [
         "",
@@ -488,12 +489,13 @@ def build_report(conn, kind: str = "daily", hours: int = 24) -> tuple[str, str]:
 
     body += ["", "## Crashes", ""]
     if crashes:
-        body += ["| time (UTC) | process | signal | allowed CPUs | fault core in mask |",
-                 "|---|---|---|---|---|"]
+        body += ["| time (UTC) | component | process | signal | allowed CPUs | fault core in mask |",
+                 "|---|---|---|---|---|---|"]
         for c in crashes[:25]:
             verdict = {1: "yes", 0: "no", None: "unknown"}[c["faultcore_involved"]]
             body.append(
-                f"| {c['ts']} | `{c['comm'] or c['exe']}` | {c['sig']} | "
+                f"| {c['ts']} | `{c['component'] or c['comm'] or c['exe'] or 'unassigned'}` | "
+                f"`{c['comm'] or c['exe']}` | {c['sig']} | "
                 f"`{c['cpus_allowed'] or 'unknown'}` | {verdict} |"
             )
     else:

@@ -58,6 +58,13 @@ netplan, hardware) are the exception: they keep a real tracker component
 because inventing a field would make the ticket unfilable; a wrong route there
 is a routing bug to fix separately.
 
+Crash rows also persist the resolved component (`crashes.component`).  The
+optional external crash feed fills it at ingest with
+`classify.crash_component`, so a fault-core crash with no package owner becomes
+`CPU / platform`, a kernel MCE/oops becomes `linux (Ubuntu)`, and a known
+process keeps its project label.  `qa query --category crashes` and reports
+show that stored label.
+
 ## Crash evidence
 
 `crash.digest` keeps the header (size, pid, signal, timestamp, command line,

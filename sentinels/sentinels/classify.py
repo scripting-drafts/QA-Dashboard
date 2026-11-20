@@ -474,6 +474,28 @@ def component_for(vendor: str, text: str = "", fault_module: str = "",
         fault_module, comm, exe, unit, rule, subject)
 
 
+def crash_component(comm: str = "", exe: str = "", sig: str = "",
+                    context: str = "",
+                    faultcore_involved: int | None = None) -> tuple[str, str]:
+    """Return (vendor, component) for one crash row.
+
+    The component follows the same evidence chain as a ticket: faulting
+    module, process, then header content.  A fault-core affinity hit with no
+    other owner becomes a hardware issue, while the component still names the
+    concrete project (``CPU / platform`` for the hardware tracker).
+    """
+    vendor = vendor_for_crash(comm, exe, sig, context)
+    if faultcore_involved == 1 and vendor == "local":
+        vendor = "hardware"
+    frame = crash.faulting_frame(context or "")
+    module = str((frame or {}).get("module") or "")
+    component = component_for(
+        vendor, text=context or "", fault_module=module,
+        comm=comm, exe=exe, subject=sig,
+    )
+    return vendor, component
+
+
 def component_for_issue(issue: dict) -> str:
     """Component for an issue dict, using its first resolvable fault frame."""
     rows = issue.get("rows") or []
@@ -484,7 +506,12 @@ def component_for_issue(issue: dict) -> str:
     unit = ""
     rule = ""
     subject = ""
+    explicit = ""
     for row in rows:
+        if not explicit:
+            candidate = str(row.get("component") or "").strip()
+            if candidate and candidate not in ("unassigned", "unknown"):
+                explicit = candidate
         if not comm:
             comm = str(row.get("comm") or "")
             exe = str(row.get("exe") or "")
@@ -500,6 +527,8 @@ def component_for_issue(issue: dict) -> str:
             frame = crash.faulting_frame(str(row.get("context") or ""))
             if frame and frame.get("module") not in ("", "n/a"):
                 fault_module = str(frame["module"])
+    if explicit:
+        return explicit
     return component_for(
         str(issue.get("vendor") or ""), "\n".join(texts), fault_module,
         comm, exe, unit, rule, subject)

@@ -548,13 +548,14 @@ def _faultcore_table(rows: list[dict], topology: dict | None = None) -> list[str
     if not crashed:
         return ["No crash rows in this cluster."]
     lines = [
-        "| time (UTC) | process | signal | allowed CPUs | fault core in mask |",
-        "|---|---|---|---|---|",
+        "| time (UTC) | component | process | signal | allowed CPUs | fault core in mask |",
+        "|---|---|---|---|---|---|",
     ]
     for c in crashed[:25]:
         verdict = {1: "yes", 0: "no", None: "unknown"}.get(c.get("faultcore_involved"), "unknown")
         lines.append(
-            f"| {c.get('ts')} | `{c.get('comm') or c.get('exe')}` | {c.get('sig')} | "
+            f"| {c.get('ts')} | `{c.get('component') or c.get('comm') or c.get('exe') or 'unassigned'}` | "
+            f"`{c.get('comm') or c.get('exe')}` | {c.get('sig')} | "
             f"`{c.get('cpus_allowed') or 'unknown'}` | {verdict} |"
         )
     lines += [

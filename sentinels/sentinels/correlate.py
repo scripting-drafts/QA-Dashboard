@@ -39,7 +39,10 @@ def component_for_crash(row: dict) -> tuple[str, str]:
     )
     if row.get("faultcore_involved") == 1 and vendor == "local":
         vendor = "hardware"  # affinity evidence names the platform, not a package
-    return vendor, (row.get("comm") or row.get("exe") or "unknown")
+    component = str(row.get("component") or "").strip()
+    if not component:
+        component = row.get("comm") or row.get("exe") or "unknown"
+    return vendor, component
 
 
 def _window(boot: dict) -> tuple[str, str]:
@@ -114,7 +117,7 @@ def clusters_for_boot(conn, boot: dict) -> list[dict]:
     ):
         row = dict(row)
         vendor, component = component_for_crash(row)
-        signature = f"{component} {row.get('sig')}"
+        signature = f"{row.get('comm') or row.get('exe') or component} {row.get('sig')}"
         bump(
             vendor, component, signature,
             row["ts"],

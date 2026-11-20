@@ -358,8 +358,9 @@ class LayerTests(unittest.TestCase):
             "INSERT INTO samples(ts,boot_id,payload) VALUES(datetime('now'),'b',?)",
             (__import__("json").dumps(payload),),
         )
-        self.assertEqual(len(detect.scan(conn)), 1)
-        self.assertEqual(detect.scan(conn), [])
+        with mock.patch.object(detect.faultcore, "findings", return_value=[]):
+            self.assertEqual(len(detect.scan(conn)), 1)
+            self.assertEqual(detect.scan(conn), [])
 
     def test_sysv_lsb_findings_are_resolved_on_noble(self):
         from sentinels import detect
@@ -1374,13 +1375,14 @@ class BootBoundaryTests(unittest.TestCase):
 
         conn = self._conn()
         self._boot(conn)
-        new = detect.scan(conn)
-        rules = [f["rule"] for f in new]
-        self.assertEqual(rules, ["boot.unclean"])
-        self.assertEqual(new[0]["severity"], "critical")
-        self.assertIn("b1", new[0]["fingerprint"])
-        # same boot never re-alerts
-        self.assertEqual(detect.scan(conn), [])
+        with mock.patch.object(detect.faultcore, "findings", return_value=[]):
+            new = detect.scan(conn)
+            rules = [f["rule"] for f in new]
+            self.assertEqual(rules, ["boot.unclean"])
+            self.assertEqual(new[0]["severity"], "critical")
+            self.assertIn("b1", new[0]["fingerprint"])
+            # same boot never re-alerts
+            self.assertEqual(detect.scan(conn), [])
 
     def test_classification_reads_shutdown_marker_only(self):
         from unittest import mock

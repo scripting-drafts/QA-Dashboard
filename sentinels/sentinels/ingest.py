@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from . import classify, config, db, shutdown
@@ -210,21 +211,30 @@ def ingest_coredumps(conn, days: int = 30) -> int:
         )
         info = info_out if info_rc == 0 else ""
         context = _journal_context(dt.timestamp())
+        full_context = f"size={size}\n" + info + "\n--- journal context ---\n" + context
+        component = classify.crash_component(
+            proc.get("comm") if proc else "",
+            exe,
+            sig,
+            full_context,
+            verdict,
+        )[1]
 
         conn.execute(
             "INSERT OR IGNORE INTO crashes"
-            "(ts,pid,comm,exe,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?)",
+            "(ts,pid,comm,exe,component,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (
                 ts_s,
                 pid,
                 proc.get("comm") if proc else None,
                 exe,
+                component,
                 sig,
                 corefile,
                 (",".join(map(str, sorted(mask))) if mask else None),
                 verdict,
-                f"size={size}\n" + info + "\n--- journal context ---\n" + context,
+                full_context,
                 fp,
             ),
         )
@@ -266,11 +276,16 @@ def ingest_minidumps(conn) -> int:
             )
             conn.execute(
                 "INSERT OR IGNORE INTO crashes"
-                "(ts,pid,comm,exe,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "(ts,pid,comm,exe,component,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     ts_s, None, "firefox-esr",
-                    "firefox-esr", "minidump", path,
+                    "firefox-esr",
+                    classify.crash_component(
+                        "firefox-esr", "firefox-esr", "minidump",
+                        f"Firefox minidump ({tag})", 1 if configured else None,
+                    )[1],
+                    "minidump", path,
                     configured,
                     1 if configured else None,
                     f"Firefox minidump ({tag}); size={st.st_size}",
@@ -281,8 +296,172 @@ def ingest_minidumps(conn) -> int:
     return added
 
 
+# ---------------------------------------------------------------- faultlab
+def _feed_lines(conn, path: str, tag: str):
+    """Yield new JSONL records from one append-only feed, byte-cursor safe."""
+    try:
+        stat = os.stat(path)
+    except OSError:
+        return
+    size = stat.st_size
+    offset_key = f"crash_feed_offset_{tag}"
+    mtime_key = f"crash_feed_mtime_{tag}"
+    try:
+        cursor = int(db.meta_get(conn, offset_key, "0") or "0")
+    except (TypeError, ValueError):
+        cursor = 0
+    try:
+        prior_mtime = int(db.meta_get(conn, mtime_key, "0") or "0")
+    except (TypeError, ValueError):
+        prior_mtime = 0
+    if size < cursor or (size <= cursor and stat.st_mtime_ns != prior_mtime):
+        cursor = 0
+    if size == cursor:
+        return
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(cursor)
+            chunk = fh.read(1_048_576)
+            end = fh.tell()
+    except OSError:
+        return
+    if len(chunk) == 1_048_576:
+        cut = chunk.rfind(b"\n")
+        if cut >= 0:
+            chunk = chunk[:cut + 1]
+            end = cursor + len(chunk)
+    db.meta_set(conn, offset_key, str(end))
+    db.meta_set(conn, mtime_key, str(stat.st_mtime_ns))
+    for raw in chunk.splitlines():
+        try:
+            record = json.loads(raw.decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        if isinstance(record, dict):
+            yield record
+
+
+def ingest_crash_feed(conn) -> int:
+    """Ingest an optional external crash feed.
+
+    The feed is a JSONL producer contract: process, signal/kind, affinity,
+    attribution and a bounded context block.  QA Sentinels re-derives the
+    component with the same evidence rules used for tickets, then stores it
+    alongside the row.  An explicit producer may be faultlab-crashd; QA does
+    not import or execute it, and with no feed configured this returns 0.
+    """
+    if not config.CRASH_FEED_ENABLED:
+        return 0
+    paths = list(config.CRASH_FEED_PATHS)
+    seen_paths: set[str] = set()
+    added = 0
+    for path in paths:
+        text_path = str(path)
+        if text_path in seen_paths:
+            continue
+        seen_paths.add(text_path)
+        tag = sha256_text(text_path)[:12]
+        for record in _feed_lines(conn, text_path, tag):
+            if not str(record.get("schema", "")).startswith(
+                ("faultlab.crash", "qa.crashfeed")
+            ):
+                continue
+            incident_id = str(record.get("id") or "").strip()
+            if not incident_id:
+                continue
+            kind = str(record.get("kind") or "crash").strip()
+            comm = str(record.get("comm") or "").strip()
+            exe = str(record.get("exe") or "").strip()
+            if not comm and exe:
+                comm = exe.rstrip("/").rsplit("/", 1)[-1]
+            if not comm:
+                comm = "kernel" if kind in (
+                    "mce", "oops", "panic", "lockup", "warning", "thermal"
+                ) else "unknown"
+            sig = str(record.get("sig") or kind or "crash").strip()
+            cpus_allowed = str(record.get("cpus_allowed") or "").strip()
+            mask = parse_cpu_list(cpus_allowed)
+            involved = record.get("faultcore_involved")
+            if involved in (0, 1):
+                involved = int(involved)
+            elif str(involved) in ("0", "1"):
+                involved = int(str(involved))
+            else:
+                involved = faultcore_verdict(mask)
+            ctx = str(record.get("context") or "")
+            occurrences = record.get("occurrences")
+            if occurrences not in (None, "", 1, "1"):
+                ctx += f"\noccurrences={occurrences}"
+            ctx = ctx[:24000]
+            feed_component = str(record.get("component") or "").strip()
+            _vendor, component = classify.crash_component(
+                comm, exe, sig, ctx, involved)
+            if not component or component == "unassigned":
+                component = feed_component or component
+            pid = record.get("pid")
+            try:
+                pid = int(pid) if pid is not None else None
+            except (TypeError, ValueError):
+                pid = None
+            ts = str(record.get("ts") or iso())
+            fingerprint = str(
+                record.get("fingerprint") or f"crash-feed|{incident_id}"
+            )
+            try:
+                cur = conn.execute(
+                    "INSERT INTO crashes"
+                    "(ts,pid,comm,exe,component,sig,corefile,cpus_allowed,"
+                    " faultcore_involved,context,fingerprint)"
+                    " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+                    " ON CONFLICT(fingerprint) DO UPDATE SET"
+                    " ts=excluded.ts, pid=excluded.pid, comm=excluded.comm,"
+                    " exe=excluded.exe, component=excluded.component,"
+                    " sig=excluded.sig, corefile=excluded.corefile,"
+                    " cpus_allowed=excluded.cpus_allowed,"
+                    " faultcore_involved=COALESCE(excluded.faultcore_involved,"
+                    " crashes.faultcore_involved),"
+                    " context=excluded.context",
+                    (
+                        ts, pid, comm, exe, component, sig,
+                        str(record.get("corefile") or record.get("incident_dir") or ""),
+                        cpus_allowed, involved, ctx, fingerprint,
+                    ),
+                )
+            except sqlite3.Error as exc:
+                raise RuntimeError(f"crash feed insert failed: {exc}") from exc
+            added += cur.rowcount
+    db.meta_set(conn, "last_crash_feed_ingest", iso())
+    return added
+
+
+def backfill_crash_components(conn, limit: int = 500) -> int:
+    """Populate the component column for crash rows captured before it existed."""
+    rows = conn.execute(
+        "SELECT id, comm, exe, sig, context, faultcore_involved FROM crashes"
+        " WHERE component IS NULL OR component='' ORDER BY id LIMIT ?",
+        (limit,),
+    ).fetchall()
+    updated = 0
+    for row in rows:
+        component = classify.crash_component(
+            row["comm"] or "", row["exe"] or "", row["sig"] or "",
+            row["context"] or "", row["faultcore_involved"],
+        )[1]
+        conn.execute(
+            "UPDATE crashes SET component=? WHERE id=?",
+            (component or "unassigned", row["id"]),
+        )
+        updated += 1
+    return updated
+
+
 def ingest_all(conn) -> dict:
-    result = {"journal": 0, "shutdown": 0, "coredumps": 0, "minidumps": 0}
+    result = {"journal": 0, "shutdown": 0, "coredumps": 0, "minidumps": 0,
+              "components_backfilled": 0}
+    try:
+        result["components_backfilled"] = backfill_crash_components(conn)
+    except Exception as exc:  # noqa: BLE001
+        result["component_backfill_error"] = str(exc)[:300]
     try:
         result["journal"] = ingest_journal(conn)
     except Exception as exc:  # noqa: BLE001 - one source must not stop the others
@@ -299,4 +478,9 @@ def ingest_all(conn) -> dict:
         result["minidumps"] = ingest_minidumps(conn)
     except Exception as exc:  # noqa: BLE001
         result["minidump_error"] = str(exc)[:300]
+    if config.CRASH_FEED_ENABLED:
+        try:
+            result["crash_feed"] = ingest_crash_feed(conn)
+        except Exception as exc:  # noqa: BLE001
+            result["crash_feed_error"] = str(exc)[:300]
     return result

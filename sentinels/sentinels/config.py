@@ -266,6 +266,45 @@ FAULT_CORE_AB_RESULTS = pathlib.Path(os.environ.get(
     "QA_FAULT_CORE_AB_RESULTS", os.environ.get("QA_CORE2_AB_RESULTS", "/var/log/faultlab/ab.jsonl")
 ))
 
+# Optional external crash feed.  QA Sentinels does not require faultlab: the
+# feed is enabled automatically when an explicit path is configured, when the
+# optional faultlab integration is active, or when a producer has already
+# created one of the default feed files.  With no producer and no config, the
+# path list is empty and ingest does not touch the filesystem for this source.
+CRASH_FEED_SYSTEM_DEFAULT = pathlib.Path(
+    os.environ.get(
+        "QA_CRASH_FEED_DEFAULT",
+        "/var/log/faultlab/crashes.jsonl" if sys.platform.startswith("linux")
+        else VAR / "crash-feed.jsonl",
+    )
+)
+CRASH_FEED_USER_DEFAULT = pathlib.Path(
+    os.environ.get(
+        "QA_CRASH_FEED_USER_DEFAULT",
+        str(HOME / "faultlab-crashes" / "qa.jsonl"),
+    )
+)
+_explicit_feed = (
+    os.environ.get("QA_CRASH_FEED")
+    or os.environ.get("QA_FAULTLAB_CRASH_RESULTS")
+    or os.environ.get("QA_CORE2_CRASH_RESULTS")
+)
+_explicit_user_feed = os.environ.get("QA_CRASH_FEED_USER") or os.environ.get(
+    "QA_FAULTLAB_CRASH_USER_RESULTS"
+)
+_feed_auto = bool(FAULT_CORE_ENABLE and FAULT_CORE_CPUS)
+_feed_paths: list[pathlib.Path] = []
+if _explicit_feed:
+    _feed_paths.append(pathlib.Path(_explicit_feed))
+elif _feed_auto or CRASH_FEED_SYSTEM_DEFAULT.is_file():
+    _feed_paths.append(CRASH_FEED_SYSTEM_DEFAULT)
+if _explicit_user_feed:
+    _feed_paths.append(pathlib.Path(_explicit_user_feed))
+elif _feed_auto or CRASH_FEED_USER_DEFAULT.is_file():
+    _feed_paths.append(CRASH_FEED_USER_DEFAULT)
+CRASH_FEED_PATHS = tuple(dict.fromkeys(_feed_paths))
+CRASH_FEED_ENABLED = bool(CRASH_FEED_PATHS)
+
 # security provenance: live process scan every cycle, file ownership less often.
 SECURITY_FILE_SCAN_S = int(os.environ.get("QA_SECURITY_FILE_SCAN_S", "300"))
 SECURITY_AUDIT = os.environ.get("QA_SECURITY_AUDIT", "1").lower() in ("1", "yes", "true", "on")

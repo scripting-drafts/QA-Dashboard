@@ -53,7 +53,7 @@ def _candidate_from_crash(row) -> dict:
         "verdict": _crash_verdict(row["faultcore_involved"]),
         "process": proc,
         "signature": f"{proc} {row['sig']}",
-        "detail": row["context"] or "",
+        "detail": f"component: {row.get('component') or proc}\n{row['context'] or ''}",
         "affinity": row["cpus_allowed"] or "unknown",
         "event_ts": row["ts"],
     }

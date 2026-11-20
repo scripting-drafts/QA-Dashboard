@@ -105,7 +105,7 @@ CATEGORIES: dict[str, dict[str, str]] = {
         "label": "Crashes",
         "description": "Captured crashes and whether the fault core was involved.",
         "sql": (
-            "SELECT id, ts, comm, sig, faultcore_involved, cpus_allowed, exe, "
+            "SELECT id, ts, comm, component, sig, faultcore_involved, cpus_allowed, exe, "
             "fingerprint, context, pid, corefile "
             "FROM crashes ORDER BY ts DESC, id DESC LIMIT {limit}"
         ),
@@ -574,17 +574,18 @@ def _filtered_category_sql(
         params = []
         if search:
             clauses.append(
-                "(comm LIKE ? ESCAPE '\\' OR sig LIKE ? ESCAPE '\\' "
+                "(comm LIKE ? ESCAPE '\\' OR component LIKE ? ESCAPE '\\' "
+                "OR sig LIKE ? ESCAPE '\\' "
                 "OR exe LIKE ? ESCAPE '\\' OR context LIKE ? ESCAPE '\\' "
                 "OR fingerprint LIKE ? ESCAPE '\\')")
             pattern = _like(search)
-            params.extend([pattern, pattern, pattern, pattern, pattern])
+            params.extend([pattern, pattern, pattern, pattern, pattern, pattern])
         if since:
             clauses.append("ts >= ?")
             params.append(since)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         return (
-            "SELECT id, ts, comm, sig, faultcore_involved, cpus_allowed, exe, "
+            "SELECT id, ts, comm, component, sig, faultcore_involved, cpus_allowed, exe, "
             "fingerprint, context, pid, corefile "
             f"FROM crashes{where} "
             f"ORDER BY ts DESC, id DESC LIMIT {limit}",

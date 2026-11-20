@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS crashes (
     pid INTEGER,
     comm TEXT,
     exe TEXT,
+    component TEXT,
     sig TEXT,
     corefile TEXT,
     cpus_allowed TEXT,
@@ -404,6 +405,9 @@ def init() -> None:
         ccols = {r["name"] for r in conn.execute("PRAGMA table_info(correlations)")}
         if ccols and "display" not in ccols:
             conn.execute("ALTER TABLE correlations ADD COLUMN display TEXT")
+        crcols = {r["name"] for r in conn.execute("PRAGMA table_info(crashes)")}
+        if crcols and "component" not in crcols:
+            conn.execute("ALTER TABLE crashes ADD COLUMN component TEXT")
         ncols = {r["name"] for r in conn.execute("PRAGMA table_info(notifications)")}
         for column, ddl in (
             ("path", "TEXT"),

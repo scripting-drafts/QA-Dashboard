@@ -123,7 +123,8 @@ def _crash_findings(conn, since: str) -> list[dict]:
                 "rule": rule,
                 "severity": severity,
                 "subject": subject,
-                "detail": f"{row['sig']} affinity={row['cpus_allowed'] or 'unknown'} "
+                "detail": f"{row['sig']} component={row.get('component') or subject} "
+                          f"affinity={row['cpus_allowed'] or 'unknown'} "
                           f"fault_core={row['faultcore_involved']}{held_note}",
                 "case_id": _case_id(conn, subject),
             }

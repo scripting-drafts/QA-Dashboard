@@ -53,10 +53,10 @@ def resolve(conn, query: str, limit: int = 200) -> dict:
     ]
     out["crashes"] = [
         dict(r) for r in conn.execute(
-            "SELECT ts, comm, exe, sig, cpus_allowed, faultcore_involved, fingerprint"
-            " FROM crashes WHERE sig LIKE ? OR comm LIKE ? OR exe LIKE ?"
+            "SELECT ts, comm, component, exe, sig, cpus_allowed, faultcore_involved, fingerprint"
+            " FROM crashes WHERE sig LIKE ? OR comm LIKE ? OR component LIKE ? OR exe LIKE ?"
             " ORDER BY ts DESC LIMIT ?",
-            (like, like, like, limit),
+            (like, like, like, like, limit),
         )
     ]
     out["boots"] = [

@@ -1,3 +1,24 @@
+qa-sentinels (1.4.2) jammy; urgency=medium
+
+  * Ingest an optional external crash feed, auto-detected from an explicit
+    `QA_CRASH_FEED` path, an active faultlab configuration, or an existing
+    producer feed file. QA Sentinels does not require faultlab and does not
+    probe the feed paths when no producer is configured. A byte cursor and
+    fingerprint upsert prevent replay and duplicates.
+  * Store the resolved `crashes.component` label at ingest. Fault-core
+    crashes with no package owner become `CPU / platform`, kernel MCE/oops
+    becomes `linux (Ubuntu)`, and known processes/modules keep their project
+    label.
+  * Show the stored component in crash queries, reports and fault-core tables;
+    prefer it in ticket component selection.
+  * Preserve the producer's bounded crash context (trigger lines and coredump
+    stack) without the coredump environment block or command line.
+  * Add feed, cursor, component and ticket-label tests; document the optional
+    feed and `QA_CRASH_FEED` / `QA_CRASH_FEED_USER` (legacy
+    `QA_FAULTLAB_CRASH_*` aliases).
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 13:00:00 +0100
+
 qa-sentinels (1.4.1) jammy; urgency=medium
 
   * Make component inference total and evidence-first: faulting module

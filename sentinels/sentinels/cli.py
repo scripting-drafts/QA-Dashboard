@@ -745,6 +745,11 @@ def cmd_status(args) -> int:
         print(f"{config.PROJECT_NAME} status")
         print(f"  last sample   : {db.meta_get(conn, 'last_sample_ts') or 'never'}")
         print(f"  last ingest   : {db.meta_get(conn, 'last_journal_ingest') or 'never'}")
+        if config.CRASH_FEED_ENABLED:
+            print(
+                f"  last crash feed: "
+                f"{db.meta_get(conn, 'last_crash_feed_ingest') or 'never'}"
+            )
         print(f"  last inventory: {db.meta_get(conn, 'last_inventory_ts') or 'never'}")
         print(f"  last hardware : {db.meta_get(conn, 'last_hardware_ts') or 'never'}")
         print(f"  last lsm      : {db.meta_get(conn, 'last_lsm_ts') or 'never'}")

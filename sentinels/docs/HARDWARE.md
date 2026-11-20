@@ -202,11 +202,42 @@ the policy rules above still report retired/lab drift.
 byte cursor, so restarts do not replay old results. MCE/EDAC events keep their
 existing `kernel.hardware`, `hardware.edac.ue` and `hardware.edac.ce` rules.
 
+### External crash feed (optional)
+
+QA Sentinels can ingest a JSONL crash feed from any producer; `faultlab-crashd`
+is one implementation. No producer is required: with no feed configured and no
+faultlab configuration present, this source is disabled and the filesystem is
+not probed.
+
+The feed is enabled automatically when one of these is true:
+
+- `QA_CRASH_FEED` or `QA_CRASH_FEED_USER` is set;
+- faultlab integration is active (`/etc/faultlab/config` or
+  `QA_FAULT_CORE_CPUS`), which selects
+  `/var/log/faultlab/crashes.jsonl` and `~/faultlab-crashes/qa.jsonl`;
+- a producer has already created one of the default feed files.
+
+The byte-cursor ingest inserts each row into `crashes` and stores an explicit
+`component` label:
+
+| Evidence | Component |
+|---|---|
+| fault-core affinity with no package owner | `CPU / platform` |
+| kernel MCE/oops/panic | `linux (Ubuntu)` |
+| known process (GNOME, Firefox, NVIDIA, systemd) | project or process component |
+| coredump with a faulting project module | module's project |
+
+The component is computed with the same `classify.crash_component` rules used
+for ticket drafts, so `qa query --category crashes` and reports show the label
+instead of only a process name. A repeat occurrence updates the existing
+`crashes` row by fingerprint and appends `occurrences=N` to its context.
+
 Environment: `QA_FAULTLAB_CONFIG`, `QA_FAULT_CPU`, `QA_FAULT_CORE_CPUS`,
 `QA_FAULT_CORE_PHYSICAL_ID`, `QA_FAULT_CORE_ENABLE`, `QA_FAULT_CORE_ENFORCE`,
 `QA_FAULT_CORE_MODE_FILE`, `QA_FAULT_CORE_CPU_ROOT`,
-`QA_FAULT_CORE_CGROUP_ROOT`, `QA_FAULT_CORE_AB_RESULTS`. Legacy `QA_CORE2_*`
-variables are accepted as aliases.
+`QA_FAULT_CORE_CGROUP_ROOT`, `QA_FAULT_CORE_AB_RESULTS`,
+`QA_CRASH_FEED`, `QA_CRASH_FEED_USER`. Legacy `QA_CORE2_*` and
+`QA_FAULTLAB_CRASH_*` variables are accepted as aliases.
 
 ## Limits
 
