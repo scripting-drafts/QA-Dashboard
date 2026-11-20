@@ -18,6 +18,8 @@ under `sentinels/`; Windows and macOS bundle definitions live in `packaging/`.
 separate `qa-sentinels` package; only Windows and macOS bundle the engine.
 See `docs/DOWNLOADS.md` for PPA and platform downloads.
 
+The complete QA Sentinels rule register is in `docs/RULES.md`.
+
 ![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/overview.png)
 ![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/tickets.png)
 ![](https://github.com/scripting-drafts/QA-Dashboard/blob/main/docs/screenshots/database.png)

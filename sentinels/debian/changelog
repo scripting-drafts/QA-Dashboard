@@ -19,6 +19,8 @@ qa-sentinels (1.4.2) jammy; urgency=medium
   * Surface non-critical kernel watch findings: stale eBPF builds, NOHZ
     tick-stop warnings, disabled KHO, Bluetooth hci0 firmware errors, and
     NVIDIA DRM flip timeouts. Repeated events are grouped at warning severity.
+  * Document every finding rule, severity, default threshold, and operational
+    check in docs/RULES.md.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 17:30:00 +0100
 
