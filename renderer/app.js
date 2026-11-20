@@ -36,6 +36,7 @@ let logsReady = false;
 let logsLastSeq = 0;
 let logsPending = [];
 let logsFindTimer = null;
+let logsFindKeepFocus = false;
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -997,6 +998,7 @@ function showLogsFind() {
   const bar = $("#logs-find");
   if (!bar) return;
   bar.hidden = false;
+  logsFindKeepFocus = true;
   const input = $("#logs-find-input");
   if (input) {
     input.focus();
@@ -1004,9 +1006,22 @@ function showLogsFind() {
   }
 }
 
+function restoreLogsFindFocus() {
+  if (!logsFindKeepFocus) return;
+  const bar = $("#logs-find");
+  const input = $("#logs-find-input");
+  if (!bar || bar.hidden || !input) return;
+  const active = document.activeElement;
+  if (active && active !== document.body && bar.contains(active)) return;
+  input.focus({ preventScroll: true });
+  const end = input.value.length;
+  input.setSelectionRange(end, end);
+}
+
 function closeLogsFind() {
   const bar = $("#logs-find");
   if (!bar || bar.hidden) return;
+  logsFindKeepFocus = false;
   bar.hidden = true;
   setLogsFindStatus("");
   if (logsFindTimer) {
@@ -1038,10 +1053,13 @@ async function findInLogs(forward = true, findNext = false) {
   } catch (error) {
     setLogsFindStatus("Find failed");
     toast(String(error.message || error), true);
+  } finally {
+    restoreLogsFindFocus();
   }
 }
 
 function scheduleLogsFind() {
+  logsFindKeepFocus = true;
   if (logsFindTimer) clearTimeout(logsFindTimer);
   logsFindTimer = setTimeout(() => {
     logsFindTimer = null;
@@ -1065,6 +1083,7 @@ function handleLogsFindKey(event) {
   }
   if (event.key === "Enter" && event.target === $("#logs-find-input")) {
     event.preventDefault();
+    logsFindKeepFocus = true;
     findInLogs(!event.shiftKey, true);
   }
 }
@@ -1188,9 +1207,23 @@ function bind() {
     "click", () => window.qa.openModule("logs"));
 
   $("#logs-find-input").addEventListener("input", scheduleLogsFind);
-  $("#logs-find-prev").addEventListener("click", () => findInLogs(false, true));
-  $("#logs-find-next").addEventListener("click", () => findInLogs(true, true));
+  $("#logs-find-input").addEventListener("focus", () => {
+    logsFindKeepFocus = true;
+  });
+  $("#logs-find-prev").addEventListener("click", () => {
+    logsFindKeepFocus = true;
+    findInLogs(false, true);
+  });
+  $("#logs-find-next").addEventListener("click", () => {
+    logsFindKeepFocus = true;
+    findInLogs(true, true);
+  });
   $("#logs-find-close").addEventListener("click", closeLogsFind);
+  document.addEventListener("pointerdown", (event) => {
+    const bar = $("#logs-find");
+    if (!bar || bar.hidden) return;
+    if (!bar.contains(event.target)) logsFindKeepFocus = false;
+  }, true);
   document.addEventListener("keydown", handleLogsFindKey);
 
   $("#findings-refresh").addEventListener("click", loadFindings);
@@ -1213,6 +1246,7 @@ function bind() {
         } else {
           setLogsFindStatus("No matches");
         }
+        restoreLogsFindFocus();
       }
     }
     if (payload.scope === "sentinels") {
