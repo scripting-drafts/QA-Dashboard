@@ -77,7 +77,12 @@ test("Rules sits before Documentation and renders the rule register", () => {
   const rules = fs.readFileSync(
     path.join(root, "renderer", "rules.html"), "utf8");
   assert.match(rules, /data-module="rules"/);
-  assert.match(rules, /<h2>QA Sentinels Rules and Checks<\/h2>/);
+  assert.match(rules, /<h2>Rules and Checks<\/h2>/);
+  assert.doesNotMatch(rules, /<h2>QA Sentinels /);
+  const docs = fs.readFileSync(
+    path.join(root, "renderer", "docs.html"), "utf8");
+  assert.match(docs, /<h2>Documentation<\/h2>/);
+  assert.doesNotMatch(docs, /<h2>QA Sentinels /);
   assert.match(rules, /<table class="rules-table">/);
   for (const rule of [
     "security.root_from_user_parent", "faultcore.isolation.unfenced",
