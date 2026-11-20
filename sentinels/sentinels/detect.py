@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from datetime import timedelta
 
-from . import boot, classify, compat, config, faultcore, db, holds, triage
+from . import boot, classify, compat, config, deep, faultcore, db, holds, triage
 from .util import iso, parse_iso, sha256_text, utcnow
 
 # journal rules, highest severity first
@@ -34,6 +34,24 @@ EVENT_RULES = [
      re.compile(r"(?i)\bFailed to stop\b")),
     ("systemd.shutdown", "error",
      re.compile(r"(?i)\bFailed to (?:finalize|kill|send|wait|enqueue|isolate|switch)\b")),
+    # Non-critical kernel conditions that are useful context but not faults.
+    ("kernel.kho", "warning",
+     re.compile(r"(?i)KHO: Failed to reserve (?:lowmem scratch buffer|"
+                r"scratch area, disabling kexec handover)")),
+    ("kernel.bluetooth", "warning",
+     re.compile(r"(?i)Bluetooth: hci0: (?:FW download error|sending frame failed|"
+                r"Reading supported features failed|"
+                r"Failed to read MSFT supported features)")),
+    ("gpu.drm.timeout", "warning",
+     re.compile(r"(?i)Flip event timeout|nv_drm.*\*ERROR\*")),
+]
+
+# Warnings are normally not turned into findings. These explicit watch rules
+# are the exception: they describe a known non-critical state the operator
+# should still see.
+WATCH_RULES = [
+    ("kernel.nohz", "warning",
+     re.compile(r"(?i)NOHZ tick-stop error")),
 ]
 
 
@@ -47,7 +65,16 @@ SELF_NOISE = re.compile(
 # five-minute journal bucket.  Group them by stable signature.
 GROUPED_EVENT_RULES = {
     "systemd.service_start", "systemd.unmount", "systemd.unit_stop",
-    "systemd.shutdown",
+    "systemd.shutdown", "kernel.nohz", "kernel.kho", "kernel.bluetooth",
+    "gpu.drm.timeout",
+}
+
+# Persistent conditions should produce one finding, not one per journal line.
+GROUP_SIGNATURES = {
+    "kernel.nohz": "NOHZ tick-stop error",
+    "kernel.kho": "KHO disabled",
+    "kernel.bluetooth": "Bluetooth hci0 firmware",
+    "gpu.drm.timeout": "NVIDIA DRM flip timeout",
 }
 
 
@@ -90,6 +117,31 @@ def _upsert(conn, finding: dict) -> dict | None:
 def upsert(conn, finding: dict) -> dict | None:
     """Public wrapper used by security and other layer-1 rule sets."""
     return _upsert(conn, finding)
+
+
+def runtime_findings(conn) -> list[dict]:
+    """Surface a stale eBPF build as a non-critical finding."""
+    ok, detail = deep.ebpf_state()
+    if ok or detail == "missing":
+        conn.execute(
+            "UPDATE findings SET status='resolved'"
+            " WHERE rule='deep.ebpf.stale' AND status='open'"
+        )
+        return []
+    created = _upsert(conn, {
+        "fingerprint": "runtime|ebpf|stale",
+        "ts": iso(),
+        "last_ts": iso(),
+        "rule": "deep.ebpf.stale",
+        "severity": "warning",
+        "subject": "eBPF tracer",
+        "detail": (
+            f"eBPF tracer is not usable: {detail}; "
+            "rebuild it with root/ebpf/build.sh"
+        ),
+        "case_id": None,
+    })
+    return [created] if created else []
 
 
 def _crash_findings(conn, since: str) -> list[dict]:
@@ -136,8 +188,8 @@ def _event_findings(conn, since: str) -> list[dict]:
     out = []
     grouped: dict[tuple[str, str], dict] = {}
     for row in conn.execute(
-        "SELECT * FROM events WHERE ts>=? AND severity IN ('critical','error')"
-        " ORDER BY ts DESC LIMIT 5000",
+        "SELECT * FROM events WHERE ts>=? AND severity IN"
+        " ('critical','error','warning') ORDER BY ts DESC LIMIT 5000",
         (since,),
     ):
         msg = row["message"] or ""
@@ -146,7 +198,9 @@ def _event_findings(conn, since: str) -> list[dict]:
         if compat.ignore_sysv_failure(msg):
             continue
         matched = False
-        for rule, severity, pattern in EVENT_RULES:
+        rules = (WATCH_RULES if row["severity"] == "warning"
+                 else WATCH_RULES + EVENT_RULES)
+        for rule, severity, pattern in rules:
             if pattern.search(msg):
                 matched = True
                 break
@@ -155,8 +209,14 @@ def _event_findings(conn, since: str) -> list[dict]:
                 continue
             rule, severity = "journal.critical", "warning"
         unit = (row["unit"] or "").split(".")[0]
+        if rule.startswith("kernel."):
+            subject = "kernel"
+        elif rule == "gpu.drm.timeout":
+            subject = "nvidia-drm"
+        else:
+            subject = unit or "kernel"
         if rule in GROUPED_EVENT_RULES:
-            signature = classify.signature(msg, 200)
+            signature = GROUP_SIGNATURES.get(rule) or classify.signature(msg, 200)
             key = (rule, signature)
             item = grouped.get(key)
             if item is None:
@@ -166,7 +226,7 @@ def _event_findings(conn, since: str) -> list[dict]:
                     "last_ts": row["last_ts"] or row["ts"],
                     "rule": rule,
                     "severity": severity,
-                    "subject": unit or "kernel",
+                    "subject": subject,
                     "detail": msg,
                     "count": int(row["count"] or 1),
                     "case_id": _case_id(conn, unit, msg),
@@ -187,7 +247,7 @@ def _event_findings(conn, since: str) -> list[dict]:
                 "last_ts": row["last_ts"] or row["ts"],
                 "rule": rule,
                 "severity": severity,
-                "subject": unit or "kernel",
+                "subject": subject,
                 "detail": msg,
                 "case_id": _case_id(conn, unit, msg),
             }
@@ -284,8 +344,10 @@ def scan(conn, hours: int = 24) -> list[dict]:
     )
     # New rule sets must see the events that predate their deployment.  The
     # one-time backfill also updates existing findings instead of duplicating
-    # them, because every rule fingerprints by its own evidence.
-    backfill = not db.meta_get(conn, "event_rules_backfill_v1")
+    # them, because every rule fingerprints by its own evidence.  Bump the
+    # marker whenever a rule set adds new watch patterns.
+    backfill_key = "event_rules_backfill_v2"
+    backfill = not db.meta_get(conn, backfill_key)
     if backfill:
         window = (now - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
         since = min(since, window)
@@ -304,7 +366,7 @@ def scan(conn, hours: int = 24) -> list[dict]:
     resolve_sysv_findings(conn)
     db.meta_set(conn, "last_finding_scan", iso(now))
     if backfill:
-        db.meta_set(conn, "event_rules_backfill_v1", iso(now))
+        db.meta_set(conn, backfill_key, iso(now))
     return new
 
 

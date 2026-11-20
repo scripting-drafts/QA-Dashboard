@@ -20,6 +20,28 @@ from datetime import timedelta
 from . import config, db
 from .util import iso, parse_iso, read_text, run, sha256_file, sha256_text, utcnow, write_json
 
+def ebpf_state() -> tuple[bool, str]:
+    """Validate the built eBPF loader against the running kernel."""
+    binary = config.BIN / "qa_ebpf"
+    obj = config.BIN / "qa_trace.bpf.o"
+    if not binary.exists() or not obj.exists():
+        return False, "missing"
+    try:
+        stamp = json.loads(read_text(config.BIN / "qa_ebpf.build.json"))
+    except ValueError:
+        return False, "missing build stamp"
+    if stamp.get("kernel_release") != os.uname().release:
+        return False, (
+            f"built for {stamp.get('kernel_release', '?')}, "
+            f"host is {os.uname().release}"
+        )
+    if stamp.get("binary_sha256") != sha256_file(binary):
+        return False, "loader changed since build"
+    if stamp.get("object_sha256") != sha256_file(obj):
+        return False, "BPF object changed since build"
+    return True, "built for this kernel"
+
+
 CAP_BITS = {
     "CAP_DAC_OVERRIDE": 1,
     "CAP_DAC_READ_SEARCH": 2,

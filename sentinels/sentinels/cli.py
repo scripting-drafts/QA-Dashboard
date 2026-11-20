@@ -19,7 +19,7 @@ from . import (
     platform as platform_mod, platform_cycle, posture, query, raise_ticket,
     report, sampler, security, shutdown, tickets, trace, triage,
 )
-from .util import fmt_duration, iso, parse_iso, read_text, run, sha256_file, utcnow
+from .util import fmt_duration, iso, parse_iso, read_text, run, utcnow
 
 CRON_BEGIN = "# >>> qa-sentinels >>>"
 CRON_END = "# <<< qa-sentinels <<<"
@@ -972,11 +972,14 @@ def cmd_preflight(args) -> int:
             "arm with: bin/qa deploy-layer2"
         )
     print(f"[info] layer-2 tracing: {layer2}")
-    print(
-        "[info] eBPF tracer: "
-        + ("built" if (config.BIN / "qa_ebpf").exists() else
-           "not built; run root/ebpf/bootstrap-ebpf.sh then root/ebpf/build.sh")
-    )
+    ebpf_ok, ebpf_detail = _ebpf_state()
+    if ebpf_ok:
+        ebpf_text = "built for this kernel"
+    elif ebpf_detail == "missing":
+        ebpf_text = "not built; run root/ebpf/bootstrap-ebpf.sh then root/ebpf/build.sh"
+    else:
+        ebpf_text = f"stale: {ebpf_detail}; rebuild with root/ebpf/build.sh"
+    print(f"[info] eBPF tracer: {ebpf_text}")
     return 1 if failed else 0
 
 
@@ -1030,21 +1033,7 @@ def _run_layer2_installer(user: str | None = None) -> tuple[int, str, str]:
 
 
 def _ebpf_state() -> tuple[bool, str]:
-    binary = config.BIN / "qa_ebpf"
-    obj = config.BIN / "qa_trace.bpf.o"
-    if not binary.exists() or not obj.exists():
-        return False, "missing"
-    try:
-        stamp = json.loads(read_text(config.BIN / "qa_ebpf.build.json"))
-    except ValueError:
-        return False, "missing build stamp"
-    if stamp.get("kernel_release") != os.uname().release:
-        return False, f"built for {stamp.get('kernel_release', '?')}, host is {os.uname().release}"
-    if stamp.get("binary_sha256") != sha256_file(binary):
-        return False, "loader changed since build"
-    if stamp.get("object_sha256") != sha256_file(obj):
-        return False, "BPF object changed since build"
-    return True, "built for this kernel"
+    return deep.ebpf_state()
 
 
 def _ensure_ebpf(skip: bool) -> tuple[bool, str]:
@@ -1443,7 +1432,7 @@ def cmd_cycle(args) -> int:
         # Layer 1 detection: turn new raw evidence into explicit findings and,
         # when severe, queue layer-2 deep tracing and seal a layer-1 bundle.
         try:
-            new_findings = detect.scan(conn)
+            new_findings = detect.scan(conn) + detect.runtime_findings(conn)
             if new_findings:
                 findings_dirty = True
                 counts: dict[str, int] = {}

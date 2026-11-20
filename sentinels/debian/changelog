@@ -16,8 +16,11 @@ qa-sentinels (1.4.2) jammy; urgency=medium
   * Add feed, cursor, component and ticket-label tests; document the optional
     feed and `QA_CRASH_FEED` / `QA_CRASH_FEED_USER` (legacy
     `QA_FAULTLAB_CRASH_*` aliases).
+  * Surface non-critical kernel watch findings: stale eBPF builds, NOHZ
+    tick-stop warnings, disabled KHO, Bluetooth hci0 firmware errors, and
+    NVIDIA DRM flip timeouts. Repeated events are grouped at warning severity.
 
- -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 13:00:00 +0100
+ -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 17:30:00 +0100
 
 qa-sentinels (1.4.1) jammy; urgency=medium
 

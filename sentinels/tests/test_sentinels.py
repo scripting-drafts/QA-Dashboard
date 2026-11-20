@@ -349,6 +349,60 @@ class LayerTests(unittest.TestCase):
                          "memory.pressure", "io.pressure", "thermal.high"):
             self.assertIn(expected, rules)
 
+    def test_noncritical_kernel_warnings_become_findings(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        messages = [
+            ("error",
+             "NOHZ tick-stop error: local softirq work is pending, handler #200!!!"),
+            ("error", "KHO: Failed to reserve lowmem scratch buffer"),
+            ("error",
+             "KHO: Failed to reserve scratch area, disabling kexec handover"),
+            ("error", "Bluetooth: hci0: FW download error recovery failed (-19)"),
+            ("error",
+             "[drm:nv_drm_atomic_commit [nvidia_drm]] *ERROR* "
+             "[nvidia-drm] [GPU ID 0x00000a00] Flip event timeout on head 0"),
+        ]
+        for index, (severity, message) in enumerate(messages):
+            conn.execute(
+                "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,"
+                "message,fingerprint,raw) VALUES(datetime('now'),'b','kernel',"
+                "?,'kernel',1,'kernel',?,?,'{}')",
+                (severity, message, f"fp-{index}"),
+            )
+        with mock.patch.object(detect.faultcore, "findings", return_value=[]), \
+             mock.patch.object(detect.boot, "findings", return_value=[]):
+            new = detect.scan(conn)
+        by_rule = {finding["rule"]: finding for finding in new}
+        for rule in ("kernel.nohz", "kernel.kho", "kernel.bluetooth",
+                     "gpu.drm.timeout"):
+            self.assertIn(rule, by_rule)
+            self.assertEqual(by_rule[rule]["severity"], "warning")
+        self.assertIn("2 occurrence", by_rule["kernel.kho"]["detail"])
+
+    def test_stale_ebpf_build_is_a_warning_finding(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        with mock.patch.object(
+            detect.deep, "ebpf_state",
+            return_value=(False, "built for 6.8.0-1, host is 7.0.0-44"),
+        ):
+            new = detect.runtime_findings(conn)
+        self.assertEqual(len(new), 1)
+        self.assertEqual(new[0]["rule"], "deep.ebpf.stale")
+        self.assertEqual(new[0]["severity"], "warning")
+        self.assertIn("root/ebpf/build.sh", new[0]["detail"])
+        with mock.patch.object(
+            detect.deep, "ebpf_state", return_value=(True, "built for this kernel")
+        ):
+            self.assertEqual(detect.runtime_findings(conn), [])
+        row = conn.execute(
+            "SELECT status FROM findings WHERE rule='deep.ebpf.stale'"
+        ).fetchone()
+        self.assertEqual(row["status"], "resolved")
+
     def test_layer1_dedupes_repeated_findings(self):
         from sentinels import detect
 
