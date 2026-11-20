@@ -36,7 +36,10 @@ let logsReady = false;
 let logsLastSeq = 0;
 let logsPending = [];
 let logsFindTimer = null;
-let logsFindKeepFocus = false;
+let logsFindRefreshTimer = null;
+let logsFindMatches = [];
+let logsFindIndex = 0;
+let logsFindTruncated = false;
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -77,10 +80,12 @@ function append(pre, line, limit = 4000) {
   if (lines.length > limit) {
     pre.textContent = lines.slice(-limit).join("\n");
   }
-  pre.scrollTop = pre.scrollHeight;
+  scrollLogsToEnd();
+  if (pre.id === "logs-output") scheduleLogsFindRefresh();
 }
 
-function scrollLogsToEnd() {
+function scrollLogsToEnd(force = false) {
+  if (!force && logsFindOpen()) return;
   const output = $("#logs-output");
   if (output) output.scrollTop = output.scrollHeight;
 }
@@ -965,6 +970,7 @@ async function startSentinelLogs() {
     const lines = Array.isArray(result.lines) ? result.lines : [];
     output.textContent = [header, ...lines].join("\n") + (lines.length ? "\n" : "");
     logsLastSeq = Number(result.total) || 0;
+    scheduleLogsFindRefresh();
     const pending = logsPending
       .slice()
       .sort((left, right) => (left.seq || 0) - (right.seq || 0));
@@ -989,82 +995,176 @@ async function startSentinelLogs() {
   }
 }
 
+const LOGS_FIND_MAX_MATCHES = 5000;
+
+function logsFindOpen() {
+  const bar = $("#logs-find");
+  return Boolean(bar && !bar.hidden);
+}
+
 function setLogsFindStatus(text) {
   const status = $("#logs-find-status");
   if (status) status.textContent = text || "";
+}
+
+function clearLogsFindHighlights() {
+  if (window.CSS && CSS.highlights) {
+    CSS.highlights.delete("logs-find");
+    CSS.highlights.delete("logs-find-active");
+  }
+}
+
+function logsTextNode() {
+  const output = $("#logs-output");
+  if (!output) return null;
+  output.normalize();
+  const node = output.firstChild;
+  return node && node.nodeType === Node.TEXT_NODE ? node : null;
+}
+
+function buildLogsFindRanges(query) {
+  const node = logsTextNode();
+  if (!node || !query) return { ranges: [], truncated: false };
+  const haystack = node.data.toLowerCase();
+  const needle = query.toLowerCase();
+  const ranges = [];
+  let offset = 0;
+  let truncated = false;
+  while (offset <= haystack.length - needle.length) {
+    const index = haystack.indexOf(needle, offset);
+    if (index < 0) break;
+    if (ranges.length >= LOGS_FIND_MAX_MATCHES) {
+      truncated = true;
+      break;
+    }
+    const range = document.createRange();
+    range.setStart(node, index);
+    range.setEnd(node, index + needle.length);
+    ranges.push(range);
+    offset = index + Math.max(1, needle.length);
+  }
+  return { ranges, truncated };
+}
+
+function scrollLogsFindMatch(range) {
+  const output = $("#logs-output");
+  if (!output || !range) return;
+  const box = output.getBoundingClientRect();
+  const rect = range.getBoundingClientRect();
+  if (!rect.height && !rect.width) return;
+  if (rect.top < box.top || rect.bottom > box.bottom) {
+    output.scrollTop += rect.top - box.top -
+      Math.max(0, (box.height - rect.height) / 2);
+  }
+}
+
+function applyLogsFindHighlights() {
+  clearLogsFindHighlights();
+  if (!window.CSS || !CSS.highlights || typeof Highlight !== "function") return;
+  if (!logsFindMatches.length) return;
+  const all = new Highlight();
+  for (const range of logsFindMatches) all.add(range);
+  CSS.highlights.set("logs-find", all);
+  const activeRange = logsFindMatches[logsFindIndex];
+  if (activeRange) {
+    const active = new Highlight();
+    active.add(activeRange);
+    CSS.highlights.set("logs-find-active", active);
+  }
+}
+
+function updateLogsFindStatus() {
+  if (!logsFindMatches.length) {
+    setLogsFindStatus("No matches");
+    return;
+  }
+  setLogsFindStatus(
+    `${logsFindIndex + 1}/${logsFindMatches.length}${logsFindTruncated ? "+" : ""}`);
+}
+
+function refreshLogsFind({ reset = false, scroll = false } = {}) {
+  const input = $("#logs-find-input");
+  if (!input) return;
+  const query = input.value.trim();
+  if (!query) {
+    logsFindMatches = [];
+    logsFindIndex = 0;
+    logsFindTruncated = false;
+    clearLogsFindHighlights();
+    setLogsFindStatus("");
+    return;
+  }
+  const found = buildLogsFindRanges(query);
+  logsFindMatches = found.ranges;
+  logsFindTruncated = found.truncated;
+  if (reset) logsFindIndex = 0;
+  if (logsFindIndex >= logsFindMatches.length) logsFindIndex = 0;
+  applyLogsFindHighlights();
+  updateLogsFindStatus();
+  if (scroll) scrollLogsFindMatch(logsFindMatches[logsFindIndex]);
+}
+
+function stepLogsFind(delta) {
+  if (!logsFindMatches.length) {
+    refreshLogsFind({ reset: true, scroll: true });
+    return;
+  }
+  logsFindIndex =
+    (logsFindIndex + delta + logsFindMatches.length) % logsFindMatches.length;
+  applyLogsFindHighlights();
+  updateLogsFindStatus();
+  scrollLogsFindMatch(logsFindMatches[logsFindIndex]);
+}
+
+function scheduleLogsFind() {
+  if (logsFindTimer) clearTimeout(logsFindTimer);
+  logsFindTimer = setTimeout(() => {
+    logsFindTimer = null;
+    refreshLogsFind({ reset: true, scroll: true });
+  }, 120);
+}
+
+function scheduleLogsFindRefresh() {
+  if (!logsFindOpen()) return;
+  const input = $("#logs-find-input");
+  if (!input || !input.value.trim()) return;
+  if (logsFindRefreshTimer) clearTimeout(logsFindRefreshTimer);
+  logsFindRefreshTimer = setTimeout(() => {
+    logsFindRefreshTimer = null;
+    refreshLogsFind({ reset: false, scroll: false });
+  }, 300);
 }
 
 function showLogsFind() {
   const bar = $("#logs-find");
   if (!bar) return;
   bar.hidden = false;
-  logsFindKeepFocus = true;
   const input = $("#logs-find-input");
   if (input) {
     input.focus();
     input.select();
   }
-}
-
-function restoreLogsFindFocus() {
-  if (!logsFindKeepFocus) return;
-  const bar = $("#logs-find");
-  const input = $("#logs-find-input");
-  if (!bar || bar.hidden || !input) return;
-  const active = document.activeElement;
-  if (active && active !== document.body && bar.contains(active)) return;
-  input.focus({ preventScroll: true });
-  const end = input.value.length;
-  input.setSelectionRange(end, end);
+  if (input && input.value.trim()) refreshLogsFind({ scroll: true });
 }
 
 function closeLogsFind() {
   const bar = $("#logs-find");
   if (!bar || bar.hidden) return;
-  logsFindKeepFocus = false;
   bar.hidden = true;
   setLogsFindStatus("");
+  clearLogsFindHighlights();
+  logsFindMatches = [];
+  logsFindIndex = 0;
+  logsFindTruncated = false;
   if (logsFindTimer) {
     clearTimeout(logsFindTimer);
     logsFindTimer = null;
   }
-  if (window.qa.logs && window.qa.logs.findStop) {
-    window.qa.logs.findStop().catch(() => {});
+  if (logsFindRefreshTimer) {
+    clearTimeout(logsFindRefreshTimer);
+    logsFindRefreshTimer = null;
   }
-}
-
-async function findInLogs(forward = true, findNext = false) {
-  const input = $("#logs-find-input");
-  if (!input) return;
-  const query = input.value.trim();
-  if (!query) {
-    setLogsFindStatus("");
-    if (window.qa.logs && window.qa.logs.findStop) {
-      try {
-        await window.qa.logs.findStop();
-      } catch (_error) {
-        // The window may already be closing.
-      }
-    }
-    return;
-  }
-  try {
-    await window.qa.logs.find(query, { forward, findNext });
-  } catch (error) {
-    setLogsFindStatus("Find failed");
-    toast(String(error.message || error), true);
-  } finally {
-    restoreLogsFindFocus();
-  }
-}
-
-function scheduleLogsFind() {
-  logsFindKeepFocus = true;
-  if (logsFindTimer) clearTimeout(logsFindTimer);
-  logsFindTimer = setTimeout(() => {
-    logsFindTimer = null;
-    findInLogs(true, false);
-  }, 120);
+  scrollLogsToEnd(true);
 }
 
 function handleLogsFindKey(event) {
@@ -1083,8 +1183,7 @@ function handleLogsFindKey(event) {
   }
   if (event.key === "Enter" && event.target === $("#logs-find-input")) {
     event.preventDefault();
-    logsFindKeepFocus = true;
-    findInLogs(!event.shiftKey, true);
+    stepLogsFind(event.shiftKey ? -1 : 1);
   }
 }
 
@@ -1207,23 +1306,9 @@ function bind() {
     "click", () => window.qa.openModule("logs"));
 
   $("#logs-find-input").addEventListener("input", scheduleLogsFind);
-  $("#logs-find-input").addEventListener("focus", () => {
-    logsFindKeepFocus = true;
-  });
-  $("#logs-find-prev").addEventListener("click", () => {
-    logsFindKeepFocus = true;
-    findInLogs(false, true);
-  });
-  $("#logs-find-next").addEventListener("click", () => {
-    logsFindKeepFocus = true;
-    findInLogs(true, true);
-  });
+  $("#logs-find-prev").addEventListener("click", () => stepLogsFind(-1));
+  $("#logs-find-next").addEventListener("click", () => stepLogsFind(1));
   $("#logs-find-close").addEventListener("click", closeLogsFind);
-  document.addEventListener("pointerdown", (event) => {
-    const bar = $("#logs-find");
-    if (!bar || bar.hidden) return;
-    if (!bar.contains(event.target)) logsFindKeepFocus = false;
-  }, true);
   document.addEventListener("keydown", handleLogsFindKey);
 
   $("#findings-refresh").addEventListener("click", loadFindings);
@@ -1235,19 +1320,6 @@ function bind() {
     }
     if (payload.scope === "sen-tabs" && payload.type === "select") {
       setSenTab(payload.tab);
-    }
-    if (payload.scope === "logs-find" && payload.type === "result") {
-      const bar = $("#logs-find");
-      if (bar && !bar.hidden) {
-        const result = payload.result || {};
-        const matches = Number(result.matches) || 0;
-        if (matches > 0) {
-          setLogsFindStatus(`${Number(result.activeMatchOrdinal) || 1}/${matches}`);
-        } else {
-          setLogsFindStatus("No matches");
-        }
-        restoreLogsFindFocus();
-      }
     }
     if (payload.scope === "sentinels") {
       if (payload.type === "status" &&

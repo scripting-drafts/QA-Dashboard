@@ -201,21 +201,6 @@ function createWindow(module = "overview", show = true, tab = "") {
   window.on("focus", () => {
     lastActiveModule = module;
   });
-  if (module === "logs") {
-    window.webContents.on("found-in-page", (_event, result) => {
-      if (window.isDestroyed()) return;
-      sendEvent(window.webContents, {
-        scope: "logs-find",
-        type: "result",
-        result: {
-          requestId: result.requestId,
-          activeMatchOrdinal: result.activeMatchOrdinal,
-          matches: result.matches,
-          finalUpdate: result.finalUpdate,
-        },
-      });
-    });
-  }
   window.on("closed", () => {
     windows.delete(module);
     if (lastActiveModule === module) {
@@ -255,15 +240,6 @@ function isDashboardWindow(window) {
   if (!window || window.isDestroyed()) return false;
   return window === settingsWindow
     || Array.from(windows.values()).includes(window);
-}
-
-function logsWindowFromEvent(event) {
-  const window = windows.get("logs");
-  if (!window || window.isDestroyed() ||
-      !event || window.webContents !== event.sender) {
-    return null;
-  }
-  return window;
 }
 
 function focusLaunchWindow() {
@@ -719,33 +695,6 @@ function registerIpc() {
   });
 
   ipcMain.handle("sentinels:stopLogs", () => true);
-
-  ipcMain.handle("logs:find", (event, incoming) => {
-    const window = logsWindowFromEvent(event);
-    if (!window) return 0;
-    const payload = incoming && typeof incoming === "object" ? incoming : {};
-    const query = String(payload.query || "");
-    if (query.includes("\0")) throw new Error("invalid search");
-    if (!query) {
-      window.webContents.stopFindInPage("clearSelection");
-      return 0;
-    }
-    if (query.length > 500) {
-      throw new Error("search is longer than 500 characters");
-    }
-    return window.webContents.findInPage(query, {
-      forward: payload.forward !== false,
-      findNext: Boolean(payload.findNext),
-      matchCase: Boolean(payload.matchCase),
-    });
-  });
-
-  ipcMain.handle("logs:find-stop", (event) => {
-    const window = logsWindowFromEvent(event);
-    if (!window) return false;
-    window.webContents.stopFindInPage("clearSelection");
-    return true;
-  });
 
   ipcMain.handle("dialog:pick", async (_event, kind) => {
     const parent = BrowserWindow.getFocusedWindow()

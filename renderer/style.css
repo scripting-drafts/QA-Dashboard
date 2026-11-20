@@ -1670,3 +1670,13 @@ input[type="text"]:focus, input[type="search"]:focus {
 }
 
 
+
+::highlight(logs-find) {
+  background-color: rgba(245, 196, 81, 0.38);
+  color: inherit;
+}
+
+::highlight(logs-find-active) {
+  background-color: #f5c451;
+  color: #10272b;
+}

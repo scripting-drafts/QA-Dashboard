@@ -24,8 +24,8 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     first login, restoring Shift+click on the QA launcher.
   * Stop desktop notifications for draft tickets; draft generation stays
     silent while raise and ready-correlation alerts remain.
-  * Add a Ctrl+F find bar to the Logs window with match navigation and
-    retained keyboard focus.
+  * Add a Ctrl+F find bar scoped to the Logs output, with match navigation
+    and retained keyboard focus.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 14:00:00 +0100
 
