@@ -898,6 +898,12 @@ def cmd_compat(args) -> int:
     return 0 if data["supported"] or not args.strict else 1
 
 
+def _coredump_access_ok(rc: int, output: str) -> bool:
+    """coredumpctl exits 1 when the journal has no matches; that is not an
+    access failure."""
+    return rc == 0 or "No coredumps found" in (output or "")
+
+
 def cmd_preflight(args) -> int:
     if not sys.platform.startswith("linux"):
         backend = platform_mod.detect()
@@ -913,7 +919,8 @@ def cmd_preflight(args) -> int:
     rc, out, err = run(["journalctl", "-n", "1", "--no-pager"], timeout=20)
     checks.append(("journal read access", rc == 0, (err or "")[:120]))
     rc, out, err = run(["coredumpctl", "list", "--no-pager", "--since=-1day"], timeout=30)
-    checks.append(("coredump access", rc == 0, (err or "")[:120]))
+    checks.append(("coredump access", _coredump_access_ok(rc, out + err),
+                   (err or "")[:120]))
     checks.append(("crontab", shutil.which("crontab") is not None, ""))
     free = shutil.disk_usage(str(config.ROOT)).free
     checks.append(("disk > 2 GiB free", free > 2 * 1024**3, f"{free / 1024**3:.1f} GiB"))

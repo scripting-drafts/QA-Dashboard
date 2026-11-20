@@ -27,6 +27,11 @@ qa-sentinels (1.4.2) jammy; urgency=medium
     includes the LSM root handoff path.
   * Treat capabilities held only in a child user namespace as namespace-scoped,
     avoiding false nonroot_caps findings for Chromium and Electron zygotes.
+  * Recognise setuid helpers by executable basename when /proc/<pid>/exe is
+    unreadable, avoiding root_from_user_parent false positives for pkexec and
+    sudo from a user session.
+  * Treat coredumpctl's no-match exit status as successful coredump access in
+    preflight instead of reporting a failure when no crash was captured.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 17:30:00 +0100
 

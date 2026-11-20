@@ -38,8 +38,9 @@ Container processes are excluded from the host provenance rules; their
 boundary is the container runtime. Processes in a child user namespace (for
 example Chromium's sandboxed zygote) are also excluded from the capability rule:
 their `CAP_*` bits are scoped to that namespace and cannot act on the initial
-host namespace. The LXQt shared-browser stack has its own explicit-authorization
-guard.
+host namespace. Setuid helpers whose `/proc/<pid>/exe` link is unreadable are
+recognised by their executable basename. The LXQt shared-browser stack has its
+own explicit-authorization guard.
 
 ## Policy
 

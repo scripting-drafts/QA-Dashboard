@@ -194,6 +194,36 @@ class ProcessRuleTests(unittest.TestCase):
             proc, None, security.load_policy())}
         self.assertIn("security.nonroot_caps", rules)
 
+    def test_setuid_helper_with_unreadable_exe_is_not_treated_as_user_root(self):
+        parent = self._proc(
+            pid=1000, comm="opencode", uid=1000, euid=1000,
+            cmdline=["opencode", "serve"], exe="/home/operator/.opencode/bin/opencode",
+            cwd="/home/operator",
+        )
+        proc = self._proc(
+            pid=185267, ppid=1000, comm="pkexec", uid=0, euid=0,
+            cap_eff=0x1ffffffffff, cmdline=["pkexec", "true"], exe="pkexec",
+            cwd="/home/operator",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, parent, security.load_policy())}
+        self.assertNotIn("security.root_from_user_parent", rules)
+        self.assertNotIn("security.root_elevated_session", rules)
+
+    def test_unrecognized_root_child_of_user_is_still_flagged(self):
+        parent = self._proc(
+            pid=1000, comm="bash", uid=1000, euid=1000,
+            cmdline=["bash"], exe="/usr/bin/bash", cwd="/home/operator",
+        )
+        proc = self._proc(
+            pid=1001, ppid=1000, comm="helper", uid=0, euid=0,
+            cap_eff=0, cmdline=["helper"], exe="helper",
+            cwd="/home/operator",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, parent, security.load_policy())}
+        self.assertIn("security.root_from_user_parent", rules)
+
     def test_authorized_setuid_helper_is_not_treated_as_user_root(self):
         proc = self._proc(
             comm="fusermount3", uid=0, euid=0,

@@ -26,6 +26,14 @@ def tearDownModule():
         patcher.stop()
 
 
+class PreflightTests(unittest.TestCase):
+    def test_no_coredumps_is_not_an_access_failure(self):
+        from sentinels.cli import _coredump_access_ok
+        self.assertTrue(_coredump_access_ok(1, "No coredumps found.\n"))
+        self.assertTrue(_coredump_access_ok(0, ""))
+        self.assertFalse(_coredump_access_ok(1, "Failed to connect to bus"))
+
+
 class CpuMaskTests(unittest.TestCase):
     def test_ranges_and_lists(self):
         self.assertEqual(parse_cpu_list("0-3,8"), {0, 1, 2, 3, 8})

@@ -329,6 +329,10 @@ def classify_process(proc: dict, parent: dict | None, policy: dict) -> list[dict
     elevation_parents = set(policy.get("allowed_elevation_parents") or [])
     setuid_exes = set(policy.get("allowed_setuid_exes") or [])
     setuid_comms = set(policy.get("allowed_setuid_comms") or [])
+    # /proc/<pid>/exe is unreadable for root setuid helpers from a user
+    # session.  Fall back to the executable basename so the helper is still
+    # recognised by its command name.
+    setuid_comms.update(os.path.basename(path) for path in setuid_exes)
     allowed_loginuid_exes = set(policy.get("allowed_root_loginuid_exes") or [])
     allowed_loginuid_comms = set(policy.get("allowed_root_loginuid_comms") or [])
     allowed_cmd = [
