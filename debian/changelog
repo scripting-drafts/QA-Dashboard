@@ -30,6 +30,9 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     optional crash-feed ingestion, stored crash component labels, warning
     findings for non-critical kernel conditions, the complete rule register,
     and the host-aligned security-policy example.
+  * Add a Rules action to the left of Documentation and render the complete
+    QA Sentinels rule register from docs/RULES.md in the Documentation page
+    style.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 14:00:00 +0100
 

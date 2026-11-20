@@ -284,6 +284,13 @@ button.ghost:hover {
   margin: 0 0 12px;
 }
 
+.panel h4 {
+  font-size: 13px;
+  margin: 16px 0 8px;
+}
+
+.panel h4:first-child { margin-top: 0; }
+
 .panel-head {
   display: flex;
   align-items: center;

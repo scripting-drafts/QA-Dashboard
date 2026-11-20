@@ -49,16 +49,16 @@ The application uses independent windows instead of one tabbed suite.
 | Window | Purpose |
 | --- | --- |
 | **QA Dashboard** | Compact Overview with QA Sentinels, Database, and Ticket workflow cards |
-| **QA Sentinels Overview** | Status grid, Logs action, Documentation action |
+| **QA Sentinels Overview** | Status grid, Logs action, Rules action, Documentation action |
 | **QA Sentinels Settings** | Command, repository, cycle, retention, reporter; independent movable window |
 | **QA Sentinels Database** | Read-only SQL console over `sentinels.db` |
-| **QA Sentinels Tickets** | Ticket buckets, refresh, open folder, Rules |
+| **QA Sentinels Tickets** | Ticket buckets, refresh, open folder |
 | **QA Sentinels Logs** | Live `qa logs --all-layers --follow` stream with Ctrl+F find |
 
-`Ticket Rules` and `Documentation` open as standalone HTML pages in the system
+`Rules` and `Documentation` open as standalone HTML pages in the system
 browser:
 
-- `renderer/rules.html`
+- `renderer/rules.html` — generated from `docs/RULES.md`
 - `renderer/docs.html`
 
 ### Supported module arguments
@@ -134,7 +134,7 @@ standby/
 ```
 
 It can refresh the lists, open the tickets folder, and open individual tickets.
-The Rules action opens the standalone rules reference.
+The Rules action in the Overview opens the standalone rule register.
 
 ## Configuration
 

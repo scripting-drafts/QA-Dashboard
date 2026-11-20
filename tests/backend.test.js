@@ -58,6 +58,29 @@ test("Logs window exposes scoped find controls", () => {
   assert.doesNotMatch(main, /findInPage/);
 });
 
+test("Rules sits before Documentation and renders the rule register", () => {
+  const root = path.join(__dirname, "..");
+  const html = fs.readFileSync(
+    path.join(root, "renderer", "index.html"), "utf8");
+  const rulesAt = html.indexOf('id="sen-overview-rules"');
+  const docsAt = html.indexOf('id="sen-overview-docs"');
+  assert.ok(rulesAt > 0, "Rules action is missing");
+  assert.ok(docsAt > rulesAt, "Rules must sit to the left of Documentation");
+
+  const rules = fs.readFileSync(
+    path.join(root, "renderer", "rules.html"), "utf8");
+  assert.match(rules, /data-module="rules"/);
+  assert.match(rules, /<h2>QA Sentinels Rules and Checks<\/h2>/);
+  assert.match(rules, /<table class="rules-table">/);
+  for (const rule of [
+    "security.root_from_user_parent", "faultcore.isolation.unfenced",
+    "hardware.aer.fatal", "network.tcp.retrans", "deep.ebpf.stale",
+  ]) {
+    assert.ok(rules.includes(rule), `missing ${rule}`);
+  }
+  assert.match(rules, /tools\/build_rules_html\.py/);
+});
+
 test("query arguments cover categories, SQL and limits", () => {
   assert.deepEqual(backend.queryArgs({ category: "inbox", limit: 25 }),
     ["query", "--json", "--category", "inbox", "--limit", "25"]);

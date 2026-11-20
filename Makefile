@@ -2,13 +2,13 @@ PYTHON ?= python3
 SENTINELS := sentinels
 
 .PHONY: deps test test-sentinels test-dashboard contracts contracts-check \
-	vendor-check build-linux build-windows build-macos build-logs release-check \
-	start install uninstall clean
+	vendor-check rules-html rules-check build-linux build-windows build-macos \
+	build-logs release-check start install uninstall clean
 
 deps:
 	npm ci --no-audit --no-fund
 
-test: test-dashboard test-sentinels contracts-check vendor-check
+test: test-dashboard test-sentinels contracts-check vendor-check rules-check
 
 test-dashboard:
 	npm test
@@ -25,6 +25,12 @@ contracts-check:
 vendor-check:
 	$(PYTHON) tools/check_vendor.py
 
+rules-html:
+	$(PYTHON) tools/build_rules_html.py
+
+rules-check:
+	$(PYTHON) tools/build_rules_html.py --check
+
 build-linux:
 	npm run pack:linux
 
@@ -40,6 +46,7 @@ build-logs:
 release-check:
 	cd $(SENTINELS) && ./bin/qa legal --check
 	$(PYTHON) tools/check_vendor.py
+	$(PYTHON) tools/build_rules_html.py --check
 	npm test
 
 start:
