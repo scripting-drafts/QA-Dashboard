@@ -27,7 +27,7 @@ check every `QA_SECURITY_FILE_SCAN_S` seconds (default 300).
 | `security.deleted_exe` | critical/warning | Executable is deleted or anonymous (`memfd`). |
 | `security.unexpected_uid_user_path` | critical | UID outside the allowlist runs code from a user-writable path. |
 | `security.user_code_tmp` | warning | UID outside the allowlist runs from temporary storage. |
-| `security.nonroot_caps` | warning | Non-root process holds capabilities outside the policy allowlist. |
+| `security.nonroot_caps` | warning | Non-root process holds capabilities outside the policy allowlist in the initial user namespace. |
 | `security.root_owned_user_state` | warning | UID 0 files/directories exist under user-writable QA state. |
 | `security.audit_root_exec` | critical | Auditd saw UID 0 exec with a non-root login uid or user-path command. |
 | `security.audit_unexpected_user_exec` | error | Auditd saw an unexpected UID exec from a user-writable path. |
@@ -35,8 +35,11 @@ check every `QA_SECURITY_FILE_SCAN_S` seconds (default 300).
 | `security.audit_unavailable` | warning | Auditd/ausearch is missing, so strict short-lived event coverage is off. |
 
 Container processes are excluded from the host provenance rules; their
-boundary is the container runtime. The LXQt shared-browser stack has its own
-explicit-authorization guard.
+boundary is the container runtime. Processes in a child user namespace (for
+example Chromium's sandboxed zygote) are also excluded from the capability rule:
+their `CAP_*` bits are scoped to that namespace and cannot act on the initial
+host namespace. The LXQt shared-browser stack has its own explicit-authorization
+guard.
 
 ## Policy
 

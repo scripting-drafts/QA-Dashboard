@@ -169,7 +169,7 @@ rules are in `config/security-policy.json`.
 | `security.deleted_exe` | critical for root / warning for non-root | Executable is deleted or anonymous |
 | `security.unexpected_uid_user_path` | critical | Non-allowed uid executes user-writable code |
 | `security.user_code_tmp` | warning | Non-allowed uid executes from `/tmp`, `/var/tmp`, or `/dev/shm` |
-| `security.nonroot_caps` | warning | Non-root process has capabilities outside the policy |
+| `security.nonroot_caps` | warning | Non-root process has capabilities outside the policy in the initial user namespace |
 | `security.root_owned_user_state` | warning | Root-owned entries exist under QA state paths |
 | `security.audit_root_exec` | critical | Audit exec as root from a user session or user path |
 | `security.audit_unexpected_user_exec` | error | Non-allowed uid executes user-writable code |
@@ -178,6 +178,8 @@ rules are in `config/security-policy.json`.
 
 Process-path findings are resolved automatically when the process disappears.
 Audit findings depend on the QA audit rules in `root/audit/qa-security.rules`.
+Capabilities held only in a child user namespace, such as Chromium's sandboxed
+zygote, are namespace-scoped and are not host capabilities.
 
 ### Scoped policy selectors
 

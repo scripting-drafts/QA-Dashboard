@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from sentinels import db, security
 
@@ -147,6 +148,40 @@ class ProcessRuleTests(unittest.TestCase):
         )
         rules = {f["rule"] for f in security.classify_process(
             proc, None, security.load_policy())}
+        self.assertIn("security.nonroot_caps", rules)
+
+    def test_capabilities_in_a_child_user_namespace_are_not_host_caps(self):
+        proc = self._proc(
+            pid=55994, ppid=55992, comm="electron", uid=1000, euid=1000,
+            cap_eff=0x200000, cmdline=[
+                "/home/operator/qa-dashboard/node_modules/electron/dist/electron",
+                "--type=zygote",
+            ],
+            exe="/home/operator/qa-dashboard/node_modules/electron/dist/electron",
+            cwd="/home/operator", loginuid=1000,
+            cgroup="0::/user.slice/user-1000.slice/user@1000.service/app.slice/app.scope",
+            user_ns="user:[4026534232]",
+        )
+        with mock.patch.object(
+            security, "_initial_user_ns", return_value="user:[4026531837]"
+        ):
+            rules = {f["rule"] for f in security.classify_process(
+                proc, None, security.load_policy())}
+        self.assertNotIn("security.nonroot_caps", rules)
+
+    def test_capabilities_in_the_initial_user_namespace_are_flagged(self):
+        proc = self._proc(
+            pid=5001, ppid=1, comm="python3", uid=1000, euid=1000,
+            cap_eff=0x200000, cmdline=["python3", "/home/operator/run.py"],
+            exe="/usr/bin/python3", cwd="/home/operator", loginuid=1000,
+            cgroup="0::/user.slice/user-1000.slice/user@1000.service/app.slice/app.scope",
+            user_ns="user:[4026531837]",
+        )
+        with mock.patch.object(
+            security, "_initial_user_ns", return_value="user:[4026531837]"
+        ):
+            rules = {f["rule"] for f in security.classify_process(
+                proc, None, security.load_policy())}
         self.assertIn("security.nonroot_caps", rules)
 
     def test_unscoped_dnsmasq_capabilities_are_flagged(self):

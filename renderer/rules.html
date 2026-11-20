@@ -615,7 +615,7 @@
                 <tr>
                   <td class="state"><code>security.nonroot_caps</code></td>
                   <td>warning</td>
-                  <td>Non-root process has capabilities outside the policy</td>
+                  <td>Non-root process has capabilities outside the policy in the initial user namespace</td>
                 </tr>
                 <tr>
                   <td class="state"><code>security.root_owned_user_state</code></td>
@@ -645,7 +645,7 @@
               </tbody>
             </table>
           </div>
-          <p>Process-path findings are resolved automatically when the process disappears. Audit findings depend on the QA audit rules in <code>root/audit/qa-security.rules</code>.</p>
+          <p>Process-path findings are resolved automatically when the process disappears. Audit findings depend on the QA audit rules in <code>root/audit/qa-security.rules</code>. Capabilities held only in a child user namespace, such as Chromium&#x27;s sandboxed zygote, are namespace-scoped and are not host capabilities.</p>
           <h4 id="scoped-policy-selectors">Scoped policy selectors</h4>
           <p class="rules-note"><code>allowed_elevation_chains</code> and <code>allowed_cap_processes</code> accept exact process selectors: <code>exe</code>, <code>exe_basename</code>, <code>uid</code>, <code>parent_comm</code>, <code>parent_uid</code>, <code>cap_eff</code>, <code>cgroup_contains</code>, and <code>cmdline_contains</code>. The packaged policy uses them only for the documented libvirt dnsmasq root DHCP-script helper, LXD bridge dnsmasq capabilities, and GDM&#x27;s user-manager <code>CAP_WAKE_ALARM</code>. There is no general <code>dnsmasq</code> elevation-parent or capability allowlist.</p>
         </div>

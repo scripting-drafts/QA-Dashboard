@@ -25,6 +25,8 @@ qa-sentinels (1.4.2) jammy; urgency=medium
     libvirt's dnsmasq --dhcp-script root helper, LXD's bridge dnsmasq
     capabilities, and GDM's user-manager CAP_WAKE_ALARM; the default policy
     includes the LSM root handoff path.
+  * Treat capabilities held only in a child user namespace as namespace-scoped,
+    avoiding false nonroot_caps findings for Chromium and Electron zygotes.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 17:30:00 +0100
 

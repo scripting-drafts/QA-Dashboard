@@ -135,6 +135,17 @@ def _readlink(path: Path) -> str:
         return ""
 
 
+_INITIAL_USER_NS: str | None = None
+
+
+def _initial_user_ns() -> str:
+    """Return the initial user-namespace inode for capability comparisons."""
+    global _INITIAL_USER_NS
+    if _INITIAL_USER_NS is None:
+        _INITIAL_USER_NS = _readlink(Path("/proc/self/ns/user"))
+    return _INITIAL_USER_NS
+
+
 def _cmdline(path: Path) -> list[str]:
     try:
         raw = path.read_bytes()
@@ -225,6 +236,7 @@ def read_proc(pid: int | str, proc_root: str | Path = "/proc") -> dict | None:
         "cgroup": cgroup,
         "container": _is_container(cgroup),
         "loginuid": loginuid,
+        "user_ns": _readlink(base / "ns/user"),
         "starttime": _starttime(base / "stat"),
     }
 
@@ -418,8 +430,17 @@ def classify_process(proc: dict, parent: dict | None, policy: dict) -> list[dict
                 f"uid={proc.get('uid')} executes from temporary storage: {exe}",
             )
         cap_eff = int(proc.get("cap_eff") or 0)
+        # Chromium's zygote and similar sandboxes create a child user
+        # namespace.  CAP_* there is scoped to that namespace and cannot act
+        # on the initial host namespace; only the initial namespace matters.
+        namespace_caps = bool(
+            proc.get("user_ns")
+            and _initial_user_ns()
+            and proc["user_ns"] != _initial_user_ns()
+        )
         if (
             cap_eff
+            and not namespace_caps
             and not any(
                 item in (proc.get("cgroup") or "")
                 for item in policy.get("allowed_cap_cgroups") or []
