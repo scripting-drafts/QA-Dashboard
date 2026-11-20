@@ -72,6 +72,71 @@ class ProcessRuleTests(unittest.TestCase):
         )}
         self.assertIn("security.unexpected_uid_user_path", rules)
 
+    def test_libvirt_dnsmasq_root_script_helper_is_allowed(self):
+        argv = [
+            "/usr/sbin/dnsmasq",
+            "--conf-file=/var/lib/libvirt/dnsmasq/default.conf",
+            "--leasefile-ro",
+            "--dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper",
+        ]
+        parent = self._proc(
+            pid=3252, comm="dnsmasq", uid=134, euid=134, cmdline=argv,
+            exe="/usr/sbin/dnsmasq", cwd="/",
+            cgroup="0::/system.slice/libvirtd.service",
+        )
+        proc = self._proc(
+            pid=3253, ppid=3252, comm="dnsmasq", uid=0, euid=0,
+            cmdline=argv, exe="/usr/sbin/dnsmasq", cwd="/",
+            cgroup="0::/system.slice/libvirtd.service",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, parent, security.load_policy())}
+        self.assertNotIn("security.root_from_user_parent", rules)
+
+    def test_dnsmasq_root_child_outside_libvirt_is_flagged(self):
+        argv = ["/usr/sbin/dnsmasq", "--dhcp-script=/tmp/helper"]
+        parent = self._proc(
+            pid=100, comm="dnsmasq", uid=134, euid=134, cmdline=argv,
+            exe="/usr/sbin/dnsmasq", cwd="/",
+            cgroup="0::/system.slice/test.service",
+        )
+        proc = self._proc(
+            pid=101, ppid=100, comm="dnsmasq", uid=0, euid=0,
+            cmdline=argv, exe="/usr/sbin/dnsmasq", cwd="/",
+            cgroup="0::/system.slice/test.service",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, parent, security.load_policy())}
+        self.assertIn("security.root_from_user_parent", rules)
+
+    def test_lxd_dnsmasq_capabilities_are_allowed(self):
+        parent = self._proc(
+            pid=2995, comm="lxd", uid=0, euid=0,
+            cmdline=["lxd"], exe="/snap/lxd/current/bin/lxd", cwd="/",
+            cgroup="0::/system.slice/snap.lxd.daemon.service",
+        )
+        proc = self._proc(
+            pid=4527, ppid=2995, comm="dnsmasq", uid=998, euid=998,
+            cap_eff=0x3000, cmdline=[
+                "dnsmasq", "--keep-in-foreground",
+                "--interface=lxdbr0",
+                "--dhcp-leasefile=/var/snap/lxd/common/lxd/networks/lxdbr0/dnsmasq.leases",
+            ], exe="/usr/sbin/dnsmasq", cwd="/", cgroup="0::/",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, parent, security.load_policy())}
+        self.assertNotIn("security.nonroot_caps", rules)
+
+    def test_unscoped_dnsmasq_capabilities_are_flagged(self):
+        proc = self._proc(
+            pid=5000, ppid=1, comm="dnsmasq", uid=998, euid=998,
+            cap_eff=0x3000, cmdline=["dnsmasq", "--interface=other"],
+            exe="/usr/sbin/dnsmasq", cwd="/", cgroup="0::/",
+        )
+        rules = {f["rule"] for f in security.classify_process(
+            proc, None, security.load_policy())}
+        self.assertIn("security.nonroot_caps", rules)
+
     def test_authorized_setuid_helper_is_not_treated_as_user_root(self):
         proc = self._proc(
             comm="fusermount3", uid=0, euid=0,

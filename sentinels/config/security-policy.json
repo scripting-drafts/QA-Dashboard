@@ -1,31 +1,32 @@
 {
-  "version": 1,
-  "allowed_uids": [0, 1000],
-  "user_writable_prefixes": [
-    "/home/",
-    "/tmp/",
-    "/var/tmp/",
-    "/dev/shm/",
-    "/run/user/",
-    "/media/",
-    "/mnt/",
-    "/run/media/"
+  "allow_root_user_path": [],
+  "allowed_cap_cgroups": [
+    "qa-sentinel-deep.service",
+    "system.slice"
   ],
-  "allowed_root_exe_prefixes": [
-    "/usr/",
-    "/lib/",
-    "/lib64/",
-    "/bin/",
-    "/sbin/",
-    "/snap/"
+  "allowed_cap_exes": [
+    "/usr/bin/ping",
+    "/usr/bin/ping6",
+    "/usr/bin/dumpcap",
+    "/usr/bin/tcpdump"
   ],
-  "allowed_root_cmd_prefixes": [
-    "/usr/",
-    "/lib/",
-    "/lib64/",
-    "/bin/",
-    "/sbin/",
-    "/snap/"
+  "allowed_cap_processes": [
+    {
+      "cmdline_contains": [
+        "--interface=lxdbr0",
+        "dhcp-leasefile=/var/snap/lxd"
+      ],
+      "exe_basename": "dnsmasq",
+      "parent_comm": "lxd"
+    }
+  ],
+  "allowed_elevation_chains": [
+    {
+      "cgroup_contains": "system.slice/libvirtd.service",
+      "cmdline_contains": "--dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper",
+      "exe": "/usr/sbin/dnsmasq",
+      "parent_comm": "dnsmasq"
+    }
   ],
   "allowed_elevation_parents": [
     "systemd",
@@ -45,6 +46,41 @@
     "systemd-journald",
     "systemd-udevd"
   ],
+  "allowed_root_cmd_prefixes": [
+    "/usr/",
+    "/lib/",
+    "/lib64/",
+    "/bin/",
+    "/sbin/",
+    "/snap/"
+  ],
+  "allowed_root_exe_prefixes": [
+    "/usr/",
+    "/lib/",
+    "/lib64/",
+    "/bin/",
+    "/sbin/",
+    "/snap/"
+  ],
+  "allowed_root_loginuid_comms": [
+    "gdm-session-worker",
+    "gdm-session-wor"
+  ],
+  "allowed_root_loginuid_exes": [
+    "/usr/bin/sudo",
+    "/usr/bin/pkexec",
+    "/usr/bin/su",
+    "/usr/lib/gdm3/gdm-session-worker",
+    "/usr/libexec/gdm-session-worker"
+  ],
+  "allowed_root_owned_paths": [
+    "src/qa_sample",
+    "bin/qa_sample",
+    "var/lsm-state-root.json"
+  ],
+  "allowed_setuid_comms": [
+    "fusermount3"
+  ],
   "allowed_setuid_exes": [
     "/usr/bin/sudo",
     "/usr/bin/su",
@@ -54,40 +90,25 @@
     "/usr/bin/umount",
     "/usr/bin/fusermount3"
   ],
-  "allowed_setuid_comms": [
-    "fusermount3"
+  "allowed_uids": [
+    0,
+    1000
   ],
-  "allowed_root_loginuid_exes": [
-    "/usr/bin/sudo",
-    "/usr/bin/pkexec",
-    "/usr/bin/su",
-    "/usr/lib/gdm3/gdm-session-worker",
-    "/usr/libexec/gdm-session-worker"
-  ],
-  "allowed_root_loginuid_comms": [
-    "gdm-session-worker",
-    "gdm-session-wor"
-  ],
-  "allowed_cap_cgroups": [
-    "qa-sentinel-deep.service",
-    "system.slice"
-  ],
-  "allowed_cap_exes": [
-    "/usr/bin/ping",
-    "/usr/bin/ping6",
-    "/usr/bin/dumpcap",
-    "/usr/bin/tcpdump"
-  ],
-  "allow_root_user_path": [],
-  "allowed_root_owned_paths": [
-    "src/qa_sample",
-    "bin/qa_sample",
-    "var/lsm-state-root.json"
-  ],
-  "audit_log": "/var/log/audit/audit.log",
   "audit_keys": [
     "qa_security_exec",
     "qa_security_priv"
   ],
-  "requested_audit": true
+  "audit_log": "/var/log/audit/audit.log",
+  "requested_audit": true,
+  "user_writable_prefixes": [
+    "/home/",
+    "/tmp/",
+    "/var/tmp/",
+    "/dev/shm/",
+    "/run/user/",
+    "/media/",
+    "/mnt/",
+    "/run/media/"
+  ],
+  "version": 1
 }

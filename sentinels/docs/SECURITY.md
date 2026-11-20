@@ -45,6 +45,20 @@ elevation parents, setuid helpers, capability allowlists, and root-owned state
 exceptions. Keep `allow_root_user_path` empty unless a specific root command
 from a user path is deliberately approved.
 
+`allowed_elevation_chains` and `allowed_cap_processes` accept narrow process
+selectors: `exe`, `exe_basename`, `uid`, `parent_comm`, `parent_uid`,
+`cgroup_contains`, and `cmdline_contains`. The packaged example uses them for two known host patterns:
+
+- libvirt's dnsmasq child that runs the `--dhcp-script` helper as root, scoped
+  to `/usr/sbin/dnsmasq`, `system.slice/libvirtd.service`, and the exact
+  `libvirt_leaseshelper` argument;
+- LXD's bridge dnsmasq capabilities, scoped to `parent_comm=lxd`,
+  `--interface=lxdbr0`, and its LXD lease file.
+
+Both exceptions are deliberately narrower than adding `dnsmasq` to the general
+elevation-parent or capability lists. The packaged example is installed at
+`/usr/share/qa-sentinels/config/security-policy.example.json`.
+
 ## Strict event coverage
 
 The one-minute `/proc` scan cannot see commands that start and exit between

@@ -30,6 +30,8 @@ override_dh_auto_install:
 		debian/qa-sentinels/usr/share/qa-sentinels/config/modes.md
 	install -m 0644 config/hardware-sources.example.json \
 		debian/qa-sentinels/usr/share/qa-sentinels/config/hardware-sources.example.json
+	install -m 0644 config/security-policy.example.json \
+		debian/qa-sentinels/usr/share/qa-sentinels/config/security-policy.example.json
 	install -m 0644 config/identity.env.example \
 		debian/qa-sentinels/usr/share/qa-sentinels/config/identity.env.example
 	install -D -m 0644 debian/copyright \

@@ -21,6 +21,9 @@ qa-sentinels (1.4.2) jammy; urgency=medium
     NVIDIA DRM flip timeouts. Repeated events are grouped at warning severity.
   * Document every finding rule, severity, default threshold, and operational
     check in docs/RULES.md.
+  * Package a host-aligned security-policy example. Scoped exceptions cover
+    libvirt's dnsmasq --dhcp-script root helper and LXD's bridge dnsmasq
+    capabilities; the default policy includes the LSM root handoff path.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 17:30:00 +0100
 

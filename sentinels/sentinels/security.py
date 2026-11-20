@@ -59,8 +59,31 @@ DEFAULT_POLICY: dict = {
         "/usr/bin/ping", "/usr/bin/ping6", "/usr/bin/dumpcap",
         "/usr/bin/tcpdump",
     ],
+    # dnsmasq documents that --dhcp-script runs as root even after dnsmasq
+    # drops privileges.  Match libvirt's helper by its exact cgroup and
+    # command, and LXD's bridge dnsmasq by its parent/arguments.
+    "allowed_elevation_chains": [
+        {
+            "parent_comm": "dnsmasq",
+            "exe": "/usr/sbin/dnsmasq",
+            "cgroup_contains": "system.slice/libvirtd.service",
+            "cmdline_contains": "--dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper",
+        },
+    ],
+    "allowed_cap_processes": [
+        {
+            "exe_basename": "dnsmasq",
+            "parent_comm": "lxd",
+            "cmdline_contains": [
+                "--interface=lxdbr0",
+                "dhcp-leasefile=/var/snap/lxd",
+            ],
+        },
+    ],
     "allow_root_user_path": [],
-    "allowed_root_owned_paths": ["src/qa_sample", "bin/qa_sample"],
+    "allowed_root_owned_paths": [
+        "src/qa_sample", "bin/qa_sample", "var/lsm-state-root.json",
+    ],
     "audit_log": "/var/log/audit/audit.log",
     "audit_keys": ["qa_security_exec", "qa_security_priv"],
     "requested_audit": True,
@@ -230,6 +253,45 @@ def _exe_stat(path: str):
         return None
 
 
+def _selector_matches(proc: dict, parent: dict | None, selector: dict) -> bool:
+    """Match a narrowly scoped policy selector against a process."""
+    if not isinstance(selector, dict) or not selector:
+        return False
+    if selector.get("exe") and proc.get("exe") != selector["exe"]:
+        return False
+    if selector.get("exe_basename"):
+        exe_name = os.path.basename(proc.get("exe") or "")
+        if exe_name != selector["exe_basename"]:
+            return False
+    if "uid" in selector and int(proc.get("uid", -1)) != int(selector["uid"]):
+        return False
+    if selector.get("parent_comm"):
+        if not parent or parent.get("comm") != selector["parent_comm"]:
+            return False
+    if "parent_uid" in selector:
+        if not parent or int(parent.get("uid", -1)) != int(selector["parent_uid"]):
+            return False
+    cgroup = selector.get("cgroup_contains")
+    if cgroup and cgroup not in (proc.get("cgroup") or ""):
+        return False
+    wanted = selector.get("cmdline_contains")
+    if isinstance(wanted, str):
+        wanted = [wanted]
+    if wanted:
+        joined = " ".join(proc.get("cmdline") or [])
+        if any(str(item) not in joined for item in wanted):
+            return False
+    return True
+
+
+def _allowed_process(proc: dict, parent: dict | None,
+                     selectors: list[dict] | None) -> bool:
+    return any(
+        _selector_matches(proc, parent, selector)
+        for selector in selectors or []
+    )
+
+
 def classify_process(proc: dict, parent: dict | None, policy: dict) -> list[dict]:
     """Classify one process.  Container processes are outside this host boundary."""
     if proc.get("container") or _is_container(proc.get("cgroup") or ""):
@@ -266,6 +328,10 @@ def classify_process(proc: dict, parent: dict | None, policy: dict) -> list[dict
     exe_user = _under(exe, user_prefixes)
     cwd_user = _under(cwd, user_prefixes)
     allowed_user_cmd = any(joined.startswith(prefix) for prefix in allowed_cmd)
+    elevation_allowed = _allowed_process(
+        proc, parent, policy.get("allowed_elevation_chains"))
+    cap_allowed = _allowed_process(
+        proc, parent, policy.get("allowed_cap_processes"))
     root = proc.get("euid") == 0 or proc.get("uid") == 0
     out: list[dict] = []
 
@@ -296,6 +362,7 @@ def classify_process(proc: dict, parent: dict | None, policy: dict) -> list[dict
             parent
             and parent.get("uid") != 0
             and parent.get("comm") not in elevation_parents
+            and not elevation_allowed
             and not setuid_helper
         ):
             add(
@@ -345,6 +412,7 @@ def classify_process(proc: dict, parent: dict | None, policy: dict) -> list[dict
                 for item in policy.get("allowed_cap_cgroups") or []
             )
             and exe not in set(policy.get("allowed_cap_exes") or [])
+            and not cap_allowed
         ):
             add(
                 "security.nonroot_caps",
