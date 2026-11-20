@@ -160,7 +160,7 @@ function setSenTab(tab, load = true) {
   $("#findings-open-folder").hidden = senPane !== "tickets";
   $("#sen-overview-logs").hidden = senPane === "tickets";
   $("#sen-overview-docs").hidden = senPane === "tickets";
-  $("#sen-overview-rules").hidden = senPane === "overview";
+  $("#sen-overview-rules").hidden = senPane === "tickets";
   $("#sen-panel-overview").hidden = senTab !== "overview";
   $("#sen-panel-tickets").hidden = senTab !== "tickets";
   const title = senTab === "tickets" ? "Tickets" : "Overview";

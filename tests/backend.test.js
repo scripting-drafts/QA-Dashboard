@@ -67,6 +67,13 @@ test("Rules sits before Documentation and renders the rule register", () => {
   assert.ok(rulesAt > 0, "Rules action is missing");
   assert.ok(docsAt > rulesAt, "Rules must sit to the left of Documentation");
 
+  const app = fs.readFileSync(
+    path.join(root, "renderer", "app.js"), "utf8");
+  assert.match(app,
+    /#sen-overview-rules"\)\.hidden = senPane === "tickets"/);
+  assert.match(app,
+    /#sen-overview-docs"\)\.hidden = senPane === "tickets"/);
+
   const rules = fs.readFileSync(
     path.join(root, "renderer", "rules.html"), "utf8");
   assert.match(rules, /data-module="rules"/);
