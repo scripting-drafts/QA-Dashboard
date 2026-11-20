@@ -35,6 +35,7 @@ let cycleTarget = null;
 let logsReady = false;
 let logsLastSeq = 0;
 let logsPending = [];
+let logsFindTimer = null;
 let toastTimer = null;
 
 function toast(message, error = false) {
@@ -123,6 +124,8 @@ function setView(view) {
   }
   if (view === "logs") {
     requestAnimationFrame(scrollLogsToEnd);
+  } else {
+    closeLogsFind();
   }
 }
 
@@ -985,6 +988,87 @@ async function startSentinelLogs() {
   }
 }
 
+function setLogsFindStatus(text) {
+  const status = $("#logs-find-status");
+  if (status) status.textContent = text || "";
+}
+
+function showLogsFind() {
+  const bar = $("#logs-find");
+  if (!bar) return;
+  bar.hidden = false;
+  const input = $("#logs-find-input");
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+function closeLogsFind() {
+  const bar = $("#logs-find");
+  if (!bar || bar.hidden) return;
+  bar.hidden = true;
+  setLogsFindStatus("");
+  if (logsFindTimer) {
+    clearTimeout(logsFindTimer);
+    logsFindTimer = null;
+  }
+  if (window.qa.logs && window.qa.logs.findStop) {
+    window.qa.logs.findStop().catch(() => {});
+  }
+}
+
+async function findInLogs(forward = true, findNext = false) {
+  const input = $("#logs-find-input");
+  if (!input) return;
+  const query = input.value.trim();
+  if (!query) {
+    setLogsFindStatus("");
+    if (window.qa.logs && window.qa.logs.findStop) {
+      try {
+        await window.qa.logs.findStop();
+      } catch (_error) {
+        // The window may already be closing.
+      }
+    }
+    return;
+  }
+  try {
+    await window.qa.logs.find(query, { forward, findNext });
+  } catch (error) {
+    setLogsFindStatus("Find failed");
+    toast(String(error.message || error), true);
+  }
+}
+
+function scheduleLogsFind() {
+  if (logsFindTimer) clearTimeout(logsFindTimer);
+  logsFindTimer = setTimeout(() => {
+    logsFindTimer = null;
+    findInLogs(true, false);
+  }, 120);
+}
+
+function handleLogsFindKey(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" &&
+      (currentView === "logs" || document.body.dataset.module === "logs")) {
+    event.preventDefault();
+    showLogsFind();
+    return;
+  }
+  const bar = $("#logs-find");
+  if (!bar || bar.hidden) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeLogsFind();
+    return;
+  }
+  if (event.key === "Enter" && event.target === $("#logs-find-input")) {
+    event.preventDefault();
+    findInLogs(!event.shiftKey, true);
+  }
+}
+
 function openAbout() {
   const dialog = $("#about-dialog");
   if (!dialog.open) dialog.showModal();
@@ -1103,6 +1187,12 @@ function bind() {
   $("#sen-overview-logs").addEventListener(
     "click", () => window.qa.openModule("logs"));
 
+  $("#logs-find-input").addEventListener("input", scheduleLogsFind);
+  $("#logs-find-prev").addEventListener("click", () => findInLogs(false, true));
+  $("#logs-find-next").addEventListener("click", () => findInLogs(true, true));
+  $("#logs-find-close").addEventListener("click", closeLogsFind);
+  document.addEventListener("keydown", handleLogsFindKey);
+
   $("#findings-refresh").addEventListener("click", loadFindings);
   $("#findings-open-folder").addEventListener("click", openTicketsFolder);
 
@@ -1112,6 +1202,18 @@ function bind() {
     }
     if (payload.scope === "sen-tabs" && payload.type === "select") {
       setSenTab(payload.tab);
+    }
+    if (payload.scope === "logs-find" && payload.type === "result") {
+      const bar = $("#logs-find");
+      if (bar && !bar.hidden) {
+        const result = payload.result || {};
+        const matches = Number(result.matches) || 0;
+        if (matches > 0) {
+          setLogsFindStatus(`${Number(result.activeMatchOrdinal) || 1}/${matches}`);
+        } else {
+          setLogsFindStatus("No matches");
+        }
+      }
     }
     if (payload.scope === "sentinels") {
       if (payload.type === "status" &&

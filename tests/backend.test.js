@@ -38,6 +38,23 @@ test("APT package ships the launcher Shift+click helper", () => {
   assert.ok(metadata["shell-version"].includes("50"));
 });
 
+test("Logs window exposes find-in-page controls", () => {
+  const root = path.join(__dirname, "..");
+  const html = fs.readFileSync(
+    path.join(root, "renderer", "index.html"), "utf8");
+  assert.match(html, /id="logs-find-input"/);
+  assert.match(html, /id="logs-find-next"/);
+  assert.match(html, /id="logs-find-prev"/);
+  const preload = fs.readFileSync(
+    path.join(root, "electron", "preload.js"), "utf8");
+  assert.match(preload, /logs:\s*\{/);
+  assert.match(preload, /logs:find/);
+  const main = fs.readFileSync(
+    path.join(root, "electron", "main.js"), "utf8");
+  assert.match(main, /findInPage/);
+  assert.match(main, /logs:find-stop/);
+});
+
 test("query arguments cover categories, SQL and limits", () => {
   assert.deepEqual(backend.queryArgs({ category: "inbox", limit: 25 }),
     ["query", "--json", "--category", "inbox", "--limit", "25"]);

@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld("qa", {
     logsStart: () => ipcRenderer.invoke("sentinels:logs"),
     logsStop: () => ipcRenderer.invoke("sentinels:stopLogs"),
   },
+  logs: {
+    find: (query, options) => ipcRenderer.invoke("logs:find", {
+      query, ...(options || {}),
+    }),
+    findStop: () => ipcRenderer.invoke("logs:find-stop"),
+  },
   onEvent: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("event", listener);

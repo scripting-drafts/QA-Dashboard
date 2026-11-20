@@ -51,7 +51,7 @@ The application uses independent windows instead of one tabbed suite.
 | **QA Sentinels Settings** | Command, repository, cycle, retention, reporter; independent movable window |
 | **QA Sentinels Database** | Read-only SQL console over `sentinels.db` |
 | **QA Sentinels Tickets** | Ticket buckets, refresh, open folder, Rules |
-| **QA Sentinels Logs** | Live `qa logs --all-layers --follow` stream |
+| **QA Sentinels Logs** | Live `qa logs --all-layers --follow` stream with Ctrl+F find |
 
 `Ticket Rules` and `Documentation` open as standalone HTML pages in the system
 browser:

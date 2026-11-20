@@ -149,6 +149,29 @@ body[data-pane="tickets"] #settings { display: none; }
 body[data-module="rules"] .top-actions { display: none; }
 
 .logs-panel { margin-bottom: 0; }
+.logs-find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.logs-find[hidden] { display: none; }
+.logs-find input {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+}
+.logs-find .muted {
+  flex: 0 0 auto;
+  min-width: 9ch;
+  text-align: right;
+  font-size: 12px;
+}
 .logs-panel .console {
   min-height: calc(100vh - 170px);
   max-height: calc(100vh - 170px);

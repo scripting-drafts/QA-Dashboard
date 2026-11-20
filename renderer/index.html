@@ -215,6 +215,17 @@
       </section>
 
       <section id="view-logs" class="view">
+        <div id="logs-find" class="logs-find" hidden>
+          <input id="logs-find-input" type="search" placeholder="Find in logs"
+                 autocomplete="off" spellcheck="false" aria-label="Find in logs">
+          <span id="logs-find-status" class="muted" role="status" aria-live="polite"></span>
+          <button id="logs-find-prev" class="ghost" type="button"
+                  title="Previous match (Shift+Enter)">Prev</button>
+          <button id="logs-find-next" class="ghost" type="button"
+                  title="Next match (Enter)">Next</button>
+          <button id="logs-find-close" class="ghost" type="button"
+                  title="Close (Esc)">Close</button>
+        </div>
         <div class="panel logs-panel">
           <pre id="logs-output" class="console"></pre>
         </div>
