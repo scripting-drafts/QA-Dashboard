@@ -1,4 +1,4 @@
-# QA Sentinels rules and checks
+# QA Sentinels rules
 
 This register describes every finding rule and operational check implemented by
 QA Sentinels `1.4.2`. Rules are code, not policy prose: the linked module is the
