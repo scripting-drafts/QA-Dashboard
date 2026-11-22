@@ -194,20 +194,11 @@ def _browser_crash(issue: dict | None) -> bool:
     return False
 
 
-def _ticket_status(topo: dict) -> str:
-    """Neutral ticket state; retired/offline CPUs are not named."""
-    if topo.get("state") in ("retired", "offline"):
-        return "not available"
-    return faultcore.presence(topo)
-
-
 def _repro_block(vendor: str, topology: dict | None = None,
                  issue: dict | None = None) -> list[str]:
     topo = topology or faultcore.topology()
     present = topo.get("present") is True
-    undetermined = topo.get("present") is None
     core = faultcore.label(topo)
-    status = _ticket_status(topo)
     siblings = ",".join(map(str, topo.get("logical") or []))
     if not siblings:
         siblings = ",".join(str(cpu) for cpu in config.FAULT_CORE_CPUS) or "unavailable"
@@ -250,47 +241,30 @@ def _repro_block(vendor: str, topology: dict | None = None,
                 f"4. Control run: same steps pinned to another physical core "
                 f"(e.g. `taskset -c {control}`)."
             )
-        else:
-            outcome = "undetermined" if undetermined else "absent"
-            pin = (
-                f"2. {faultcore.display_label(topo)} is {status}; pin the browser to an available "
-                f"core (e.g. `taskset -c {control}`) and record that the fault-core "
-                f"comparison was {outcome}."
-            )
-            control_step = (
-                "4. Use the same available-core run as the control; state that the "
-                "fault-core comparison was not possible."
-            )
+            return [
+                "1. Use a fresh Firefox profile (never a logged-in profile).",
+                pin,
+                "3. Load the page that triggered WebRender/compositor work until the tab or GPU process crashes.",
+                control_step,
+                "5. Compare `about:crashes` minidumps and the sentinel crash table.",
+            ]
         return [
             "1. Use a fresh Firefox profile (never a logged-in profile).",
-            pin,
-            "3. Load the page that triggered WebRender/compositor work until the tab or GPU process crashes.",
-            control_step,
-            "5. Compare `about:crashes` minidumps and the sentinel crash table.",
+            "2. Load the page that triggered WebRender/compositor work until the tab or GPU process crashes.",
+            "3. Compare `about:crashes` minidumps and the sentinel crash table.",
         ]
     if vendor == "canonical-kernel":
         if present:
-            core_test = (
-                f"2. Run the fault-core live test from a disposable live USB: "
-                f"`~/faultcore/verify-faultcore-live.sh` (logical CPUs {siblings})."
-            )
-            compare = "3. Compare suspect against a control core for equal duration."
-        else:
-            outcome = "undetermined" if undetermined else "absent"
-            core_test = (
-                f"2. {faultcore.display_label(topo)} is {status}; run the workload on available "
-                f"cores and record that the fault-core comparison was {outcome}."
-            )
             return [
                 "1. Reproduce the workload on the installed system; keep the sentinel running.",
-                core_test,
-                "3. Capture `journalctl -k -b -1`, `coredumpctl info`, and the latest evidence bundle.",
+                f"2. Run the fault-core live test from a disposable live USB: "
+                f"`~/faultcore/verify-faultcore-live.sh` (logical CPUs {siblings}).",
+                "3. Compare suspect against a control core for equal duration.",
+                "4. Capture `journalctl -k -b -1`, `coredumpctl info`, and the latest evidence bundle.",
             ]
         return [
             "1. Reproduce the workload on the installed system; keep the sentinel running.",
-            core_test,
-            compare,
-            "4. Capture `journalctl -k -b -1`, `coredumpctl info`, and the latest evidence bundle.",
+            "2. Capture `journalctl -k -b -1`, `coredumpctl info`, and the latest evidence bundle.",
         ]
     if vendor == "nvidia":
         return [
@@ -300,22 +274,17 @@ def _repro_block(vendor: str, topology: dict | None = None,
         ]
     if vendor == "hardware":
         if present:
-            stress = (
+            return [
+                "1. The sentinel records per-core affinity and crash correlation continuously.",
                 f"2. From a disposable live USB, stress {core} "
-                f"(`{siblings}`) and a control core (`{control}`)."
-            )
-        else:
-            outcome = "undetermined" if undetermined else "absent"
-            stress = (
-                f"2. {faultcore.display_label(topo)} is {status}; stress the available cores and "
-                f"record that the fault-core comparison was {outcome} instead of "
-                "claiming one."
-            )
+                f"(`{siblings}`) and a control core (`{control}`).",
+                "3. Capture MCE/EDAC/thermal data and the evidence bundle.",
+                "4. Replace or re-seat the CPU only after the vendor confirms the diagnosis.",
+            ]
         return [
             "1. The sentinel records per-core affinity and crash correlation continuously.",
-            stress,
-            "3. Capture MCE/EDAC/thermal data and the evidence bundle.",
-            "4. Replace or re-seat the CPU only after the vendor confirms the diagnosis.",
+            "2. Capture MCE/EDAC/thermal data and the evidence bundle.",
+            "3. Replace or re-seat the CPU only after the vendor confirms the diagnosis.",
         ]
     return [
         "1. Reproduce with the sentinel running (`~/QA-Sentinels/bin/qa status`).",
@@ -333,8 +302,8 @@ def _reproduction_viability(topo: dict, vendor: str) -> str:
     if vendor in ("mozilla", "canonical-kernel", "hardware"):
         if state in ("retired", "offline"):
             return (
-                "**~20%** — the fault-core comparison is unavailable on this "
-                "host; the control path remains reproducible.")
+                "**~20%** — reproduction is limited to available-core runs on "
+                "this host; the control path remains reproducible.")
         if topo.get("present") is True:
             return (
                 "**~70%** — the fault core is online; the affinity comparison "

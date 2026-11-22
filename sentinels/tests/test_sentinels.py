@@ -226,7 +226,7 @@ class TicketCorrelationTests(unittest.TestCase):
             title, body = tickets._draft(issue, None, {}, False)
         self.assertIn("fault core", body.lower())
         self.assertNotIn("offline", body.lower())
-        self.assertIn("not available", body)
+        self.assertNotIn("not available", body)
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
         self.assertNotIn("| yes |", body)
         self.assertIn("withheld", body)

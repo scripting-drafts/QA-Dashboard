@@ -343,7 +343,7 @@ class TicketThemeTests(unittest.TestCase):
         self.assertIn("[fault core (CPUs 2,8) absent]", title)
         self.assertIn("- Fault core (CPUs 2,8): absent", body)
         self.assertIn("## Fault core (CPUs 2,8) correlation — absent", body)
-        self.assertIn("fault-core comparison was absent", body)
+        self.assertNotIn("fault-core comparison was absent", body)
         self.assertIn("Reproduction viability: **~35%**", body)
 
     def test_title_and_environment_state_retired(self):
@@ -351,11 +351,11 @@ class TicketThemeTests(unittest.TestCase):
             title, body = tickets._draft(self._issue(), None, {}, False)
         self.assertIn("[fault core (CPUs 2,8) retired (undetermined)]", title)
         self.assertNotIn("offline", body.lower())
-        self.assertIn("is not available", body)
+        self.assertNotIn("is not available", body)
         self.assertNotIn("CPUs: 2, 8", body.split("## Reproduction")[0])
         self.assertNotIn("- Fault core (CPUs 2,8): retired", body)
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
-        self.assertIn("fault-core comparison was undetermined", body)
+        self.assertNotIn("fault-core comparison was undetermined", body)
         self.assertIn("Reproduction viability: **~20%**", body)
         self.assertNotIn("Use one available core as the control", body)
 
@@ -364,7 +364,7 @@ class TicketThemeTests(unittest.TestCase):
             title, body = tickets._draft(self._issue(), None, {}, False)
         self.assertNotIn("offline", title.lower())
         self.assertNotIn("offline", body.lower())
-        self.assertIn("is not available", body)
+        self.assertNotIn("is not available", body)
         self.assertNotIn("CPUs: 2, 8", body.split("## Reproduction")[0])
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
         self.assertIn("Reproduction viability: **~20%**", body)
@@ -387,7 +387,7 @@ class TicketThemeTests(unittest.TestCase):
         with mock.patch.object(tickets.faultcore, "topology", return_value=retired):
             _, body = tickets._draft(self._issue(), None, {}, False)
         self.assertNotIn("offline", body.lower())
-        self.assertIn("fault core (cpus 4,10) is not available", body.lower())
+        self.assertNotIn("fault core (cpus 4,10) is not available", body.lower())
         self.assertNotIn("CPUs: 4, 10", body.split("## Reproduction")[0])
         self.assertNotIn("core 2", body.lower())
 
