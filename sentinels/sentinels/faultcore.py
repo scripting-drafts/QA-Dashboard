@@ -313,7 +313,7 @@ def available_cpus(topo: dict) -> list[int]:
 # --- isolation policy -------------------------------------------------------
 #
 # A degrading core is only safe while the policy that fenced it still holds.
-# The fault-lab project (fault-injection-rig) sets one of two modes in
+# Faultlab sets one of two modes in
 # /etc/faultlab/mode:
 #   retired - the configured fault CPUs are offlined; nothing runs there.
 #   lab     - CPUs are online but isolated and cgroup-fenced for test work.
