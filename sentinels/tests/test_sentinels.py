@@ -213,7 +213,7 @@ class TicketCorrelationTests(unittest.TestCase):
         self.assertIn("mozilla", vendors)
         self.assertIn("hardware", vendors)
 
-    def test_draft_summarizes_offline_faultcore_and_withholds_identity(self):
+    def test_draft_summarizes_unavailable_faultcore_and_withholds_identity(self):
         from sentinels import tickets
 
         retired = {"present": None, "state": "retired", "logical": [],
@@ -225,7 +225,8 @@ class TicketCorrelationTests(unittest.TestCase):
                                return_value=retired):
             title, body = tickets._draft(issue, None, {}, False)
         self.assertIn("fault core", body.lower())
-        self.assertIn("- Fault Injection CPUs Offline", body)
+        self.assertNotIn("offline", body.lower())
+        self.assertIn("not available", body)
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
         self.assertNotIn("| yes |", body)
         self.assertIn("withheld", body)

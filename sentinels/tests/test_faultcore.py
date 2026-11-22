@@ -334,6 +334,8 @@ class TicketThemeTests(unittest.TestCase):
             "## Physical core 2 correlation — present (CPUs: 2, 8 online)", body)
         self.assertIn("`2,8`", body)
         self.assertIn("Reproduction viability: **~70%**", body)
+        self.assertNotIn("DRAFT ONLY", body)
+        self.assertNotIn("Remove nothing", body)
 
     def test_title_and_environment_state_absence(self):
         with mock.patch.object(tickets.faultcore, "topology", return_value=self._absent()):
@@ -348,17 +350,21 @@ class TicketThemeTests(unittest.TestCase):
         with mock.patch.object(tickets.faultcore, "topology", return_value=self._retired()):
             title, body = tickets._draft(self._issue(), None, {}, False)
         self.assertIn("[fault core (CPUs 2,8) retired (undetermined)]", title)
-        self.assertIn("- Fault Injection CPUs Offline", body)
+        self.assertNotIn("offline", body.lower())
+        self.assertIn("is not available", body)
         self.assertNotIn("CPUs: 2, 8", body.split("## Reproduction")[0])
         self.assertNotIn("- Fault core (CPUs 2,8): retired", body)
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
         self.assertIn("fault-core comparison was undetermined", body)
         self.assertIn("Reproduction viability: **~20%**", body)
+        self.assertNotIn("Use one available core as the control", body)
 
     def test_title_and_environment_state_offline(self):
         with mock.patch.object(tickets.faultcore, "topology", return_value=self._offline()):
-            _, body = tickets._draft(self._issue(), None, {}, False)
-        self.assertIn("- Fault Injection CPUs Offline", body)
+            title, body = tickets._draft(self._issue(), None, {}, False)
+        self.assertNotIn("offline", title.lower())
+        self.assertNotIn("offline", body.lower())
+        self.assertIn("is not available", body)
         self.assertNotIn("CPUs: 2, 8", body.split("## Reproduction")[0])
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
         self.assertIn("Reproduction viability: **~20%**", body)
@@ -380,7 +386,8 @@ class TicketThemeTests(unittest.TestCase):
                    "degraded": [4, 10]}
         with mock.patch.object(tickets.faultcore, "topology", return_value=retired):
             _, body = tickets._draft(self._issue(), None, {}, False)
-        self.assertIn("- Fault Injection CPUs Offline", body)
+        self.assertNotIn("offline", body.lower())
+        self.assertIn("fault core (cpus 4,10) is not available", body.lower())
         self.assertNotIn("CPUs: 4, 10", body.split("## Reproduction")[0])
         self.assertNotIn("core 2", body.lower())
 

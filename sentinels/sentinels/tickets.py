@@ -126,18 +126,15 @@ def _environment(topology: dict | None = None, issue: dict | None = None,
             if re.search(r"VGA|3D|Display", line):
                 gpu = re.sub(r"\s+", " ", line.strip())
                 break
-    if topo.get("state") in ("retired", "offline"):
-        fault_line = "- Fault Injection CPUs Offline"
-    else:
-        fault_line = (
-            f"- {faultcore.display_label(topo)}: {faultcore.presence(topo)}")
     lines = [
         f"- OS: {os_release.get('PRETTY_NAME', 'Linux')}",
         f"- Kernel: {read_text('/proc/sys/kernel/osrelease')}",
         f"- CPU: {cpu or 'unknown'} ({topo.get('logical_cpus') or os.cpu_count()} logical CPUs)",
-        fault_line,
-        f"- Memory: {human_bytes(mem_kb)}",
     ]
+    if topo.get("state") not in ("retired", "offline"):
+        lines.append(
+            f"- {faultcore.display_label(topo)}: {faultcore.presence(topo)}")
+    lines.append(f"- Memory: {human_bytes(mem_kb)}")
     for item in software:
         lines.append(f"- Software: `{item['package']}` {item['version']}")
     if gpu:
@@ -197,13 +194,20 @@ def _browser_crash(issue: dict | None) -> bool:
     return False
 
 
+def _ticket_status(topo: dict) -> str:
+    """Neutral ticket state; retired/offline CPUs are not named."""
+    if topo.get("state") in ("retired", "offline"):
+        return "not available"
+    return faultcore.presence(topo)
+
+
 def _repro_block(vendor: str, topology: dict | None = None,
                  issue: dict | None = None) -> list[str]:
     topo = topology or faultcore.topology()
     present = topo.get("present") is True
     undetermined = topo.get("present") is None
     core = faultcore.label(topo)
-    status = faultcore.presence(topo)
+    status = _ticket_status(topo)
     siblings = ",".join(map(str, topo.get("logical") or []))
     if not siblings:
         siblings = ",".join(str(cpu) for cpu in config.FAULT_CORE_CPUS) or "unavailable"
@@ -277,10 +281,11 @@ def _repro_block(vendor: str, topology: dict | None = None,
                 f"2. {faultcore.display_label(topo)} is {status}; run the workload on available "
                 f"cores and record that the fault-core comparison was {outcome}."
             )
-            compare = (
-                "3. Use one available core as the control; do not claim a fault-core "
-                "comparison."
-            )
+            return [
+                "1. Reproduce the workload on the installed system; keep the sentinel running.",
+                core_test,
+                "3. Capture `journalctl -k -b -1`, `coredumpctl info`, and the latest evidence bundle.",
+            ]
         return [
             "1. Reproduce the workload on the installed system; keep the sentinel running.",
             core_test,
@@ -328,9 +333,8 @@ def _reproduction_viability(topo: dict, vendor: str) -> str:
     if vendor in ("mozilla", "canonical-kernel", "hardware"):
         if state in ("retired", "offline"):
             return (
-                "**~20%** — the fault-injection CPUs are offline; the affinity "
-                "comparison cannot be exercised, but the control path remains "
-                "reproducible.")
+                "**~20%** — the fault-core comparison is unavailable on this "
+                "host; the control path remains reproducible.")
         if topo.get("present") is True:
             return (
                 "**~70%** — the fault core is online; the affinity comparison "
@@ -661,16 +665,8 @@ def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool) -> t
         if rows:
             example = redact(str(rows[0].get("message") or rows[0].get("context") or ""))[:3000]
 
-    faultcore_guard = (
-        "Remove nothing from the fault-core evidence section."
-        if _mentions_faultcore(issue)
-        else "Remove nothing from the evidence sections."
-    )
     lines = [
         f"# {title}",
-        "",
-        "> **DRAFT ONLY — NOT SUBMITTED.** Review, attach the evidence bundle, then post",
-        f"> through {meta['channel']}. {faultcore_guard}",
         "",
         f"- Vendor / channel: **{meta['name']}** — {meta['channel']}",
         f"- Cluster key: `{issue['key']}`",
