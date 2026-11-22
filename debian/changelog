@@ -41,6 +41,7 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     headers.
   * Keep the generated Rules page aligned with the shortened "Rules" header
     and the Dashboard rule-register copy.
+  * Remove the implementation summary from the Documentation page.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 14:00:00 +0100
 

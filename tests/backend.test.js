@@ -83,6 +83,7 @@ test("Rules sits before Documentation and renders the rule register", () => {
     path.join(root, "renderer", "docs.html"), "utf8");
   assert.match(docs, /<h2>Documentation<\/h2>/);
   assert.doesNotMatch(docs, /<h2>QA Sentinels /);
+  assert.doesNotMatch(docs, /The core uses a C sampler/);
   assert.match(rules, /<table class="rules-table">/);
   for (const rule of [
     "security.root_from_user_parent", "faultcore.isolation.unfenced",
