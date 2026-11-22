@@ -1,9 +1,11 @@
 PYTHON ?= python3
+RELEASE_BOARD ?= release-board
 SENTINELS := sentinels
+SENTINELS_HOME := $(CURDIR)/$(SENTINELS)
 
 .PHONY: deps test test-sentinels test-dashboard contracts contracts-check \
 	vendor-check rules-html rules-check build-linux build-windows build-macos \
-	build-logs release-check start install uninstall clean
+	build-logs release-check release-tag-check release-tag-fix hooks start install uninstall clean
 
 deps:
 	npm ci --no-audit --no-fund
@@ -14,7 +16,7 @@ test-dashboard:
 	npm test
 
 test-sentinels:
-	cd $(SENTINELS) && $(PYTHON) -m unittest discover -s tests
+	cd $(SENTINELS) && QA_SENTINELS_HOME=$(SENTINELS_HOME) $(PYTHON) -m unittest discover -s tests
 
 contracts:
 	$(PYTHON) tools/export_contracts.py
@@ -43,8 +45,17 @@ build-macos:
 build-logs:
 	npm run pack:logs
 
-release-check:
-	cd $(SENTINELS) && ./bin/qa legal --check
+release-tag-check:
+	$(PYTHON) tools/check_release_tag.py
+
+release-tag-fix:
+	$(RELEASE_BOARD) repair --root . --bump --move-tag --commit --confirm
+
+hooks:
+	./scripts/install-hooks.sh
+
+release-check: release-tag-check
+	cd $(SENTINELS) && QA_SENTINELS_HOME=$(SENTINELS_HOME) ./bin/qa legal --check
 	$(PYTHON) tools/check_vendor.py
 	$(PYTHON) tools/build_rules_html.py --check
 	npm test

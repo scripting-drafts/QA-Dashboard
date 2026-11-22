@@ -9,5 +9,8 @@ commits with the Developer Certificate of Origin 1.1 (`git commit -s`).
   execution.
 - Do not add telemetry, network calls, or credentials to the renderer.
 - Add tests for backend, IPC, and packaging changes.
+- Run `make hooks` once per clone to enable the release-tag pre-push guard.
+- If the guard blocks a push, run `make release-tag-fix`; it bumps a consumed
+  release and only replaces a tag that was never built or published.
 - Run `npm test` before opening a pull request.
 - Do not include personal data, host-specific paths, or secrets in commits.

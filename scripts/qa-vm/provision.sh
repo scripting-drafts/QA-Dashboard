@@ -40,7 +40,9 @@ if ! v dominfo "$DOMAIN" >/dev/null 2>&1; then
     --cdrom "$ISO" \
     --network network=default,model=e1000e \
     --graphics spice,listen=127.0.0.1 --video qxl \
-    --channel spicevmc --channel qemu-guest-agent --input tablet,bus=usb --sound none \
+    --channel spicevmc \
+    --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0 \
+    --input tablet,bus=usb --sound none \
     --osinfo win11 --noautoconsole
 fi
 

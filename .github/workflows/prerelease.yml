@@ -50,6 +50,10 @@ jobs:
         run: |
           case "${{ matrix.platform }}" in
             linux)
+              # electron-builder leaves chrome-sandbox non-setuid; the smoke
+              # test must exercise the packaged app with its sandbox enabled.
+              sudo chown root:root dist/linux-unpacked/chrome-sandbox
+              sudo chmod 4755 dist/linux-unpacked/chrome-sandbox
               ./dist/linux-unpacked/qa-dashboard --version
               ;;
             win)
