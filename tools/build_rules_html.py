@@ -111,15 +111,15 @@ def paragraph(lines: list[str], index: int) -> tuple[str, int]:
 
 def render(markdown: str) -> str:
     lines = markdown.splitlines()
-    title = "Rules and Checks"
+    title = "Rules"
     subtitle = ""
     index = 0
     if lines and lines[0].startswith("# "):
         title = re.sub(
             r"^QA Sentinels\s+", "", lines[0][2:].strip(), flags=re.IGNORECASE
         )
-        if title.lower() == "rules and checks":
-            title = "Rules and Checks"
+        if title.lower() in {"rules", "rules and checks"}:
+            title = "Rules"
         index = 1
 
     sections: list[str] = []
@@ -210,7 +210,7 @@ def render(markdown: str) -> str:
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; style-src 'self'; img-src 'self' data:;">
-  <title>Rules and Checks · QA Dashboard</title>
+  <title>Rules · QA Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-module="rules">

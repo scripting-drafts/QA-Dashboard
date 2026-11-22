@@ -39,6 +39,8 @@ qa-dashboard (0.5.9) jammy; urgency=medium
     WIP.
   * Remove the QA Sentinels prefix from the Documentation and Rules page
     headers.
+  * Keep the generated Rules page aligned with the shortened "Rules" header
+    and the Dashboard rule-register copy.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Fri, 20 Nov 2026 14:00:00 +0100
 

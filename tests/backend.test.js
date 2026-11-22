@@ -77,7 +77,7 @@ test("Rules sits before Documentation and renders the rule register", () => {
   const rules = fs.readFileSync(
     path.join(root, "renderer", "rules.html"), "utf8");
   assert.match(rules, /data-module="rules"/);
-  assert.match(rules, /<h2>Rules and Checks<\/h2>/);
+  assert.match(rules, /<h2>Rules<\/h2>/);
   assert.doesNotMatch(rules, /<h2>QA Sentinels /);
   const docs = fs.readFileSync(
     path.join(root, "renderer", "docs.html"), "utf8");
