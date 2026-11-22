@@ -1,3 +1,14 @@
+qa-dashboard (0.5.11) jammy; urgency=medium
+
+  * Changes since the previous release:
+    - Sync the ticket wording cleanup
+    - Sync the unavailable comparison cleanup
+    - Sync the ticket title cleanup
+    - Refer to the fault-core project as Faultlab
+    - staged
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 17:39:08 +0100
+
 qa-dashboard (0.5.10) jammy; urgency=medium
 
   * Document Ubuntu 26.10 (stonking) as a published but untested preview.
