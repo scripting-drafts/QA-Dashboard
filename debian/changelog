@@ -1,8 +1,8 @@
 qa-dashboard (0.5.12) jammy; urgency=medium
 
-  * Rename the root view header from QA Dashboard to Overview.
+  * Revert the root view header rename; keep QA Dashboard as the header.
 
- -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 18:45:00 +0100
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 19:10:00 +0100
 
 qa-dashboard (0.5.11) jammy; urgency=medium
 
