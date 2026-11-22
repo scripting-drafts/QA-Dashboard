@@ -4,9 +4,10 @@ qa-dashboard (0.5.10) jammy; urgency=medium
   * Limit the default release series to jammy, noble and resolute.
   * Update compatibility and download documentation for the tested
     22.04-26.04 baseline.
-  * Sync vendored QA Sentinels 1.4.3 (aac3b05), including the ticket-generator
+  * Sync vendored QA Sentinels 1.4.3 (92bbbfa), including the ticket-generator
     cleanup that removes draft banners, unavailable fault-core comparison
-    steps, fault-core control instructions, and offline CPU wording.
+    steps, fault-core control instructions, retired/unavailable title tags,
+    and offline CPU wording.
 
  -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 12:00:00 +0100
 

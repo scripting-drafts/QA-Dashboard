@@ -263,7 +263,7 @@ class TopologyTests(unittest.TestCase):
         self.assertIn("undetermined", faultcore.presence(retired))
         self.assertEqual(faultcore.theme_tag(present), "physical core 2 present")
         self.assertEqual(faultcore.theme_tag(absent), "fault core (CPUs 2,8) absent")
-        self.assertIn("undetermined", faultcore.theme_tag(retired))
+        self.assertEqual(faultcore.theme_tag(retired), "")
         self.assertEqual(faultcore.cpu_set(present), "2, 8")
         self.assertEqual(
             faultcore.presence_summary(present),
@@ -349,7 +349,8 @@ class TicketThemeTests(unittest.TestCase):
     def test_title_and_environment_state_retired(self):
         with mock.patch.object(tickets.faultcore, "topology", return_value=self._retired()):
             title, body = tickets._draft(self._issue(), None, {}, False)
-        self.assertIn("[fault core (CPUs 2,8) retired (undetermined)]", title)
+        self.assertNotIn("retired", title.lower())
+        self.assertNotIn("undetermined", title.lower())
         self.assertNotIn("offline", body.lower())
         self.assertNotIn("is not available", body)
         self.assertNotIn("CPUs: 2, 8", body.split("## Reproduction")[0])
@@ -363,6 +364,7 @@ class TicketThemeTests(unittest.TestCase):
         with mock.patch.object(tickets.faultcore, "topology", return_value=self._offline()):
             title, body = tickets._draft(self._issue(), None, {}, False)
         self.assertNotIn("offline", title.lower())
+        self.assertNotIn("unavailable", title.lower())
         self.assertNotIn("offline", body.lower())
         self.assertNotIn("is not available", body)
         self.assertNotIn("CPUs: 2, 8", body.split("## Reproduction")[0])

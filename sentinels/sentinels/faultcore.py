@@ -289,10 +289,8 @@ def integration_state() -> str:
 
 def theme_tag(topo: dict) -> str:
     state = topo.get("state")
-    if state == "retired":
-        return f"{label(topo)} retired (undetermined)"
-    if state == "offline":
-        return f"{label(topo)} unavailable (undetermined)"
+    if state in ("retired", "offline"):
+        return ""
     if state == "changed":
         return f"{label(topo)} mapping changed"
     if topo.get("present") is True:

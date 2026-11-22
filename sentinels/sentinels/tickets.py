@@ -623,8 +623,9 @@ def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool) -> t
     version_tag = _version_tag(issue, software)
     if version_tag:
         title = f"{title} {version_tag}"
-    if _mentions_faultcore(issue):
-        title = f"{title} [{faultcore.theme_tag(topo)}]"
+    fault_tag = faultcore.theme_tag(topo)
+    if _mentions_faultcore(issue) and fault_tag:
+        title = f"{title} [{fault_tag}]"
     rows = issue["rows"]
     if issue.get("kind") == "crash":
         example, fault = _crash_evidence(issue)

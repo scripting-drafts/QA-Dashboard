@@ -224,7 +224,8 @@ class TicketCorrelationTests(unittest.TestCase):
         with mock.patch.object(tickets.faultcore, "topology",
                                return_value=retired):
             title, body = tickets._draft(issue, None, {}, False)
-        self.assertIn("fault core", body.lower())
+        self.assertIn("fault-core affinity", title.lower())
+        self.assertNotIn("retired", title.lower())
         self.assertNotIn("offline", body.lower())
         self.assertNotIn("not available", body)
         self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
