@@ -89,7 +89,7 @@ Optional reporter details may be put in `config/identity.env`, using `config/ide
 - [`src/`](src/) — C sampler and Makefile.
 - [`root/`](root/) — optional elevated system collection, systemd integration, and deep tracing.
 - [`config/`](config/) — configuration notes and optional identity template.
-- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) — Ubuntu 22.04-26.10 baseline and upgrade checklist.
+- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) — Ubuntu 22.04-26.04 tested baseline, 26.10 untested preview, and upgrade checklist.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — security provenance rules, auditd coverage, and limits.
 - [`docs/HARDWARE.md`](docs/HARDWARE.md) — hardware-health sources, privileges, scheduling, and limits.
 - [`docs/LSM.md`](docs/LSM.md) — Linux Security Modules state, drift, denials, and limits.

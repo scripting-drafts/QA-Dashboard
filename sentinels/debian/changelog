@@ -1,3 +1,14 @@
+qa-sentinels (1.4.3) jammy; urgency=medium
+
+  * Mark Ubuntu 26.10 (stonking) as an untested preview while keeping package
+    support enabled.
+  * Limit the default release series to jammy, noble and resolute; stonking is
+    opt-in.
+  * Report preview status from the compatibility check and document the tested
+    22.04-26.04 baseline.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 12:00:00 +0100
+
 qa-sentinels (1.4.2) jammy; urgency=medium
 
   * Ingest an optional external crash feed, auto-detected from an explicit

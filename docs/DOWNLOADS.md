@@ -2,7 +2,7 @@
 
 ## Linux
 
-The stable Linux packages remain in their dedicated PPAs:
+The Linux packages remain in their dedicated PPAs:
 
 ```bash
 sudo add-apt-repository ppa:toomanypatterns/qa-dashboard
@@ -10,6 +10,10 @@ sudo add-apt-repository ppa:toomanypatterns/qa-sentinels
 sudo apt update
 sudo apt install qa-dashboard qa-sentinels
 ```
+
+The PPAs also publish Ubuntu 26.10 (stonking) builds. They are untested
+previews, are not part of the default release set, and should not be used for
+production. Use 22.04, 24.04, or 26.04 for tested deployments.
 
 `qa-dashboard` recommends `qa-sentinels`; the engine remains a separate
 package. The Debian packaging and PPA paths are unchanged by the umbrella

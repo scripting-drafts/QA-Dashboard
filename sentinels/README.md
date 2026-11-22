@@ -32,11 +32,16 @@ Some information may be unavailable without journal permissions or elevated capa
 
 | Method | System | Notes |
 | --- | --- | --- |
-| Launchpad PPA | Ubuntu 22.04, 24.04, 26.04, 26.10 | signed package, automatic updates |
+| Launchpad PPA | Ubuntu 22.04, 24.04, 26.04; 26.10 untested preview | signed package, automatic updates |
 | Local `.deb` | Ubuntu/Debian | offline or pinned version |
 | Source installer | any Linux | layer 2, root helpers and development |
 
-### Supported Ubuntu series (PPA)
+### Ubuntu series (PPA)
+
+Ubuntu 26.10 (stonking) packages are published as an untested preview and are
+not part of the default release set. Use 22.04, 24.04, or 26.04 for tested
+deployments. `add-apt-repository` selects your release codename; do not add
+`devel` manually.
 
 The `qa-sentinels` package installs the CLI and a read-only seed tree. On
 first use, `/usr/bin/qa` creates `~/QA-Sentinels` unless a checkout already

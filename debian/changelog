@@ -1,3 +1,13 @@
+qa-dashboard (0.5.10) jammy; urgency=medium
+
+  * Document Ubuntu 26.10 (stonking) as a published but untested preview.
+  * Limit the default release series to jammy, noble and resolute.
+  * Update compatibility and download documentation for the tested
+    22.04-26.04 baseline.
+  * Sync vendored QA Sentinels 1.4.3 (057ed95).
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 12:00:00 +0100
+
 qa-dashboard (0.5.9) jammy; urgency=medium
 
   * Add QA Sentinels 1.3.0 network and connectivity query categories.

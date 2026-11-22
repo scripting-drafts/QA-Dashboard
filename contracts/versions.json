@@ -1,13 +1,21 @@
 {
   "release": "2026.11.1",
-  "qa_dashboard": "0.5.9",
-  "qa_sentinels": "1.4.1",
+  "qa_dashboard": "0.5.10",
+  "qa_sentinels": "1.4.3",
   "electron": "45.2.3",
   "python": ">=3.10",
-  "platforms": ["linux", "windows", "macos"],
-  "ppa_series": ["jammy", "noble", "resolute", "stonking"],
+  "platforms": [
+    "linux",
+    "windows",
+    "macos"
+  ],
+  "ppa_series": [
+    "jammy",
+    "noble",
+    "resolute"
+  ],
   "support": {
-    "linux": "Ubuntu 22.04-26.10",
+    "linux": "Ubuntu 22.04-26.04",
     "windows": "Windows 11 x64/ARM64",
     "macos": "macOS 13+ Intel/Apple Silicon"
   }

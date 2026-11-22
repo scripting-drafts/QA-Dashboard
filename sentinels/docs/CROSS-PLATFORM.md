@@ -6,7 +6,8 @@ unchanged.
 
 ## Supported targets
 
-- Linux: standalone QA Sentinels package and CLI; existing Ubuntu 22.04–26.10 baseline.
+- Linux: standalone QA Sentinels package and CLI; tested Ubuntu 22.04–26.04
+  baseline, with 26.10 published as an untested preview.
 - Windows 11 x64/ARM64: bundled QA Set engine only; no standalone installer or supported standalone CLI.
 - macOS 13+ Intel/Apple Silicon: bundled QA Set engine only; no standalone installer or supported standalone CLI.
 

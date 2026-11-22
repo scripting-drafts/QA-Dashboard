@@ -27,3 +27,10 @@ It enables the helper on the first graphical login, so Shift+click on the QA
 launcher opens the main Dashboard. If the package is installed during an active
 session, sign out and back in once so GNOME Shell scans the new extension.
 The application still works without the helper.
+
+Ubuntu series
+-------------
+
+Ubuntu 26.10 (stonking) packages are published as an untested preview. No
+runtime testing on 26.10 is planned in the near term. Use Ubuntu 22.04,
+24.04, or 26.04 for tested deployments.

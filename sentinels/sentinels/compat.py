@@ -19,6 +19,9 @@ from .util import read_text, run
 SUPPORTED_OS = (
     (22, 4), (24, 4), (26, 4), (26, 10),
 )
+UNTESTED_OS = (
+    (26, 10),
+)
 MIN_PYTHON = (3, 10)
 MIN_SQLITE = (3, 37)
 MIN_SYSTEMD = (249,)
@@ -71,6 +74,7 @@ def evaluate(os_id: str, os_version: str, python_version: str,
              sqlite_version: str, systemd_version: str,
              kernel_version: str) -> dict:
     os_tuple = _version_tuple(os_version)
+    preview = os_tuple in UNTESTED_OS
     py_tuple = _version_tuple(python_version)
     sqlite_tuple = _version_tuple(sqlite_version)
     systemd_tuple = _version_tuple(systemd_version)
@@ -79,7 +83,10 @@ def evaluate(os_id: str, os_version: str, python_version: str,
         {
             "name": "Ubuntu release",
             "ok": os_id.lower() == "ubuntu" and os_tuple in SUPPORTED_OS,
-            "detail": f"{os_id or 'unknown'} {os_version or 'unknown'}",
+            "detail": (
+                f"{os_id or 'unknown'} {os_version or 'unknown'}"
+                f"{' (untested preview)' if preview else ''}"
+            ),
         },
         {
             "name": "Python >= 3.10",
@@ -103,14 +110,17 @@ def evaluate(os_id: str, os_version: str, python_version: str,
         },
     ]
     supported = all(check["ok"] for check in checks)
+    if supported and preview:
+        summary = f"supported Ubuntu baseline; {os_version} is an untested preview"
+    elif supported:
+        summary = "supported Ubuntu baseline"
+    else:
+        summary = "outside the documented Ubuntu 22.04-26.04 baseline"
     return {
         "supported": supported,
+        "preview": preview,
         "checks": checks,
-        "summary": (
-            "supported Ubuntu baseline"
-            if supported else
-            "outside the documented Ubuntu 22.04-26.10 baseline"
-        ),
+        "summary": summary,
     }
 
 

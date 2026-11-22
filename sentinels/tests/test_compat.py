@@ -13,6 +13,19 @@ class CompatTests(unittest.TestCase):
             )
             self.assertTrue(result["supported"], version)
 
+    def test_26_10_is_supported_but_marked_preview(self):
+        result = compat.evaluate(
+            "ubuntu", "26.10", "3.10.12", "3.37.2", "249", "6.8.0"
+        )
+        self.assertTrue(result["supported"])
+        self.assertTrue(result["preview"])
+        self.assertIn("untested preview", result["summary"])
+        for version in ("22.04", "24.04", "26.04"):
+            result = compat.evaluate(
+                "ubuntu", version, "3.10.12", "3.37.2", "249", "6.8.0"
+            )
+            self.assertFalse(result["preview"], version)
+
     def test_systemd_259_on_noble_and_resolute(self):
         for version in ("24.04", "26.04"):
             for systemd in ("259", "259.1"):

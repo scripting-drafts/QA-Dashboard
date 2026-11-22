@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Publish one package to its Launchpad PPA for every supported Ubuntu series.
+# Publish one package to its Launchpad PPA for every tested Ubuntu series.
 #
 # The package identity comes from debian/changelog, not the checkout directory.
 # Each series gets a unique Debian version (BASE-0ubuntu1~SERIES1) so uploads
 # cannot collide and upgrades sort above the previously published base version.
+# Stonking (26.10) is published only when selected explicitly; it is an
+# untested preview and is not part of the default release set.
 #
 #   scripts/release.sh --check
 #   scripts/release.sh
@@ -25,7 +27,8 @@ REVISION_EXPLICIT=0
 if [[ -n "${REVISION:-}" ]]; then REVISION_EXPLICIT=1; fi
 REVISION="${REVISION:-1}"
 # Jammy uses the same release flow but keeps the legacy SysV/openipmi path.
-DEFAULT_SERIES=(jammy noble resolute stonking)
+# Stonking is opt-in: it is published but not runtime-tested.
+DEFAULT_SERIES=(jammy noble resolute)
 if [[ -n "${SERIES:-}" ]]; then
   read -r -a DEFAULT_SERIES <<< "$SERIES"
 fi
@@ -47,7 +50,7 @@ while (( $# )); do
       read -r -a DEFAULT_SERIES <<< "$1"
       ;;
     -h|--help)
-      sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -57,6 +60,10 @@ while (( $# )); do
   esac
   shift
 done
+
+if [[ " ${DEFAULT_SERIES[*]} " == *" stonking "* ]]; then
+  echo "warning: stonking is an untested preview series" >&2
+fi
 
 PKG="$(dpkg-parsechangelog -S Source)"
 VERSION="$(dpkg-parsechangelog -S Version)"

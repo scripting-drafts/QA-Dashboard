@@ -1,6 +1,7 @@
 # Compatibility
 
-QA Sentinels targets Ubuntu LTS and interim releases through 26.10.
+QA Sentinels targets Ubuntu LTS and interim releases through 26.04. Ubuntu
+26.10 packages are published as an untested preview.
 
 ## Baseline
 
@@ -21,9 +22,19 @@ optional eBPF tracer are rebuilt on the host.
 | 22.04 LTS | baseline, tested |
 | 24.04 LTS | supported |
 | 26.04 LTS | supported |
-| 26.10 | supported |
+| 26.10 | published, untested preview |
 
 Ubuntu 24.10, 25.04, and 25.10 are end-of-life and are not PPA targets.
+
+Ubuntu 26.10 (stonking) packages are built and published from `main`, but no
+runtime testing on 26.10 is planned in the near term. Launchpad build success
+is not runtime testing. Stonking is not part of the default release set. Treat
+the 26.10 packages as preview builds and use 22.04, 24.04, or 26.04 for tested
+deployments.
+
+`tested` means the release was exercised on a host. `supported` means the
+package is built for that release and expected to work, but is not part of the
+current runtime test matrix.
 
 ## Verify a host
 
@@ -34,8 +45,9 @@ Ubuntu 24.10, 25.04, and 25.10 are end-of-life and are not PPA targets.
 ```
 
 `compat` reports the Ubuntu release, Python, SQLite, systemd and kernel against
-the documented minimums. `--strict` exits non-zero outside the baseline.
-`preflight` includes the same compatibility check.
+the documented minimums. `--strict` exits non-zero outside the baseline. On
+26.10, `compat` labels the host as an untested preview. `preflight` includes
+the same compatibility check.
 
 ## Upgrade procedure
 

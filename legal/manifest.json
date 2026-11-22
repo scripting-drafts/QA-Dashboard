@@ -5,21 +5,21 @@
   "copyright": "Copyright (c) 2026 Gerard Sala",
   "source": "https://github.com/scripting-drafts/QA-Dashboard",
   "homepage": "https://github.com/scripting-drafts/QA-Dashboard",
-  "lastReviewed": "2026-11-20",
-  "reviewedVersion": "0.5.9",
+  "lastReviewed": "2026-11-22",
+  "reviewedVersion": "0.5.10",
   "reviewedComponents": {
-    "qa-dashboard": "0.5.9",
+    "qa-dashboard": "0.5.10",
     "electron": "45.2.3",
     "chromium": "156.0.8078.80",
     "nodejs": "24.22.2",
-    "qa-sentinels": "1.4.2",
+    "qa-sentinels": "1.4.3",
     "qa-license-scanner": "0.1.0"
   },
   "components": [
     {
       "id": "qa-dashboard",
       "name": "QA Dashboard",
-      "version": "0.5.9",
+      "version": "0.5.10",
       "license": "MIT",
       "scope": "project"
     },
@@ -73,7 +73,7 @@
     {
       "id": "qa-sentinels",
       "name": "QA Sentinels",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "license": "MIT",
       "scope": "companion",
       "url": "https://github.com/scripting-drafts/QA-Sentinels"
@@ -156,8 +156,8 @@
       "id": "distribution",
       "category": "distribution",
       "status": "reviewed",
-      "date": "2026-11-20",
-      "note": "Source and Debian packaging include the register; companion metadata tracks QA Sentinels 1.4.2."
+      "date": "2026-11-22",
+      "note": "Source and Debian packaging include the register; companion metadata tracks QA Sentinels 1.4.3."
     },
     {
       "id": "privacy",

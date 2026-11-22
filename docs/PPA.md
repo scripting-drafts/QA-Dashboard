@@ -129,19 +129,30 @@ sudo apt install --no-install-recommends qa-dashboard
 does not depend on the Dashboard. Removing the engine leaves the GUI
 installed but non-functional.
 
-## Supported Ubuntu series
+## Published Ubuntu series
 
-Both PPAs publish the same source version for the supported series:
+Both PPAs publish the same upstream base version across the tested series.
+Stonking previews use the same base version only when rebuilt explicitly.
 
-```text
-jammy      22.04 LTS
-noble      24.04 LTS
-resolute   26.04 LTS
-stonking   26.10
-```
+| Series | Release | Status |
+|---|---|---|
+| `jammy` | 22.04 LTS | tested baseline |
+| `noble` | 24.04 LTS | supported |
+| `resolute` | 26.04 LTS | supported |
+| `stonking` | 26.10 | published, untested preview |
 
-Enable all four series in each Launchpad PPA before uploading. The release
-script checks the series and refuses to build if one is missing.
+`devel` is not a PPA series or a support status. Use the codename for the
+release; `add-apt-repository` selects it automatically.
+
+Enable `jammy`, `noble`, and `resolute` in each Launchpad PPA before uploading.
+Stonking is not part of the default release set. The script builds it only
+when `SERIES=stonking` is passed explicitly, and it refuses to build if a
+requested series is missing.
+
+No runtime testing on 26.10 is planned in the near term. Launchpad build
+success is not runtime testing. Treat stonking packages as preview builds and
+use 22.04, 24.04, or 26.04 for tested deployments. Stonking will lag the
+tested series until a preview upload is requested explicitly.
 
 Each series receives a collision-free, upgrade-safe Debian version:
 
@@ -171,9 +182,16 @@ For a partial upload, limit the series explicitly:
 SERIES="jammy" scripts/release.sh --package qa-dashboard
 ```
 
+To build the untested 26.10 preview explicitly:
+
+```bash
+SERIES="stonking" scripts/release.sh --package qa-dashboard
+```
+
 The script derives the package name from `debian/changelog`, verifies it against
-`--package`, checks every series' `Packages.gz`, and uploads with `dput` only
-after all requested series are enabled. The two PPAs remain separate:
+`--package`, checks every requested series' `Packages.gz`, and uploads with
+`dput` only after all requested series are enabled. The two PPAs remain
+separate:
 
 ```text
 ppa:toomanypatterns/qa-dashboard
@@ -191,9 +209,9 @@ SERIES="noble" REVISION=2 scripts/release.sh --package qa-dashboard
 `--check` accepts any already-published revision with the same base version and
 series suffix. Use `REVISION=N` only when uploading a replacement.
 
-Current new-series state:
+Current published state:
 
-| Package | noble | resolute | stonking |
-|---|---|---|---|
-| qa-dashboard | `0.5.9-0ubuntu2~noble1` | `0.5.9-0ubuntu1~resolute1` | `0.5.9-0ubuntu1~stonking1` |
-| qa-sentinels | `1.4.1-0ubuntu1~noble1` | `1.4.1-0ubuntu1~resolute1` | `1.4.1-0ubuntu1~stonking1` |
+| Package | jammy | noble | resolute | stonking (untested) |
+|---|---|---|---|---|
+| qa-dashboard | `0.5.9-0ubuntu16~jammy1` | `0.5.9-0ubuntu16~noble1` | `0.5.9-0ubuntu16~resolute1` | `0.5.9-0ubuntu16~stonking1` |
+| qa-sentinels | `1.4.2-0ubuntu5~jammy1` | `1.4.2-0ubuntu5~noble1` | `1.4.2-0ubuntu5~resolute1` | `1.4.2-0ubuntu5~stonking1` |

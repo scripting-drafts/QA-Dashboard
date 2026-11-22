@@ -37,7 +37,7 @@ The complete QA Sentinels rule register is in `docs/RULES.md`.
 | Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.5.9` |
+| Version | `0.5.10` |
 
 Linux is the reference target. Windows 11 and macOS 13+ use the shared Electron
 core and the new QA Sentinels platform layer; full collector parity is in progress.
@@ -190,11 +190,16 @@ Python, GTK4, PyGObject, ClamAV, YARA, and a QA SIEM service are not required.
 
 | Method | System | Notes |
 | --- | --- | --- |
-| Launchpad PPA | Ubuntu 22.04, 24.04, 26.04, 26.10 | signed packages, automatic updates |
+| Launchpad PPA | Ubuntu 22.04, 24.04, 26.04; 26.10 untested preview | signed packages, automatic updates |
 | Local `.deb` | Ubuntu/Debian | offline or pinned version |
 | [Source install](#install-from-source) | any Linux | development |
 
-### Supported Ubuntu series (PPA)
+### Ubuntu series (PPA)
+
+Ubuntu 26.10 (stonking) packages are published as an untested preview and are
+not part of the default release set. Use 22.04, 24.04, or 26.04 for tested
+deployments. `add-apt-repository` selects your release codename; do not add
+`devel` manually.
 
 QA Sentinels and QA Dashboard are separate packages in dedicated Launchpad
 PPAs. QA Dashboard is only a front end: it **Recommends** `qa-sentinels` but
@@ -238,7 +243,7 @@ Before publishing a repository, the built packages can be installed directly:
 
 ```bash
 sudo apt install ./qa-sentinels_1.4.1_amd64.deb
-sudo apt install ./qa-dashboard_0.5.9_amd64.deb
+sudo apt install ./qa-dashboard_0.5.10_amd64.deb
 ```
 
 `qa-dashboard` Recommends `qa-sentinels`; install the engine first or use
@@ -413,7 +418,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.5.9**, defined in `package.json`.
+Current application version: **0.5.10**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/
