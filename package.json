@@ -1,7 +1,7 @@
 {
   "name": "qa-dashboard",
   "productName": "QA Dashboard",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "private": true,
   "description": "Electron dashboard for QA Sentinels",
   "desktopName": "qa-dashboard.desktop",

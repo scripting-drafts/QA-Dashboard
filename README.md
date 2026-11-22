@@ -37,7 +37,7 @@ The complete QA Sentinels rule register is in `docs/RULES.md`.
 | Renderer | `renderer/index.html`, `renderer/app.js`, `renderer/settings.html`, `renderer/settings.js`, `renderer/style.css` |
 | External engine | QA Sentinels `qa` CLI |
 | Database access | Read-only `qa query` calls |
-| Version | `0.5.11` |
+| Version | `0.5.12` |
 
 Linux is the reference target. Windows 11 and macOS 13+ use the shared Electron
 core and the new QA Sentinels platform layer; full collector parity is in progress.
@@ -243,7 +243,7 @@ Before publishing a repository, the built packages can be installed directly:
 
 ```bash
 sudo apt install ./qa-sentinels_1.4.1_amd64.deb
-sudo apt install ./qa-dashboard_0.5.11_amd64.deb
+sudo apt install ./qa-dashboard_0.5.12_amd64.deb
 ```
 
 `qa-dashboard` Recommends `qa-sentinels`; install the engine first or use
@@ -418,7 +418,7 @@ Tickets window.
 
 # History
 
-Current application version: **0.5.11**, defined in `package.json`.
+Current application version: **0.5.12**, defined in `package.json`.
 
 Lead Developer - Gerard Sala
 - LinkedIn: https://www.linkedin.com/in/gerard-sala/

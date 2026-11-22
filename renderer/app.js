@@ -4,7 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const TITLES = {
-  overview: ["QA Dashboard", "QA Sentinels monitoring, database, and ticket workflow."],
+  overview: ["Overview", "QA Sentinels monitoring, database, and ticket workflow."],
   sentinels: ["Database", "Read-only sentinels.db query engine with filters and SQL."],
   "sen-overview": ["Overview", "Status, scheduling and live sentinel state."],
   logs: ["Logs", "Live QA Sentinels log stream."],
