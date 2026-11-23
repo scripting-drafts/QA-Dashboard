@@ -1,3 +1,10 @@
+qa-dashboard (0.5.13) jammy; urgency=medium
+
+  * Changes since the previous release:
+    - deployment tools ands docs
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 23 Nov 2026 12:30:08 +0100
+
 qa-dashboard (0.5.12) jammy; urgency=medium
 
   * Revert the root view header rename; keep QA Dashboard as the header.

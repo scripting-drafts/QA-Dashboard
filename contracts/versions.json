@@ -1,6 +1,6 @@
 {
   "release": "2026.11.2",
-  "qa_dashboard": "0.5.12",
+  "qa_dashboard": "0.5.13",
   "qa_sentinels": "1.4.3",
   "electron": "45.2.3",
   "python": ">=3.10",
