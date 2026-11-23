@@ -14,11 +14,14 @@ LABEL=QADEPLOY
 
 v() { virsh -c "$URI" "$@"; }
 
-iso=$(mktemp --suffix=.iso)
-work=$(mktemp -d)
+tmp=$(mktemp -d)
+chmod 711 "$tmp"   # qemu needs traverse; work/ stays 700
+work=$tmp/work
+iso=$tmp/deploy.iso
+mkdir -p "$work"
 cleanup() {
   change_media_eject || true
-  rm -rf "$work" "$iso"
+  rm -rf "$tmp"
 }
 trap cleanup EXIT
 

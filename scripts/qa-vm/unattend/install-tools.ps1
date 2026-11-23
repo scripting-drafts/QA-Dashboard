@@ -6,10 +6,21 @@ $log = 'C:\qa\install-tools.log'
 New-Item -ItemType Directory -Force -Path C:\qa | Out-Null
 function Log($m) { "$(Get-Date -Format o) $m" | Out-File -FilePath $log -Append -Encoding utf8 }
 
-if ($env:USERNAME -ne 'SYSTEM') {
-    Log "relaunching as SYSTEM"
+if (-not ([Security.Principal.WindowsIdentity]::GetCurrent()).IsSystem) {
+    $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
     $self = $MyInvocation.MyCommand.Path
-    schtasks /create /tn QATools /tr "powershell -NoProfile -ExecutionPolicy Bypass -File `"$self`"" /sc once /st 00:00 /ru SYSTEM /rl HIGHEST /f | Out-Null
+    if (-not $elevated) {
+        Log "relaunching elevated"
+        Start-Process powershell -Verb RunAs `
+            -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$self`""
+        exit 0
+    }
+    Log "relaunching as SYSTEM"
+    $cmd = 'C:\qa\qa-tools-system.cmd'
+    "powershell -NoProfile -ExecutionPolicy Bypass -File `"$self`"" |
+        Set-Content -Encoding ASCII $cmd
+    schtasks /create /tn QATools /tr "`"$cmd`"" /sc once /st 00:00 /ru SYSTEM /rl HIGHEST /f | Out-Null
     schtasks /run /tn QATools | Out-Null
     exit 0
 }

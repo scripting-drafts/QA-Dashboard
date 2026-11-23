@@ -116,6 +116,10 @@
           <Order>7</Order>
           <Path>cmd /c reg add "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Config" /v MaxPosPhaseCorrection /t REG_DWORD /d 4294967295 /f</Path>
         </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>8</Order>
+          <Path>powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=(Get-Volume -FileSystemLabel 'QATOOLS').DriveLetter; if($d){ &amp; ($d + ':\install-tools.ps1') } else { New-Item -ItemType Directory -Force -Path C:\qa | Out-Null; 'QATOOLS media not found' | Out-File C:\qa\install-tools.log }"</Path>
+        </RunSynchronousCommand>
       </RunSynchronous>
     </component>
   </settings>
@@ -160,14 +164,6 @@
         <Enabled>true</Enabled>
         <LogonCount>1</LogonCount>
       </AutoLogon>
-      <FirstLogonCommands>
-        <SynchronousCommand wcm:action="add">
-          <Order>1</Order>
-          <Description>Install guest tools from QATOOLS media</Description>
-          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=(Get-Volume -FileSystemLabel 'QATOOLS').DriveLetter; if($d){ &amp; ($d + ':\install-tools.ps1') } else { 'QATOOLS media not found' | Out-File C:\qa\install-tools.log }"</CommandLine>
-          <RequiresUserInput>false</RequiresUserInput>
-        </SynchronousCommand>
-      </FirstLogonCommands>
     </component>
   </settings>
 </unattend>
