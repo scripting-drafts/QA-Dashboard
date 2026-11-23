@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # QA VM deploy: pushes a per-machine MSI into the Windows guest over the
 # qemu-guest-agent channel (no SMB, no SSH, no network share).
 # Usage: deploy.sh <path/to/app.msi> [--clean]
@@ -33,6 +34,10 @@ if [ "$state" != "running" ]; then
 fi
 
 if [ "$CLEAN" = "--clean" ]; then
+  if ! v snapshot-info "$DOMAIN" qa-baseline >/dev/null 2>&1; then
+    echo "missing snapshot qa-baseline (create it after a clean provision)" >&2
+    exit 2
+  fi
   echo "==> reverting to snapshot qa-baseline"
   v snapshot-revert "$DOMAIN" qa-baseline --running >/dev/null
 fi

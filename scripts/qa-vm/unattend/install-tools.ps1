@@ -28,15 +28,31 @@ foreach ($n in @('spice-guest-tools.exe', 'virtio-win-guest-tools.exe')) {
 }
 
 # Fallback: install every bundled virtio driver explicitly (idempotent, silent).
-$inf = Join-Path $PSScriptRoot 'tools\virtio'
-if (Test-Path $inf) {
-    Get-ChildItem $inf -Recurse -Filter *.inf | ForEach-Object {
+$virtio = Join-Path $PSScriptRoot 'tools\virtio'
+if (Test-Path $virtio) {
+    Get-ChildItem $virtio -Recurse -Filter *.inf | ForEach-Object {
         $r = & pnputil.exe /add-driver $_.FullName /install 2>&1
         Log "pnputil $($_.Name): $($r[-1])"
     }
+} else {
+    Log "no bundled virtio driver tree"
 }
 
-Get-Service QEMU-GA -ErrorAction SilentlyContinue | ForEach-Object { Log "qemu-ga status: $($_.Status)" }
+# Fallback: qemu-guest-agent MSI, required for the CI deploy channel.
+$ga = Join-Path $virtio 'qemu-ga-x86_64.msi'
+$svc = Get-Service QEMU-GA -ErrorAction SilentlyContinue
+if (-not $svc -and (Test-Path $ga)) {
+    Log 'installing qemu-guest-agent msi'
+    $pr = Start-Process msiexec.exe -ArgumentList '/i', "`"$ga`"", '/qn', '/norestart' -Wait -PassThru
+    Log "qemu-ga msi exit=$($pr.ExitCode)"
+    $svc = Get-Service QEMU-GA -ErrorAction SilentlyContinue
+}
+if ($svc) {
+    if ($svc.Status -ne 'Running') { Start-Service QEMU-GA -ErrorAction SilentlyContinue }
+    Log "qemu-ga status: $((Get-Service QEMU-GA).Status)"
+} else {
+    Log 'ERROR qemu-ga service missing'
+}
 
 Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'

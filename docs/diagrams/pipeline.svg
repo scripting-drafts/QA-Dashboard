@@ -1,0 +1,245 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1240" viewBox="0 0 1680 1240" role="img" aria-labelledby="title desc">
+  <title id="title">QA-Dashboard delivery pipeline</title>
+  <desc id="desc">GitHub Actions workflows for CI, pre-release builds, Windows MSI and QA VM deploy, plus the separate local Release-Board source release path.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-dashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <style>
+    .bg { fill: #f1f5f9; }
+    .lane { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; }
+    .lane-title { font: 700 17px 'DejaVu Sans', sans-serif; fill: #0f172a; }
+    .lane-file { font: 12px 'DejaVu Sans Mono', monospace; fill: #64748b; }
+    .trigger { font: 11.5px 'DejaVu Sans', sans-serif; fill: #1d4ed8; }
+    .trigger-box { fill: #eff6ff; stroke: #bfdbfe; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.25; }
+    .card-dashed { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.25; stroke-dasharray: 5 4; }
+    .card-head { font: 700 13.5px 'DejaVu Sans', sans-serif; fill: #0f172a; }
+    .body { font: 11.5px 'DejaVu Sans', sans-serif; fill: #334155; }
+    .mono { font: 11px 'DejaVu Sans Mono', monospace; fill: #334155; }
+    .small { font: 11px 'DejaVu Sans', sans-serif; fill: #64748b; }
+    .artifact { fill: #ecfdf5; stroke: #6ee7b7; stroke-width: 1.25; }
+    .artifact-title { font: 700 12.5px 'DejaVu Sans', sans-serif; fill: #065f46; }
+    .artifact-sub { font: 10.5px 'DejaVu Sans', sans-serif; fill: #047857; }
+    .deploy { fill: #fffbeb; stroke: #f59e0b; stroke-width: 1.5; }
+    .deploy-title { font: 700 13.5px 'DejaVu Sans', sans-serif; fill: #92400e; }
+    .step { font: 11.5px 'DejaVu Sans', sans-serif; fill: #78350f; }
+    .local { fill: #faf5ff; stroke: #c084fc; stroke-width: 1.25; }
+    .local-title { font: 700 12px 'DejaVu Sans', sans-serif; fill: #6b21a8; }
+    .local-sub { font: 10.5px 'DejaVu Sans', sans-serif; fill: #7e22ce; }
+    .edge { stroke: #64748b; stroke-width: 1.75; fill: none; marker-end: url(#arrow); }
+    .edge-dashed { stroke: #94a3b8; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrow-dashed); }
+    .label { font: 10.5px 'DejaVu Sans', sans-serif; fill: #64748b; }
+    .legend { font: 11px 'DejaVu Sans', sans-serif; fill: #475569; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1680" height="1240"/>
+  <text x="40" y="44" style="font:700 29px 'DejaVu Sans',sans-serif;fill:#0f172a">QA-Dashboard delivery pipeline</text>
+  <text x="40" y="72" style="font:12.5px 'DejaVu Sans',sans-serif;fill:#475569">Transcribed from .github/workflows at v0.5.12 (2026-11-23). A v* tag starts Pre-release and Windows MSI in parallel; the local Release-Board path is separate.</text>
+
+  <!-- legend -->
+  <rect x="1140" y="24" width="16" height="16" rx="3" fill="#dbeafe" stroke="#93c5fd"/>
+  <text x="1163" y="36" class="legend">GitHub-hosted build</text>
+  <rect x="1300" y="24" width="16" height="16" rx="3" fill="#fffbeb" stroke="#f59e0b"/>
+  <text x="1323" y="36" class="legend">self-hosted deploy</text>
+  <rect x="1140" y="50" width="16" height="16" rx="3" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="1163" y="62" class="legend">artifact</text>
+  <rect x="1300" y="50" width="16" height="16" rx="3" fill="#faf5ff" stroke="#c084fc"/>
+  <text x="1323" y="62" class="legend">local Release-Board</text>
+
+  <!-- lane 1 -->
+  <rect class="lane" x="20" y="96" width="1640" height="206" rx="14"/>
+  <rect x="20" y="96" width="6" height="206" rx="3" fill="#2563eb"/>
+  <text x="42" y="126" class="lane-title">1 · Continuous integration</text>
+  <text x="276" y="126" class="lane-file">ci.yml</text>
+  <rect class="trigger-box" x="1210" y="106" width="426" height="26" rx="13"/>
+  <text x="1230" y="123" class="trigger">Triggers: push main · pull request · workflow_dispatch</text>
+
+  <rect class="card" x="42" y="148" width="220" height="92" rx="9"/>
+  <text x="58" y="174" class="card-head">release-tag-check</text>
+  <text x="58" y="196" class="body">push to main only</text>
+  <text x="58" y="216" class="mono">make release-tag-check</text>
+
+  <rect class="card" x="312" y="148" width="250" height="92" rx="9"/>
+  <text x="328" y="174" class="card-head">test</text>
+  <text x="328" y="196" class="mono">make deps → make test</text>
+  <text x="328" y="214" class="small">dashboard · sentinels</text>
+  <text x="328" y="230" class="small">contracts · vendor · rules</text>
+
+  <rect class="card-dashed" x="612" y="148" width="520" height="92" rx="9"/>
+  <text x="628" y="174" class="card-head">Test suite contents</text>
+  <text x="628" y="196" class="body">npm test (dashboard) · Python sentinels unittests · contract export check</text>
+  <text x="628" y="214" class="body">vendor check · rules HTML check. Runs on every trigger, including PRs.</text>
+
+  <rect class="artifact" x="1182" y="160" width="440" height="68" rx="9"/>
+  <text x="1200" y="186" class="artifact-title">contracts artifact</text>
+  <text x="1200" y="207" class="artifact-sub">contracts/ · repository default retention</text>
+  <text x="1200" y="222" class="artifact-sub">uploaded by actions/upload-artifact@v4</text>
+
+  <path class="edge-dashed" d="M262 194 H306"/>
+  <path class="edge" d="M562 194 H606"/>
+  <path class="edge" d="M1132 194 H1176"/>
+
+  <!-- lane 2 -->
+  <rect class="lane" x="20" y="316" width="1640" height="388" rx="14"/>
+  <rect x="20" y="316" width="6" height="388" rx="3" fill="#2563eb"/>
+  <text x="42" y="346" class="lane-title">2 · Pre-release builds</text>
+  <text x="286" y="346" class="lane-file">prerelease.yml</text>
+  <rect class="trigger-box" x="1290" y="326" width="346" height="26" rx="13"/>
+  <text x="1310" y="343" class="trigger">Triggers: tag v[0-9]* · workflow_dispatch</text>
+
+  <rect class="card" x="42" y="368" width="150" height="62" rx="9"/>
+  <text x="58" y="394" class="card-head">test</text>
+  <text x="58" y="416" class="mono">npm test</text>
+
+  <path class="edge" d="M192 394 H228"/>
+  <path class="edge" d="M228 394 V426 H252"/>
+  <path class="edge" d="M228 394 V522 H252"/>
+  <path class="edge" d="M228 394 V618 H252"/>
+
+  <!-- linux column -->
+  <rect class="card" x="252" y="356" width="438" height="206" rx="9"/>
+  <rect x="252" y="356" width="438" height="34" rx="9" fill="#dbeafe"/>
+  <rect x="252" y="378" width="438" height="12" fill="#dbeafe"/>
+  <text x="270" y="378" style="font:700 13.5px 'DejaVu Sans',sans-serif;fill:#1e3a8a">Linux · ubuntu-latest</text>
+  <text x="270" y="414" class="mono">electron-builder --linux --x64 --publish never</text>
+  <text x="270" y="440" class="body">Smoke: chrome-sandbox setuid, then</text>
+  <text x="270" y="457" class="mono">dist/linux-unpacked/qa-dashboard --version</text>
+  <text x="270" y="483" class="mono">node scripts/checksums.js dist</text>
+  <text x="270" y="509" class="small">AppImage + tar.gz + SHA256SUMS</text>
+  <rect class="artifact" x="270" y="522" width="402" height="26" rx="6"/>
+  <text x="282" y="539" class="artifact-sub">qa-dashboard-linux · default retention</text>
+
+  <!-- windows column -->
+  <rect class="card" x="710" y="356" width="438" height="206" rx="9"/>
+  <rect x="710" y="356" width="438" height="34" rx="9" fill="#dbeafe"/>
+  <rect x="710" y="378" width="438" height="12" fill="#dbeafe"/>
+  <text x="728" y="378" style="font:700 13.5px 'DejaVu Sans',sans-serif;fill:#1e3a8a">Windows · windows-latest</text>
+  <text x="728" y="414" class="mono">electron-builder --win --x64 --arm64</text>
+  <text x="728" y="440" class="body">Smoke: portable unpacked app</text>
+  <text x="728" y="457" class="mono">dist/win-unpacked/QA Dashboard.exe --version</text>
+  <text x="728" y="483" class="mono">node scripts/checksums.js dist</text>
+  <text x="728" y="509" class="small">NSIS setup + ZIP + SHA256SUMS</text>
+  <rect class="artifact" x="728" y="522" width="402" height="26" rx="6"/>
+  <text x="740" y="539" class="artifact-sub">qa-dashboard-win · default retention</text>
+
+  <!-- mac column -->
+  <rect class="card" x="1168" y="356" width="438" height="206" rx="9"/>
+  <rect x="1168" y="356" width="438" height="34" rx="9" fill="#dbeafe"/>
+  <rect x="1168" y="378" width="438" height="12" fill="#dbeafe"/>
+  <text x="1186" y="378" style="font:700 13.5px 'DejaVu Sans',sans-serif;fill:#1e3a8a">macOS · macos-15</text>
+  <text x="1186" y="414" class="mono">electron-builder --mac --x64 --arm64</text>
+  <text x="1186" y="440" class="body">Smoke: arch-aware .app binary</text>
+  <text x="1186" y="457" class="mono">dist/mac*/QA Dashboard.app/Contents/MacOS/…</text>
+  <text x="1186" y="483" class="mono">node scripts/checksums.js dist</text>
+  <text x="1186" y="509" class="small">DMG + ZIP + SHA256SUMS</text>
+  <rect class="artifact" x="1186" y="522" width="402" height="26" rx="6"/>
+  <text x="1198" y="539" class="artifact-sub">qa-dashboard-mac · default retention</text>
+
+  <text x="42" y="590" class="small">Build settings: strategy.fail-fast=false · CSC_IDENTITY_AUTO_DISCOVERY=false · macOS identity null, hardenedRuntime false, not notarized · --publish never (no GitHub Release).</text>
+
+  <rect class="card-dashed" x="42" y="610" width="1564" height="70" rx="9"/>
+  <text x="58" y="636" class="card-head">2b · Pre-release diagnostics</text>
+  <text x="262" y="636" class="lane-file">prerelease-logs.yml · workflow_dispatch only</text>
+  <text x="58" y="658" class="body">Same three-platform matrix, built with electron-builder-logs.yml (qaDiagnostics=true, includes DIAGNOSTICS.md). Artifacts: qa-dashboard-linux-logs, -win-logs, -mac-logs · default retention.</text>
+
+  <!-- lane 3 -->
+  <rect class="lane" x="20" y="718" width="1640" height="336" rx="14"/>
+  <rect x="20" y="718" width="6" height="336" rx="3" fill="#f59e0b"/>
+  <text x="42" y="748" class="lane-title">3 · Windows MSI → QA VM deploy</text>
+  <text x="330" y="748" class="lane-file">win-msi.yml → qa-vm-deploy.yml</text>
+  <rect class="trigger-box" x="1300" y="728" width="336" height="26" rx="13"/>
+  <text x="1320" y="745" class="trigger">Triggers: tag v[0-9]* · manual · workflow_run</text>
+
+  <rect class="card" x="42" y="776" width="130" height="60" rx="9"/>
+  <text x="58" y="802" class="card-head">test</text>
+  <text x="58" y="824" class="mono">npm test</text>
+
+  <rect class="card" x="202" y="776" width="278" height="60" rx="9"/>
+  <text x="218" y="802" class="card-head">msi · windows-latest</text>
+  <text x="218" y="824" class="mono">--win msi --x64 --publish never</text>
+
+  <rect class="card" x="510" y="776" width="214" height="60" rx="9"/>
+  <text x="526" y="802" class="card-head">verify MSI</text>
+  <text x="526" y="824" class="mono">dist/*.msi must exist</text>
+
+  <rect class="artifact" x="754" y="776" width="196" height="60" rx="9"/>
+  <text x="770" y="802" class="artifact-title">qa-dashboard-msi</text>
+  <text x="770" y="823" class="artifact-sub">14-day retention</text>
+
+  <rect class="deploy" x="988" y="760" width="616" height="126" rx="10"/>
+  <text x="1006" y="786" class="deploy-title">deploy · self-hosted runner [self-hosted, qa-vm]</text>
+  <text x="1006" y="810" class="step">1  actions/download-artifact: qa-dashboard-msi, run-id</text>
+  <text x="1006" y="830" class="step">2  scripts/qa-vm/deploy.sh → QEMU guest-agent channel</text>
+  <text x="1006" y="850" class="step">3  msiexec /qn inside libvirt Windows VM (VM_DOMAIN)</text>
+  <text x="1006" y="870" class="step">4  capture out/after-install.ppm · 30-minute timeout</text>
+
+  <path class="edge" d="M362 806 H504"/>
+  <path class="edge" d="M724 806 H748"/>
+  <path class="edge" d="M950 806 H982"/>
+
+  <rect class="artifact" x="988" y="900" width="260" height="58" rx="9"/>
+  <text x="1004" y="925" class="artifact-title">qa-vm-evidence</text>
+  <text x="1004" y="946" class="artifact-sub">out/ · 7-day retention · always()</text>
+  <path class="edge" d="M1118 886 V894"/>
+
+  <text x="1278" y="914" class="small">Windows MSI must conclude success.</text>
+  <text x="1278" y="932" class="small">Manual runs need a run_id.</text>
+  <text x="1278" y="950" class="small">Concurrency qa-vm; 30-min timeout.</text>
+  <text x="1278" y="968" class="small">No SSH/SMB: guest agent installs as SYSTEM.</text>
+
+  <text x="42" y="1006" class="small">Deploy details: starts the domain if stopped, waits up to 3 minutes for the guest agent, attaches a temporary ISO on sdc, reads C:\qa\deploy.json, accepts exit 0 or 3010.</text>
+  <text x="42" y="1026" class="small">The workflow never passes --clean; a clean install requires the qa-baseline snapshot, which is currently absent on the VM.</text>
+
+  <!-- lane 4 -->
+  <rect class="lane" x="20" y="1066" width="1640" height="154" rx="14"/>
+  <rect x="20" y="1066" width="6" height="154" rx="3" fill="#9333ea"/>
+  <text x="42" y="1096" class="lane-title">4 · Separate local release path</text>
+  <text x="330" y="1096" class="lane-file">Release-Board pipeline · not GitHub Actions</text>
+
+  <rect class="local" x="42" y="1112" width="166" height="52" rx="8"/>
+  <text x="56" y="1134" class="local-title">preflight</text>
+  <text x="56" y="1152" class="local-sub">clean main · signed tag</text>
+
+  <rect class="local" x="226" y="1112" width="164" height="52" rx="8"/>
+  <text x="240" y="1134" class="local-title">sync / rebase</text>
+  <text x="240" y="1152" class="local-sub">fetch remote</text>
+
+  <rect class="local" x="408" y="1112" width="150" height="52" rx="8"/>
+  <text x="422" y="1134" class="local-title">checks + tests</text>
+  <text x="422" y="1152" class="local-sub">packaging · unit</text>
+
+  <rect class="local" x="576" y="1112" width="210" height="52" rx="8"/>
+  <text x="590" y="1134" class="local-title">source build + tag</text>
+  <text x="590" y="1152" class="local-sub">dpkg-buildpackage -S -sa</text>
+
+  <rect class="local" x="804" y="1112" width="170" height="52" rx="8"/>
+  <text x="818" y="1134" class="local-title">push main + tag</text>
+  <text x="818" y="1152" class="local-sub">configured remote</text>
+
+  <rect class="local" x="992" y="1112" width="156" height="52" rx="8"/>
+  <text x="1006" y="1134" class="local-title">dput upload</text>
+  <text x="1006" y="1152" class="local-sub">Launchpad PPA</text>
+
+  <rect class="local" x="1166" y="1112" width="196" height="52" rx="8"/>
+  <text x="1180" y="1134" class="local-title">publication snapshot</text>
+  <text x="1180" y="1152" class="local-sub">one per pipeline</text>
+
+  <rect class="local" x="1380" y="1112" width="184" height="52" rx="8"/>
+  <text x="1394" y="1134" class="local-title">watch Launchpad</text>
+  <text x="1394" y="1152" class="local-sub">published source/build IDs</text>
+
+  <path class="edge" d="M208 1138 H220"/>
+  <path class="edge" d="M390 1138 H402"/>
+  <path class="edge" d="M558 1138 H570"/>
+  <path class="edge" d="M786 1138 H798"/>
+  <path class="edge" d="M974 1138 H986"/>
+  <path class="edge" d="M1148 1138 H1160"/>
+  <path class="edge" d="M1362 1138 H1374"/>
+
+  <text x="42" y="1196" class="small">Linux source packages only → Launchpad PPA (toomanypatterns/qa-dashboard). SLSA v1 attestations live under release/attestations; the append-only ledger and watch step are independent of the unsigned Electron artifacts above.</text>
+</svg>
