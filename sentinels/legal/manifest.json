@@ -11,7 +11,7 @@
     "qa-sentinels": "1.4.3",
     "python3": "3.10+",
     "sqlite": "3.37+",
-    "qa-dashboard": "0.5.13",
+    "qa-dashboard": "0.5.14",
     "qa-license-scanner": "0.1.0"
   },
   "components": [
