@@ -1,3 +1,14 @@
+qa-dashboard (0.5.15) jammy; urgency=medium
+
+  * Changes since the previous release:
+    - Add deterministic vendor sync and CI guard
+    - Sync QA Sentinels 1.4.8 with hermetic tests
+    - Reject unsupported vendored file modes
+    - Sync QA Sentinels 1.5.0
+    - Mirror the Dashboard version in the vendored legal register
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Wed, 25 Nov 2026 17:35:45 +0100
+
 qa-dashboard (0.5.14) jammy; urgency=medium
 
   * Changes since the previous release:
