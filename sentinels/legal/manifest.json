@@ -6,9 +6,9 @@
   "source": "https://github.com/scripting-drafts/QA-Sentinels",
   "homepage": "https://github.com/scripting-drafts/QA-Sentinels",
   "lastReviewed": "2026-11-25",
-  "reviewedVersion": "1.4.7",
+  "reviewedVersion": "1.4.8",
   "reviewedComponents": {
-    "qa-sentinels": "1.4.7",
+    "qa-sentinels": "1.4.8",
     "python3": "3.10+",
     "sqlite": "3.37+",
     "qa-dashboard": "0.5.10",
@@ -18,7 +18,7 @@
     {
       "id": "qa-sentinels",
       "name": "QA Sentinels",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "versionFrom": "qa-sentinels",
       "license": "MIT",
       "scope": "project"
@@ -26,14 +26,14 @@
     {
       "id": "c-sampler",
       "name": "C sampler (qa_sample)",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "license": "MIT",
       "scope": "shipped"
     },
     {
       "id": "ebpf-tracer",
       "name": "eBPF tracer sources",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "license": "MIT",
       "scope": "shipped"
     },

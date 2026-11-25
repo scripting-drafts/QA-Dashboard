@@ -78,8 +78,9 @@ class BootBoundaryTests(unittest.TestCase):
         self.assertEqual(scanned["ended_clean"], 1)
         self.assertEqual(scanned["maintenance"], 1)
         self.assertEqual(scanned["start_ts"],
-                         iso(datetime(2026, 11, 22, 9, 6, 49,
-                                      tzinfo=timezone.utc)))
+                         iso(datetime.strptime(
+                             "2026-11-22 10:06:49",
+                             "%Y-%m-%d %H:%M:%S").astimezone(timezone.utc)))
         self.assertIn("friendly-recovery", scanned["markers"])
 
     def test_reboot_target_is_a_clean_shutdown(self):

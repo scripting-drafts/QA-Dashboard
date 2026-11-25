@@ -1,3 +1,12 @@
+qa-sentinels (1.4.8) jammy; urgency=medium
+
+  * Make the unit suite independent of the host: patch the fault-core CPU
+    set through the environment so config reloads preserve it, derive the
+    recovery span expectation from the local timezone, and mock passwordless
+    sudo in the posture test.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Wed, 25 Nov 2026 10:45:00 +0100
+
 qa-sentinels (1.4.7) jammy; urgency=medium
 
   * Guard tickets against probe-timing artifacts. Correlation now starts

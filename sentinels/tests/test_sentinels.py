@@ -1,5 +1,7 @@
 """Unit tests for the parts where a mistake would falsify QA evidence."""
+import importlib
 import json
+import os
 import unittest
 from unittest import mock
 
@@ -12,18 +14,21 @@ _FAULT_CORE_PATCHES = []
 
 
 def setUpModule():
-    for name, value in (
-        ("FAULT_CORE_CPUS", (2, 8)),
-        ("FAULT_CORE_ENABLE", False),
-    ):
-        patcher = mock.patch.object(config, name, value)
-        patcher.start()
-        _FAULT_CORE_PATCHES.append(patcher)
+    patcher = mock.patch.dict(os.environ, {
+        "QA_FAULT_CORE_CPUS": "2,8",
+        "QA_FAULT_CORE_ENABLE": "0",
+    })
+    patcher.start()
+    _FAULT_CORE_PATCHES.append(patcher)
+    # Tests in this module reload config; environment patches survive a
+    # reload, unlike attribute patches.
+    importlib.reload(config)
 
 
 def tearDownModule():
     for patcher in reversed(_FAULT_CORE_PATCHES):
         patcher.stop()
+    importlib.reload(config)
 
 
 class PreflightTests(unittest.TestCase):
@@ -344,7 +349,8 @@ class PostureTests(unittest.TestCase):
     def test_live_posture_is_unprivileged(self):
         from sentinels import posture
 
-        data = posture.collect()
+        with mock.patch.object(posture, "_sudo_nopasswd", return_value=False):
+            data = posture.collect()
         self.assertEqual(data["euid"], __import__("os").geteuid())
         self.assertIn(data["verdict"], ("unprivileged", "privileged"))
         self.assertFalse(data["sudo_nopasswd"])
