@@ -11,7 +11,7 @@
     "qa-sentinels": "1.5.0",
     "python3": "3.10+",
     "sqlite": "3.37+",
-    "qa-dashboard": "0.5.10",
+    "qa-dashboard": "0.5.14",
     "qa-license-scanner": "0.1.0"
   },
   "components": [
@@ -65,7 +65,7 @@
     {
       "id": "qa-dashboard",
       "name": "QA Dashboard",
-      "version": "0.5.9",
+      "version": "0.5.14",
       "license": "MIT",
       "scope": "companion",
       "url": "https://github.com/scripting-drafts/QA-Dashboard"

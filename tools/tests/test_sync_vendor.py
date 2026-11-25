@@ -70,8 +70,11 @@ class SyncVendorTest(unittest.TestCase):
               "  * Test release.\n\n"
               " -- Test <test@example.invalid>  Mon, 01 Jan 2026 00:00:00 +0000\n")
         write(root / "tests" / "test_sample.py", "def test_ok():\n    pass\n")
-        write(root / "legal" / "manifest.json",
-              json.dumps({"product": "QA Sentinels"}, indent=2) + "\n")
+        write(root / "legal" / "manifest.json", json.dumps({
+            "product": "QA Sentinels",
+            "reviewedComponents": {"qa-dashboard": "0.0.1"},
+            "components": [{"id": "qa-dashboard", "version": "0.0.1"}],
+        }, indent=2) + "\n")
         write(root / "README.md", "# QA Sentinels\n")
         write(root / ".gitignore", "var/\n")
         self._commit(root, "source")
@@ -161,6 +164,16 @@ class SyncVendorTest(unittest.TestCase):
         self.assertTrue(rules.startswith("# QA Sentinels rules\n"))
         self.assertIn("## Portable platform rules (WIP)", rules)
 
+        vendored_legal = json.loads(
+            (vendor / "legal" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            vendored_legal["reviewedComponents"]["qa-dashboard"], "0.1.0")
+        self.assertEqual(vendored_legal["components"][0]["version"], "0.1.0")
+        source_legal = json.loads(
+            (self.source / "legal" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            source_legal["reviewedComponents"]["qa-dashboard"], "0.0.1")
+
         code, stdout, stderr = self.run_main(["--check"])
         self.assertEqual(code, 0, stderr)
         self.assertIn("is aligned", stdout)
@@ -176,6 +189,17 @@ class SyncVendorTest(unittest.TestCase):
         code, _, stderr = self.run_main(["--check"])
         self.assertEqual(code, 1)
         self.assertIn("content differs: sentinels/__init__.py", stderr)
+
+    def test_check_detects_legal_mirror_change(self) -> None:
+        self.assertEqual(self.run_main(["--write", "--ref", "v1.2.3"])[0], 0)
+        target = self.dashboard / "sentinels" / "legal" / "manifest.json"
+        text = target.read_text(encoding="utf-8")
+        target.write_text(
+            text.replace('"qa-dashboard": "0.1.0"', '"qa-dashboard": "9.9.9"', 1),
+            encoding="utf-8")
+        code, _, stderr = self.run_main(["--check"])
+        self.assertEqual(code, 1)
+        self.assertIn("content differs: legal/manifest.json", stderr)
 
     def test_check_detects_extra_file(self) -> None:
         self.assertEqual(self.run_main(["--write", "--ref", "v1.2.3"])[0], 0)

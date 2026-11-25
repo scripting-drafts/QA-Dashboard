@@ -29,6 +29,8 @@ CHANGELOG_RE = re.compile(r"^\S+\s+\(([^)]+)\)")
 TAG_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 MANIFEST_RE = re.compile(r"^([0-9a-f]{64})  (sentinels/.+)$")
+QA_DASHBOARD_RE = re.compile(r'("qa-dashboard"\s*:\s*")([^"]+)(")')
+LEGAL_MANIFEST = "legal/manifest.json"
 
 
 class SyncError(RuntimeError):
@@ -371,6 +373,56 @@ def update_registers(paths: Paths, version: str) -> None:
         raise SyncError("; ".join(errors))
 
 
+def dashboard_version(paths: Paths) -> str:
+    """The Dashboard version mirrored into the vendored legal register."""
+    try:
+        contracts = json.loads(paths.contracts.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise SyncError(f"cannot read contracts/versions.json: {error}") from error
+    version = str(contracts.get("qa_dashboard") or "")
+    if not version:
+        raise SyncError("contracts/versions.json has no qa_dashboard version")
+    return version
+
+
+def mirror_dashboard_legal(data: bytes, version: str) -> bytes:
+    """Point the vendored engine's qa-dashboard entries at this release.
+
+    Upstream records the Dashboard version it last saw, which is stale as soon
+    as the Dashboard releases. The release guard reads this register, so mirror
+    the companion version while leaving every other byte untouched.
+    """
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise SyncError(f"vendored {LEGAL_MANIFEST} is not UTF-8: {error}") from error
+    text, count = QA_DASHBOARD_RE.subn(
+        lambda match: f"{match.group(1)}{version}{match.group(3)}",
+        text,
+        count=1,
+    )
+    if not count:
+        return data
+    lines = text.splitlines(keepends=True)
+    start = next(
+        (index for index, line in enumerate(lines)
+         if re.match(r'^\s*"id"\s*:\s*"qa-dashboard"\s*,?\s*$', line)),
+        None,
+    )
+    if start is not None:
+        for index in range(start + 1, min(start + 8, len(lines))):
+            line, replaced = re.subn(
+                r'^(\s*"version"\s*:\s*")([^"]+)(",?\s*)$',
+                lambda match: f"{match.group(1)}{version}{match.group(3)}",
+                lines[index],
+                count=1,
+            )
+            if replaced:
+                lines[index] = line
+                break
+    return "".join(lines).encode("utf-8")
+
+
 def read_marker(paths: Paths) -> dict[str, object]:
     try:
         data = json.loads(paths.marker.read_text(encoding="utf-8"))
@@ -443,6 +495,10 @@ def check_against_source(
     paths: Paths, source: Path, ref: Ref, marker: dict[str, object]
 ) -> list[str]:
     errors: list[str] = []
+    try:
+        mirrored = dashboard_version(paths)
+    except SyncError as error:
+        return [str(error)]
     entries = source_entries(source, ref.commit)
     version = source_version(source, ref.commit)
     changelog = source_changelog_version(source, ref.commit)
@@ -477,7 +533,10 @@ def check_against_source(
         except OSError as error:
             errors.append(f"cannot read {relative}: {error}")
             continue
-        if data != entry.data:
+        expected_data = entry.data
+        if relative == LEGAL_MANIFEST:
+            expected_data = mirror_dashboard_legal(expected_data, mirrored)
+        if data != expected_data:
             errors.append(f"content differs: {relative}")
             continue
         if os.name != "nt":
@@ -529,10 +588,14 @@ def write_sync(
     previous = read_marker(paths)
     source_url = str(previous.get("source") or DEFAULT_SOURCE)
 
+    mirrored = dashboard_version(paths)
     for relative, entry in entries.items():
         target = paths.vendor / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(entry.data)
+        data = entry.data
+        if relative == LEGAL_MANIFEST:
+            data = mirror_dashboard_legal(data, mirrored)
+        target.write_bytes(data)
         if os.name != "nt":
             os.chmod(target, 0o755 if entry.mode == "100755" else 0o644)
 
