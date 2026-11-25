@@ -31,6 +31,7 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 MANIFEST_RE = re.compile(r"^([0-9a-f]{64})  (sentinels/.+)$")
 QA_DASHBOARD_RE = re.compile(r'("qa-dashboard"\s*:\s*")([^"]+)(")')
 LEGAL_MANIFEST = "legal/manifest.json"
+MIRROR_PLACEHOLDER = "0"
 
 
 class SyncError(RuntimeError):
@@ -423,6 +424,18 @@ def mirror_dashboard_legal(data: bytes, version: str) -> bytes:
     return "".join(lines).encode("utf-8")
 
 
+def manifest_data(relative: str, data: bytes) -> bytes:
+    """Content hashed in the vendor manifest.
+
+    The mirrored Dashboard version in the legal register changes with every
+    release, so hash a version-independent form. Otherwise a release bump
+    would invalidate the manifest that was written at sync time.
+    """
+    if relative == LEGAL_MANIFEST:
+        return mirror_dashboard_legal(data, MIRROR_PLACEHOLDER)
+    return data
+
+
 def read_marker(paths: Paths) -> dict[str, object]:
     try:
         data = json.loads(paths.marker.read_text(encoding="utf-8"))
@@ -450,7 +463,8 @@ def write_marker(paths: Paths, version: str, ref: Ref, source_url: str) -> None:
 def write_manifest(paths: Paths, files: set[str]) -> None:
     lines: list[str] = []
     for relative in sorted(files):
-        data = (paths.vendor / relative).read_bytes()
+        data = manifest_data(
+            relative, (paths.vendor / relative).read_bytes())
         lines.append(f"{hashlib.sha256(data).hexdigest()}  sentinels/{relative}")
     paths.manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -479,7 +493,8 @@ def check_manifest(paths: Paths) -> list[str]:
         if not target.is_file():
             errors.append(f"missing vendored file: {relative}")
             continue
-        actual = hashlib.sha256(target.read_bytes()).hexdigest()
+        data = manifest_data(relative, target.read_bytes())
+        actual = hashlib.sha256(data).hexdigest()
         if actual != digest:
             errors.append(f"manifest hash differs: {relative}")
 

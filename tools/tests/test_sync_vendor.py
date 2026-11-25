@@ -201,6 +201,20 @@ class SyncVendorTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("content differs: legal/manifest.json", stderr)
 
+    def test_manifest_survives_dashboard_release_bump(self) -> None:
+        self.assertEqual(self.run_main(["--write", "--ref", "v1.2.3"])[0], 0)
+        contracts_path = self.dashboard / "contracts" / "versions.json"
+        contracts = json.loads(contracts_path.read_text(encoding="utf-8"))
+        contracts["qa_dashboard"] = "0.2.0"
+        contracts_path.write_text(json.dumps(contracts, indent=2) + "\n",
+                                  encoding="utf-8")
+        legal_path = self.dashboard / "sentinels" / "legal" / "manifest.json"
+        legal_path.write_bytes(sync_vendor.mirror_dashboard_legal(
+            legal_path.read_bytes(), "0.2.0"))
+        for source in (True, False):
+            code, _, stderr = self.run_main(["--check"], source=source)
+            self.assertEqual(code, 0, stderr)
+
     def test_check_detects_extra_file(self) -> None:
         self.assertEqual(self.run_main(["--write", "--ref", "v1.2.3"])[0], 0)
         write(self.dashboard / "sentinels" / "extra.py", "extra = True\n")
