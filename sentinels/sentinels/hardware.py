@@ -19,6 +19,7 @@ import shutil
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -54,18 +55,57 @@ def _run(args: list[str], timeout: int | None = None) -> tuple[int, str, str]:
     return run(args, timeout=timeout or config.HARDWARE_TIMEOUT_S)
 
 
-def _finding(source: str, rule: str, severity: str, subject: str, detail: str) -> dict:
-    ts = iso()
+def _finding(source: str, rule: str, severity: str, subject: str, detail: str,
+             ts: str | None = None) -> dict:
+    stamp = ts or iso()
     return {
         "fingerprint": f"hardware|{source}|{rule}|{subject}",
-        "ts": ts,
-        "last_ts": ts,
+        "ts": stamp,
+        "last_ts": stamp,
         "rule": rule,
         "severity": severity,
         "subject": subject,
         "detail": redact(detail),
         "case_id": None,
     }
+
+
+def _archive_iso(name: str) -> str:
+    """Archive directory is the panic epoch / 10; keep the real event time."""
+    try:
+        epoch = int(name) * 10
+    except (TypeError, ValueError):
+        return iso()
+    return iso(datetime.fromtimestamp(epoch, tz=timezone.utc))
+
+
+def _pstore_findings(export_dir: Path) -> tuple[list[tuple[str, object]], list[dict], bool]:
+    """One finding per archived pstore record, keyed by archive.
+
+    Re-reading the same persistent archive every hardware run must not inflate
+    one condition into hundreds of occurrences. Each archive is independent
+    evidence with its own crash timestamp and fingerprint.
+    """
+    items: list[tuple[str, object]] = []
+    findings: list[dict] = []
+    if not export_dir.is_dir():
+        return items, findings, False
+    summaries = sorted(export_dir.glob("*/summary.txt"))
+    for path in summaries:
+        text = read_text(path)
+        if not text.strip():
+            continue
+        archive = path.parent.name
+        items.append((f"pstore/{archive}", _clip(text, 4000)))
+        hits = [line.strip() for line in text.splitlines() if ERROR_LOG.search(line)]
+        if not hits:
+            continue
+        findings.append(_finding(
+            f"ras/pstore/{archive}", "hardware.apei.pstore", "warning", "pstore",
+            "pstore summary contains an error signature: " + "\n".join(hits[:3]),
+            ts=_archive_iso(archive),
+        ))
+    return items, findings, bool(summaries)
 
 
 def _result(status: str, items=None, findings=None, raw: str = "", reason: str = "") -> dict:
@@ -392,18 +432,12 @@ def _collect_ras() -> dict:
                 continue
         statuses.append("ok")
 
-    pstore = config.PSTORE_EXPORT_DIR
-    if pstore.is_dir():
-        summaries = sorted(pstore.glob("*/summary.txt"))
-        if summaries:
-            latest = read_text(summaries[-1])
-            items.append(("pstore/summary", _clip(latest, 4000)))
-            if ERROR_LOG.search(latest):
-                findings.append(_finding(
-                    "ras", "hardware.apei.pstore", "warning", "pstore",
-                    f"pstore summary contains an error signature: {latest[:300]}",
-                ))
-            statuses.append("ok")
+    pstore_items, pstore_findings, has_pstore = _pstore_findings(
+        config.PSTORE_EXPORT_DIR)
+    if has_pstore:
+        items.extend(pstore_items)
+        findings.extend(pstore_findings)
+        statuses.append("ok")
 
     rc, out, _err = _run(
         ["journalctl", "-k", "--since", "6 hours ago", "--no-pager"],
@@ -992,6 +1026,17 @@ def collect(conn, sources: set[str] | None = None) -> dict:
         findings.extend(result["findings"])
         if result.get("raw"):
             raws.append(f"# {name}\n{result['raw']}")
+
+    # The old collector stored one finding per condition and counted every
+    # re-observation. Now that pstore records are archived one row each, close
+    # the legacy row so its inflated count cannot reach the ticket gate.
+    if any(source == "ras" and str(key).startswith("pstore/")
+           for source, key, _value in items):
+        conn.execute(
+            "UPDATE findings SET status='resolved'"
+            " WHERE rule='hardware.apei.pstore' AND status='open'"
+            " AND fingerprint NOT LIKE 'hardware|ras/pstore/%'"
+        )
 
     required = set(sources) if sources else set(required_sources())
     failed_sources = sorted(

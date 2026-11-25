@@ -9,7 +9,7 @@ import os
 import re
 from datetime import timedelta
 
-from . import classify, config, crash, faultcore, correlate, db, holds, packages
+from . import classify, config, crash, faultcore, correlate, db, holds, occurrence, packages
 from .util import (
     human_bytes, identity_for_ticket, iso, read_text, redact, run, sha256_text, utcnow,
 )
@@ -409,7 +409,11 @@ def collect_issues(conn, days: int = 7, include_local: bool = False) -> list[dic
 
     def add(vendor: str, signature: str, kind: str, row: dict) -> None:
         key = sha256_text(f"{vendor}|{kind}|{signature}")[:20]
-        n = int(row.get("count") or 1)
+        # Finding ``count`` is the number of collection runs that re-observed
+        # the same condition, not the number of independent events. One finding
+        # row is one observation; recurring evidence is represented by distinct
+        # rows (for example one pstore archive per panic).
+        n = 1 if kind == "finding" else int(row.get("count") or 1)
         first = row.get("ts")
         last = row.get("last_ts") or row.get("ts")
         issue = issues.setdefault(
@@ -467,8 +471,12 @@ def collect_issues(conn, days: int = 7, include_local: bool = False) -> list[dic
         )
         add(vendor, sig, "finding", row)
 
-    # dedicated hardware ticket: fault-core correlation must reach the platform vendor
-    faultcore_crashes = [c for c in crashes if c.get("faultcore_involved") == 1]
+    # dedicated hardware ticket: fault-core correlation must reach the platform
+    # vendor. A verdict without a recorded mask is unknown, not involved.
+    faultcore_crashes = [
+        c for c in crashes
+        if c.get("faultcore_involved") == 1 and str(c.get("cpus_allowed") or "").strip()
+    ]
     if faultcore_crashes:
         key = sha256_text("hardware|faultcore-correlation")[:20]
         issues[key] = {
@@ -613,7 +621,8 @@ def _routing_bullets(issue: dict, component: str,
     return [f"- {note}" for note in notes]
 
 
-def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool) -> tuple[str, str]:
+def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool,
+           conn=None) -> tuple[str, str]:
     meta = classify.VENDOR_META.get(issue["vendor"], classify.VENDOR_META["local"])
     component = classify.component_for_issue(issue)
     topo = faultcore.topology()
@@ -628,6 +637,9 @@ def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool) -> t
         title = f"{title} [{fault_tag}]"
     rows = issue["rows"]
     if issue.get("kind") == "crash":
+        # The producer owns the configured/involved distinction in its context.
+        # Keep it verbatim: absence of crash affinity is not evidence that a
+        # retired or offline fault core was uninvolved.
         example, fault = _crash_evidence(issue)
     else:
         example = ""
@@ -743,6 +755,9 @@ def _draft(issue: dict, bundle: dict | None, identity: dict, consent: bool) -> t
         lines += [
             "- No bundle generated yet. Run `~/QA-Sentinels/bin/qa evidence --reason ticket` and attach it.",
         ]
+    context = occurrence.ticket_context(issue, bundle, conn)
+    if context:
+        lines += ["", "### Occurrence context", "", *context]
     lines += [
         "",
         "## Requested action",
@@ -785,7 +800,7 @@ def generate(conn, days: int = 7, include_local: bool = False, max_tickets: int 
     keep: set[str] = set()
     conn.execute("DELETE FROM ticket_drafts")
     for issue in selected:
-        title, body = _draft(issue, bundle, identity, consent)
+        title, body = _draft(issue, bundle, identity, consent, conn)
         vendor = issue["vendor"]
         slug = re.sub(r"[^a-z0-9]+", "-", issue["signature"].lower()).strip("-")[:60]
         path = config.DRAFT_DIR / f"{vendor}-{slug}-{issue['key'][:8]}.md"

@@ -66,6 +66,22 @@ NOISE_PATTERNS = [
     r"NVRM: loading NVIDIA",
 ]
 
+# rasdaemon reports tracepoint management as "<subsys>:<event> event enabled"
+# (or "Enabled event <subsys>:<event>").  The "mce:" prefix is a tracepoint
+# name, not a machine-check record, so these lines are control-plane noise.
+TRACEPOINT_CONTROL = re.compile(
+    r"(?i)^(?:rasdaemon(?:\[\d+\])?:\s*)?(?:"
+    r"(?:enabled|disabled) event [a-z0-9_]+:[a-z0-9_]+|"
+    r"[a-z0-9_]+:[a-z0-9_]+ event (?:enabled|disabled)"
+    r")\s*$"
+)
+
+
+def tracepoint_control(message: str) -> bool:
+    """True for rasdaemon's tracepoint enable/disable status lines."""
+    return bool(TRACEPOINT_CONTROL.match((message or "").strip()))
+
+
 # Real but non-actionable for a vendor ticket: keep in the local record,
 # never turn into a draft.
 BENIGN_FOR_TICKET = [
@@ -78,14 +94,41 @@ BENIGN_FOR_TICKET = [
     r"Could not create transient scope for PID",
 ]
 
+# Per-init and per-resume probe notices. They repeat on every boot and every
+# controller power-up, so their presence in a death window is not evidence of
+# a fault. A rate change still reaches the local record and dashboard.
+BOOT_PROBE_NOISE = [
+    r"ata[^:]*: supports DRM functions and may not be fully accessible",
+    r"Bluetooth: hci0: (?:HCI LE Coded PHY|FW download error recovery failed|"
+    r"Reading supported features failed|Failed to read MSFT supported features)",
+    r"usb: port power management may be unreliable",
+    r"nvidia: (?:loading out-of-tree module taints kernel|module license .* taints kernel)",
+    r"Disabling lock debugging due to kernel taint",
+    r"Booted with the nomodeset parameter",
+    r"Driver .* not loading because of nomodeset parameter",
+    r"friendly-recovery\.service",
+    r"(?:systemd-journald.*)?File .*journal.*corrupted or uncleanly shut down",
+    r"kauditd_printk_skb: \d+ callbacks suppressed",
+]
+
+# Probe-capability findings describe the collector, not the component. They
+# belong in coverage views and must never become a vendor ticket.
+COVERAGE_FOR_TICKET = [
+    r"^hardware\.coverage\b",
+    r"^hardware\.vendor\.missing\b",
+]
+
 
 def ticketworthy(signature: str, kind: str, severity: str, count: int) -> bool:
+    text = signature or ""
+    if any(re.search(p, text, re.IGNORECASE)
+           for p in BENIGN_FOR_TICKET + BOOT_PROBE_NOISE):
+        return False
     if kind == "finding":
-        return True
+        return not any(re.search(p, text, re.IGNORECASE)
+                       for p in COVERAGE_FOR_TICKET)
     if kind in ("crash", "correlation"):
         return True
-    if any(re.search(p, signature, re.IGNORECASE) for p in BENIGN_FOR_TICKET):
-        return False
     if severity == "critical":
         return True
     return severity == "error" and count >= 5
@@ -100,6 +143,8 @@ def classify(message: str, priority: int | None = None) -> str:
     text = (message or "").strip()
     if not text:
         return "info"
+    if tracepoint_control(text):
+        return "noise"
     if _match(NOISE_PATTERNS, text):
         return "noise"
     if _match(CRITICAL_PATTERNS, text):
@@ -588,6 +633,13 @@ def vendor_for_finding(rule: str, subject: str = "", detail: str = "") -> str:
         return "canonical-kernel"
     if rule.startswith("hardware.gpu"):
         return "nvidia"
+    if rule == "hardware.apei.pstore":
+        # pstore archives kernel panics; a userspace trap in the same record
+        # is local. The panic is a kernel defect, not a platform fault.
+        if re.search(r"(?i)kernel panic|stack-protector|BUG: unable|Oops:",
+                     detail or ""):
+            return "canonical-kernel"
+        return "local"
     if rule.startswith("hardware."):
         return "hardware"
     return "local"

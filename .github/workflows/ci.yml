@@ -27,6 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve vendored QA Sentinels revision
+        id: vendor
+        run: python3 -c 'import json; print("commit=" + json.load(open("sentinels-vendor.json"))["commit"])' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: scripting-drafts/QA-Sentinels
+          ref: ${{ steps.vendor.outputs.commit }}
+          path: .qa-sentinels-source
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -34,7 +43,10 @@ jobs:
         with:
           python-version: "3.10"
       - run: make deps
-      - run: make test
+      - name: Test
+        env:
+          QA_SENTINELS_SOURCE: ${{ github.workspace }}/.qa-sentinels-source
+        run: make test
       - uses: actions/upload-artifact@v4
         with:
           name: contracts

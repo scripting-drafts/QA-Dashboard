@@ -1,6 +1,8 @@
 {
   "source": "https://github.com/scripting-drafts/QA-Sentinels",
-  "version": "1.4.3",
-  "commit": "92bbbfa2944b928c27be89c38c0991ec9093b127",
-  "syncedAt": "2026-11-22"
+  "version": "1.4.7",
+  "tag": "v1.4.7",
+  "tagVerified": true,
+  "commit": "75b9be14c081d888753f28cbec3771a8c8f2f0aa",
+  "syncedAt": "2026-11-25"
 }

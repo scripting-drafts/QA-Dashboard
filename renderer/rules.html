@@ -26,7 +26,7 @@
       <section class="view active">
         <div class="panel">
           <h3>About this register</h3>
-          <p class="rules-note">This register describes every finding rule and operational check implemented by QA Sentinels <code>1.4.3</code>. Rules are code, not policy prose: the linked module is the authoritative implementation.</p>
+          <p class="rules-note">This register describes every finding rule and operational check implemented by QA Sentinels <code>1.4.7</code>. Rules are code, not policy prose: the linked module is the authoritative implementation.</p>
         </div>
 
         <div class="panel" id="severity-model">
@@ -67,6 +67,17 @@
           <p>Findings are deduplicated by fingerprint. Repeated journal rules are grouped by a stable signature and show an occurrence count. <code>critical</code> findings do not automatically submit tickets; drafts remain human-reviewed.</p>
         </div>
 
+        <div class="panel" id="probe-provenance">
+          <h3>Probe provenance</h3>
+          <p class="rules-note">A probe result is only evidence at the point in time it describes. Three guards keep read-at-the-wrong-time values out of tickets:</p>
+          <ul class="rules-kinds">
+            <li><strong>Boot stage</strong> — the correlation death window starts after a settling period (<code>QA_CORRELATE_SETTLE_S</code>, default 300 s). A boot shorter than the remaining window contributes no event clusters: its whole journal is startup.</li>
+            <li><strong>Stop verdict</strong> — recovery/rescue exits and explicit reboot/poweroff targets count as clean, not as silent stops. Maintenance boots are excluded from unclean findings and repeat rates.</li>
+            <li><strong>Process identity</strong> — a crash may only inherit affinity from a process sample inside <code>QA_PROC_MATCH_WINDOW_S</code> (default 180 s) that names the same executable. A stale PID sample or PID reuse yields an unknown affinity, not a fault-core verdict.</li>
+          </ul>
+          <p>Finding <code>count</code> is the number of collection runs that re-observed a condition, never the number of independent events. The raise gate counts distinct finding rows, so a persistent pstore archive or a coverage limitation cannot inflate itself into a ticket.</p>
+        </div>
+
         <div class="panel" id="journal-and-kernel-rules">
           <h3>Journal and kernel rules</h3>
           <p class="rules-note">Implemented in <code>sentinels/detect.py</code>.</p>
@@ -83,7 +94,7 @@
                 <tr>
                   <td class="state"><code>kernel.hardware</code></td>
                   <td>critical</td>
-                  <td>MCE, machine check, hardware error, EDAC, or RAS message</td>
+                  <td>MCE, machine check, hardware error, EDAC, or RAS message; rasdaemon tracepoint enable/disable status lines are excluded</td>
                 </tr>
                 <tr>
                   <td class="state"><code>kernel.oops</code></td>
@@ -154,6 +165,7 @@
             </table>
           </div>
           <p>Unmatched <code>warning</code> journal entries are ignored. Unmatched <code>error</code> entries are ignored; unmatched <code>critical</code> entries become <code>journal.critical</code>.</p>
+          <p>Per-init and per-resume notices are recorded but never become tickets (<code>classify.BOOT_PROBE_NOISE</code>): the ATA DRM probe line, Bluetooth firmware and Coded PHY notices, USB power-management warnings, and module-taint messages. They recur on every boot and controller power-up, so their presence in a death window is not evidence of a fault.</p>
         </div>
 
         <div class="panel" id="crash-rules">
@@ -245,7 +257,7 @@
                 <tr>
                   <td class="state"><code>boot.unclean</code></td>
                   <td>critical</td>
-                  <td>Previous boot ended without <code>systemd-shutdown</code> (<code>ended_clean=0</code>)</td>
+                  <td>Previous boot ended without a shutdown marker (<code>systemd-shutdown</code>, reboot/poweroff target, or recovery exit) and was not a maintenance boot</td>
                 </tr>
               </tbody>
             </table>
@@ -375,7 +387,7 @@
                 <tr>
                   <td class="state"><code>hardware.apei.pstore</code></td>
                   <td>warning</td>
-                  <td>pstore summary contains an error signature</td>
+                  <td>An archived pstore record contains an error signature; one finding per archive, with the archive timestamp. Kernel panics route to the kernel, userspace traps stay local</td>
                 </tr>
                 <tr>
                   <td class="state"><code>hardware.apei.journal</code></td>
@@ -475,7 +487,7 @@
                 <tr>
                   <td class="state"><code>hardware.coverage</code></td>
                   <td>warning</td>
-                  <td>A required hardware source is limited or unavailable</td>
+                  <td>A required hardware source is limited or unavailable; coverage state, never a vendor ticket</td>
                 </tr>
               </tbody>
             </table>

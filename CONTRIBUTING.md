@@ -12,5 +12,11 @@ commits with the Developer Certificate of Origin 1.1 (`git commit -s`).
 - Run `make hooks` once per clone to enable the release-tag pre-push guard.
 - If the guard blocks a push, run `make release-tag-fix`; it bumps a consumed
   release and only replaces a tag that was never built or published.
-- Run `npm test` before opening a pull request.
+- Never edit `sentinels/` by hand. Vendor a signed release with
+  `make vendor-sync REF=vX.Y.Z`, inspect the result, then run `make test`.
+- `make vendor-check` verifies the vendored tree against
+  `sentinels-vendor.json`, its SHA-256 manifest and the recorded release commit.
+  CI checks out that commit and fails on content, mode, extra-file or register
+  drift.
+- Run `make test` before opening a pull request.
 - Do not include personal data, host-specific paths, or secrets in commits.

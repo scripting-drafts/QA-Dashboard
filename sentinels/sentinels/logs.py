@@ -143,9 +143,11 @@ def header(conn) -> list[str]:
     except Exception:  # noqa: BLE001
         pass
     open_findings = count("SELECT COUNT(*) FROM findings WHERE status='open'")
+    unclean = count("SELECT COUNT(*) FROM boots WHERE ended_clean=0"
+                    " AND COALESCE(maintenance,0)=0")
     rows = [
         ("boots", f"{count('SELECT COUNT(*) FROM boots')} recorded, "
-                  f"{count('SELECT COUNT(*) FROM boots WHERE ended_clean=0')} unclean"),
+                  f"{unclean} unclean"),
         ("findings", f"{open_findings} open"),
         ("drafts", f"{count('SELECT COUNT(*) FROM ticket_drafts')} pending"),
         ("correlations", f"{ready} ticket-ready"),

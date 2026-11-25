@@ -17,7 +17,8 @@ Layout (one directory per ticket, never a flat pile):
         ticket.md            the redacted draft, ready to post
         HOWTO.md             what to do with it, and what not to omit
         evidence/logs.json   the exact observations behind it (redacted)
-        evidence/trace.md    signature → events → stops → correlation → draft
+        evidence/trace.md    signature → events → stops → correlation → draft,
+                             plus raw occurrence context from the same sources
         evidence/manifest.json  hashes, provenance, scores
         evidence/*.jsonl     append-only audit records
 
@@ -36,7 +37,7 @@ import json
 import re
 import shutil
 
-from . import boot, classify, config, correlate, report, tickets, trace, util
+from . import boot, classify, config, correlate, occurrence, report, tickets, trace, util
 from .util import iso, sha256_text, utcnow
 
 # Failures of the environment, not of the component. A vendor cannot fix DNS,
@@ -46,7 +47,7 @@ ENVIRONMENTAL = re.compile(
     r"network is unreachable|no route to host|connection (?:refused|timed out)|"
     r"could not resolve|name or service not known|"
     r"permission denied|operation not permitted|no space left|"
-    r"read-only file system|dns"
+    r"read-only file system|needs-root|coverage-limited|dns"
 )
 
 # When two clusters share a signature, a correlation carries the silent-stop
@@ -86,8 +87,11 @@ def assess(conn, draft: dict, issue: dict | None, days: int = 30,
     count = int((issue or {}).get("count") or 0)
     rows = (issue or {}).get("rows") or []
     crashes = sum(1 for r in rows if r.get("sig"))
-    check("substantiated", count >= min_count or crashes >= 1,
-          f"{count} occurrence(s), {crashes} crash row(s); need >= {min_count} or 1 crash")
+    critical = str((issue or {}).get("severity") or "").lower() == "critical"
+    check("substantiated", count >= min_count or crashes >= 1 or critical,
+          f"{count} occurrence(s), {crashes} crash row(s), severity "
+          f"{(issue or {}).get('severity') or 'unknown'}; "
+          f"need >= {min_count}, 1 crash or critical")
 
     last = (issue or {}).get("last") or draft.get("ts") or ""
     fresh = False
@@ -101,12 +105,19 @@ def assess(conn, draft: dict, issue: dict | None, days: int = 30,
 
     signature = (issue or {}).get("signature") or ""
     rows = (issue or {}).get("rows") or []
-    benign = bool(signature) and not classify.ticketworthy(signature, "event", "critical", count)
+    kind = str((issue or {}).get("kind") or "event")
+    severity = str((issue or {}).get("severity") or "")
+    if not severity:
+        severity = ("critical"
+                    if any(str(r.get("severity")) == "critical" for r in rows)
+                    else "warning")
+    benign = bool(signature) and not classify.ticketworthy(
+        signature, kind, severity, count)
     environmental = bool(ENVIRONMENTAL.search(signature)) or any(
         ENVIRONMENTAL.search(str(r.get("message") or "")) for r in rows
     )
     signal = (
-        (issue or {}).get("kind") == "correlation"
+        kind in ("correlation", "finding")
         or any(str(r.get("sig") or "") for r in rows)
         or any(str(r.get("severity") or "") == "critical" for r in rows)
         or count >= 10  # a high-volume error cluster is still a component signal
@@ -232,6 +243,35 @@ def _display(issue: dict | None, draft: dict | None = None) -> str:
     )
 
 
+def _stop_ids(conn, issue: dict, rows: list[dict]) -> list[str]:
+    """Boot ids that are genuine silent stops for this issue.
+
+    Event tickets recur across clean boots too. Listing those as stops would
+    manufacture a correlation the evidence does not contain, so only unclean,
+    non-maintenance boots survive.
+    """
+    candidate_boots = {
+        row["boot_id"] for row in rows if row.get("boot_id")
+    }
+    if issue.get("kind") == "correlation":
+        candidate_boots |= {
+            c["boot_id"] for c in correlate.rows_for_signature(
+                conn, issue["signature"])
+        }
+    stop_ids = []
+    for boot_id in sorted(candidate_boots):
+        rec = conn.execute(
+            "SELECT ended_clean, maintenance FROM boots WHERE boot_id=?",
+            (boot_id,),
+        ).fetchone()
+        if not rec:
+            continue
+        if rec["ended_clean"] != 0 or rec["maintenance"]:
+            continue
+        stop_ids.append(boot_id)
+    return stop_ids
+
+
 def _read_manifest(directory) -> dict:
     path = directory / "evidence" / "manifest.json"
     try:
@@ -290,7 +330,17 @@ def _already_staged(directory, issue: dict, bucket: str = "raise") -> bool:
         return False
     required = ("ticket.md", "HOWTO.md", "evidence/manifest.json",
                 f"evidence/{EVIDENCE_LOGS}", "evidence/trace.md")
-    return all((directory / rel).exists() for rel in required)
+    if not all((directory / rel).exists() for rel in required):
+        return False
+    try:
+        ticket = (directory / "ticket.md").read_text(
+            encoding="utf-8", errors="replace")
+        trace = (directory / "evidence" / "trace.md").read_text(
+            encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    # One-time refresh of tickets staged before raw occurrence context existed.
+    return "### Occurrence context" in ticket and "## Occurrence context" in trace
 
 
 def _staged_summary(directory, issue: dict, verdict: dict,
@@ -408,7 +458,14 @@ def _manual_bucket(directory, bucket: str) -> str:
     actual = _actual_bucket(bucket)
     entries = _read_lifecycle(directory)
     recorded = ""
-    last = entries[-1] if entries else None
+    # ``renamed`` events store the new directory name, not a bucket. Only
+    # entries that actually name a bucket may decide the last coded position.
+    last = next(
+        (entry for entry in reversed(entries)
+         if entry.get("event") in ("classified", "moved", "manual",
+                                   "reclassified")),
+        None,
+    )
     if last is not None:
         recorded = str(last.get("to") or "")
     else:
@@ -554,6 +611,8 @@ def stage(conn, draft: dict, issue: dict, verdict: dict, bundle: dict | None,
         reason="draft classified for " + str(issue.get("vendor") or "an unknown vendor"),
         score=f"{verdict.get('score')}/{verdict.get('max_score')}",
     )
+    raw_context = occurrence.ticket_context(issue, bundle, conn)
+    ticket_text = occurrence.embed_context(ticket_text, raw_context)
     hashes["ticket.md"] = _write(
         directory / "ticket.md",
         _ticket_with_lifecycle(ticket_text, directory),
@@ -569,14 +628,16 @@ def stage(conn, draft: dict, issue: dict, verdict: dict, bundle: dict | None,
     traced = trace.render(conn, issue["signature"], limit=200)
     if shown != issue["signature"]:
         traced = [line.replace(issue["signature"], shown) for line in traced]
-    trace_text = util.redact("\n".join(traced))
-    hashes["evidence/trace.md"] = _write(directory / "evidence" / "trace.md", trace_text + "\n")
+    trace_text = "\n".join(traced)
+    if raw_context:
+        trace_text = (trace_text.rstrip()
+                      + "\n\n## Occurrence context\n\n"
+                      + "\n".join(raw_context))
+    trace_text = util.redact(trace_text)
+    hashes["evidence/trace.md"] = _write(
+        directory / "evidence" / "trace.md", trace_text + "\n")
 
-    stop_ids = sorted({
-        row["boot_id"] for row in rows if row.get("boot_id")
-    })
-    if not stop_ids and issue.get("kind") == "correlation":
-        stop_ids = [c["boot_id"] for c in correlate.rows_for_signature(conn, issue["signature"])]
+    stop_ids = _stop_ids(conn, issue, rows)
     stop_lines = ["# Silent stops linked to this ticket", ""]
     for boot_id in stop_ids:
         rec = conn.execute("SELECT * FROM boots WHERE boot_id=?", (boot_id,)).fetchone()
@@ -591,11 +652,12 @@ def stage(conn, draft: dict, issue: dict, verdict: dict, bundle: dict | None,
                 f"kexec_crash_loaded {rows_b['kexec_loaded']}, vmcores {rows_b['vmcores']}",
                 "",
             ]
+    stale_stops = directory / "evidence" / "stops.md"
     if stop_ids:
         hashes["evidence/stops.md"] = _write(
-            directory / "evidence" / "stops.md",
-            util.redact("\n".join(stop_lines)) + "\n",
-        )
+            stale_stops, util.redact("\n".join(stop_lines)) + "\n")
+    elif stale_stops.exists():
+        stale_stops.unlink()
 
     if bucket == "rejected":
         hashes["REJECTED.md"] = _write(
@@ -1067,7 +1129,8 @@ Viability: {verdict['score']}/{verdict['max_score']} checks passed.
 Vendor: **{issue['vendor']}** — {issue['kind']} cluster `{issue['key']}`
 
 1. Read `ticket.md`. It is already redacted; do not add host or identity data.
-2. Check `evidence/logs.json` and `evidence/trace.md` still describe what you saw.
+2. Read `ticket.md`; its Occurrence context embeds the raw surrounding lines.
+   Check `evidence/logs.json` and `evidence/trace.md` still describe what you saw.
 3. Attach the evidence bundle named in `evidence/manifest.json` (verify its SHA-256).
 4. Post through the vendor channel in `ticket.md`. Submission is manual by design.
 5. Keep `evidence/manifest.json`: it is what makes this ticket auditable later.

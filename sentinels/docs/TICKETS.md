@@ -65,6 +65,60 @@ optional external crash feed fills it at ingest with
 process keeps its project label.  `qa query --category crashes` and reports
 show that stored label.
 
+## Occurrence context
+
+`tickets.py` embeds raw occurrence context in the ticket's `## Evidence`
+section and in `evidence/trace.md`. Context is not a side file: it is the real
+lines or records around the exact fingerprint, stack frame, case key or event
+time, copied from the source that observed it.
+
+- Each source contributes at least 90 lines around the anchor.
+- The window grows in 90-line blocks while the boundary remains in the same
+  correlated section, fenced block, boot, unit or event-time chain.
+- Both the bundle snapshot and the current `triage/faultcore/case-*.md` are
+  included, with paths, line/record ranges and SHA-256 values.
+- Correlation tickets resolve their own recorded boots and time windows, so a
+  newer startup bundle containing the same message on a later boot cannot
+  replace the original occurrence context.
+- Trace files are embedded raw; they are never summarised.
+- There is no total ticket addition cap.
+
+A missing match is stated explicitly. The generator never substitutes a
+similar case or invents surrounding lines. The block is part of `ticket.md`, so
+opening the ticket — a double-click in the dashboard — shows the context
+without a separate viewer or command.
+
+Both `tickets._draft` and `raise_ticket.stage` apply the block. A staged ticket
+without the block in `ticket.md` and `evidence/trace.md` is treated as an old
+format and is rewritten on the next raise pass.
+
+### Probe provenance
+
+A ticket may only cite a probe value at the time and identity it actually
+describes. The raise gate enforces three boundaries:
+
+- **Death window** — events before `boot_start + QA_CORRELATE_SETTLE_S` are
+  startup, not pre-stop evidence. Boots shorter than `QA_CORRELATE_MIN_WINDOW_S`
+  contribute no correlation clusters.
+- **Stop verdict** — recovery/rescue exits and explicit reboot/poweroff targets
+  are clean. Maintenance boots never count toward the repeat rate.
+- **Crash affinity** — only a process sample inside `QA_PROC_MATCH_WINDOW_S`
+  that names the same executable may supply a mask. Stale samples and PID reuse
+  produce `unknown`, never a fault-core correlation.
+
+Per-init notices are not ticketworthy. Finding counts are distinct rows, not
+collection runs. `hardware.coverage` and `hardware.vendor.missing` are coverage
+state and are never staged as vendor tickets.
+
+### Hardware probe coverage
+
+`hardware.coverage` and `hardware.vendor.missing` report whether the hardware
+layer could run its probes. Their context includes the matching finding and the
+hardware run that produced it: the source map, the reported limitation, and
+the raw probe detail around `smartctl` / `Permission denied`. The limitation is
+shown explicitly, for example `storage=needs-root`. Other hardware findings do
+not receive this probe-run adapter.
+
 ## Crash evidence
 
 `crash.digest` keeps the header (size, pid, signal, timestamp, command line,

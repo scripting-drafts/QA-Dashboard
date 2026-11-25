@@ -193,6 +193,8 @@ def _event_findings(conn, since: str) -> list[dict]:
         (since,),
     ):
         msg = row["message"] or ""
+        if classify.tracepoint_control(msg):
+            continue
         if SELF_NOISE.search(msg):
             continue
         if compat.ignore_sysv_failure(msg):

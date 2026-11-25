@@ -22,7 +22,17 @@ from datetime import datetime, timezone
 from . import config, shutdown
 from .util import iso, parse_iso, read_text, redact, run
 
-SHUTDOWN_RE = re.compile(r"systemd-shutdown\[\d+\]:")
+# A boot can end cleanly without the full systemd-shutdown sequence: recovery
+# and rescue sessions hand off to a reboot directly, and explicit reboot or
+# poweroff targets are legitimate shutdowns. Reading only systemd-shutdown
+# turned a one-minute recovery-menu reboot into a "silent stop".
+SHUTDOWN_RE = re.compile(
+    r"(?:systemd-shutdown\[\d+\]:|"
+    r"Reached target (?:[A-Za-z0-9_.-]+\.)?(?:reboot|poweroff|halt|shutdown)\.target|"
+    r"reboot: (?:Restarting|Power down|System halted)|"
+    r"friendly-recovery\.service: Deactivated successfully)"
+)
+MAINTENANCE_RE = re.compile(r"friendly-recovery\.service", re.IGNORECASE)
 
 # One Xorg RandR probe prints roughly 28 NVIDIA(GPU-0) lines. A status poll
 # every 0.4 s can add ~460k lines per boot and push the real last message out
@@ -107,6 +117,37 @@ def _last_epoch(boot_id: str) -> str | None:
             continue
         return iso(datetime.fromtimestamp(usec / 1_000_000, tz=timezone.utc))
     return None
+
+
+_SPAN_STAMP_RE = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
+
+
+def _span_start(span: str | None) -> str | None:
+    """First timestamp of journalctl's ``--list-boots`` span, in UTC.
+
+    ``journalctl`` prints local time. Parsing the numeric stamp avoids the
+    weekday and timezone names, which are locale-dependent.
+    """
+    match = _SPAN_STAMP_RE.search(span or "")
+    if not match:
+        return None
+    try:
+        local = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+    return iso(local.astimezone(timezone.utc))
+
+
+def _maintenance_boot(boot_id: str, tail: str) -> bool:
+    """True for a recovery/rescue session, which is not a production boot."""
+    if MAINTENANCE_RE.search(tail or ""):
+        return True
+    rc, out, _ = run(
+        ["journalctl", "-b", boot_id, "--no-pager", "-o", "cat",
+         "-u", "friendly-recovery.service", "-n", "1"],
+        timeout=15,
+    )
+    return rc == 0 and bool((out or "").strip())
 
 
 def _meaningful(lines: list[str]) -> list[str]:
@@ -296,9 +337,11 @@ def scan_boot(boot: dict, refresh: bool = False) -> dict:
     boot_id = boot["boot_id"]
     tail = _journal(boot_id, n=300)
     wide = _scan_output(boot_id)
+    start_ts = _span_start(boot.get("span"))
     last_ts = _last_epoch(boot_id) or iso()
     archives = _pstore_archives(last_ts)
 
+    maintenance = _maintenance_boot(boot_id, tail)
     clean = bool(SHUTDOWN_RE.search(tail))
     lines = _meaningful(tail.splitlines())
     scans = {}
@@ -351,8 +394,10 @@ def scan_boot(boot: dict, refresh: bool = False) -> dict:
         "boot_id": boot_id,
         "seq": boot["index"],
         "span": boot["span"],
+        "start_ts": start_ts,
         "last_ts": last_ts,
         "ended_clean": 1 if clean else 0,
+        "maintenance": 1 if maintenance else 0,
         "markers": "\n".join(ln for ln in tail.splitlines() if SHUTDOWN_RE.search(ln)),
         "last_message": (lines[-1] if lines else ""),
         "scans": json.dumps(scans, sort_keys=True),
@@ -407,6 +452,17 @@ def collect(conn, limit: int = 8, refresh: bool = False) -> dict:
     ``refresh`` re-scans boots already stored, which matters when the scanner
     itself improves: a verdict is only as good as the evidence it read.
     """
+    # Backfill the boot start for records stored before start_ts existed. The
+    # span is enough; correlation uses it to exclude startup probes.
+    for row in conn.execute(
+        "SELECT boot_id, span FROM boots WHERE start_ts IS NULL"
+    ).fetchall():
+        start = _span_start(row["span"])
+        if start:
+            conn.execute(
+                "UPDATE boots SET start_ts=? WHERE boot_id=?",
+                (start, row["boot_id"]),
+            )
     seen = {
         r["boot_id"]: r["scans"]
         for r in conn.execute("SELECT boot_id, scans FROM boots")
@@ -427,25 +483,28 @@ def collect(conn, limit: int = 8, refresh: bool = False) -> dict:
                 pass
         record = scan_boot(boot, refresh=refresh)
         values = (
-            record["seq"], record["span"], record["last_ts"], record["ended_clean"],
-            record["markers"], record["last_message"], record["scans"],
+            record["seq"], record["span"], record["start_ts"], record["last_ts"],
+            record["ended_clean"], record["maintenance"], record["markers"],
+            record["last_message"], record["scans"],
             json.dumps(record["pstore"]), record["kexec_loaded"],
             record["crashkernel"], record["vmcores"], iso(),
         )
         if exists:
             conn.execute(
-                "UPDATE boots SET seq=?, span=?, last_ts=?, ended_clean=?, markers=?,"
-                " last_message=?, scans=?, pstore=?, kexec_loaded=?, crashkernel=?,"
-                " vmcores=?, captured_ts=? WHERE boot_id=?",
+                "UPDATE boots SET seq=?, span=?, start_ts=?, last_ts=?, ended_clean=?,"
+                " maintenance=?, markers=?, last_message=?, scans=?, pstore=?,"
+                " kexec_loaded=?, crashkernel=?, vmcores=?, captured_ts=?"
+                " WHERE boot_id=?",
                 values + (record["boot_id"],),
             )
             updated.append(record)
         else:
             conn.execute(
                 "INSERT OR IGNORE INTO boots"
-                "(seq, span, last_ts, ended_clean, markers, last_message, scans,"
-                " pstore, kexec_loaded, crashkernel, vmcores, captured_ts, boot_id)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "(seq, span, start_ts, last_ts, ended_clean, maintenance, markers,"
+                " last_message, scans, pstore, kexec_loaded, crashkernel, vmcores,"
+                " captured_ts, boot_id)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 values + (record["boot_id"],),
             )
             new.append(record)
@@ -498,7 +557,7 @@ def findings(conn, since: str) -> list[dict]:
     """Layer-1 findings for boot boundaries that did not close cleanly."""
     out = []
     for row in conn.execute(
-        "SELECT * FROM boots WHERE ended_clean=0"
+        "SELECT * FROM boots WHERE ended_clean=0 AND COALESCE(maintenance,0)=0"
         " AND COALESCE(captured_ts, last_ts)>=? ORDER BY last_ts DESC",
         (since,),
     ):

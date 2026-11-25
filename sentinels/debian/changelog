@@ -1,3 +1,68 @@
+qa-sentinels (1.4.7) jammy; urgency=medium
+
+  * Guard tickets against probe-timing artifacts. Correlation now starts
+    its death window after a five-minute settling period (QA_CORRELATE_SETTLE_S)
+    and skips boots shorter than the remaining window
+    (QA_CORRELATE_MIN_WINDOW_S), so startup and firmware-probe notices are
+    not counted as pre-stop evidence.
+  * Classify recovery/rescue exits and explicit reboot/poweroff targets as
+    clean, record maintenance boots, and exclude them from unclean findings,
+    repeat rates and correlation.
+  * Treat per-init/per-resume notices (ATA DRM probe, Bluetooth firmware and
+    Coded PHY, USB power-management, module taint) as non-ticketworthy.
+    Probe-capability findings (hardware.coverage, hardware.vendor.missing)
+    never become vendor tickets.
+  * Require crash affinity to come from a recent process sample that names
+    the same executable (QA_PROC_MATCH_WINDOW_S); stale PID samples and PID
+    reuse now yield an unknown affinity instead of a fault-core verdict.
+  * Count findings by distinct rows, not collection runs. pstore archives
+    produce one finding per archived record with the panic timestamp and a
+    kernel route for kernel panics.
+  * Raise gate uses the real issue kind and severity, substantiates on a
+    critical signal, and treats needs-root/coverage limitations as
+    environmental.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Wed, 25 Nov 2026 11:00:00 +0100
+
+qa-sentinels (1.4.6) jammy; urgency=medium
+
+  * Narrow occurrence context for hardware probe coverage findings:
+    hardware.coverage and hardware.vendor.missing now include the matching
+    finding, the hardware run source map, and the raw smartctl detail around
+    Permission denied. Show the reported limitation explicitly, including
+    storage=needs-root. Other hardware findings do not receive the probe-run
+    adapter.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 23 Nov 2026 17:36:00 +0100
+
+qa-sentinels (1.4.5) jammy; urgency=medium
+
+  * Embed raw occurrence context in ticket drafts and evidence/trace.md:
+    at least 90 lines per source around the fault, growing while the
+    surrounding journal, crash or triage records remain correlated.
+  * Include both the bundle snapshot and the current triage case, with
+    source paths, line or record ranges and hashes; do not summarise trace
+    files and do not cap the total ticket addition.
+  * Resolve redacted bundle paths by basename under the evidence root and
+    keep all reads inside the evidence and triage directories.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Mon, 23 Nov 2026 16:32:06 +0100
+
+qa-sentinels (1.4.4) jammy; urgency=medium
+
+  * Treat rasdaemon tracepoint enable/disable status lines as control-plane
+    noise, so "mce:mce_record event enabled" no longer creates a critical
+    kernel.hardware finding or a Canonical kernel ticket.
+  * Keep the exclusion anchored to the tracepoint management syntax; real MCE
+    records and CXL event payloads keep their existing handling.
+  * Filter stale event rows at finding time and add regression tests for MCE
+    and CXL control lines.
+  * Keep the producer's fault_core context verbatim in tickets; absence of
+    crash affinity is not evidence that a retired or offline core was
+    uninvolved.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Sun, 22 Nov 2026 14:40:00 +0100
+
 qa-sentinels (1.4.3) jammy; urgency=medium
 
   * Mark Ubuntu 26.10 (stonking) as an untested preview while keeping package

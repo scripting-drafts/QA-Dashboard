@@ -3,17 +3,21 @@ RELEASE_BOARD ?= release-board
 SENTINELS := sentinels
 SENTINELS_HOME := $(CURDIR)/$(SENTINELS)
 
-.PHONY: deps test test-sentinels test-dashboard contracts contracts-check \
-	vendor-check rules-html rules-check build-linux build-windows build-macos \
-	build-logs release-check release-tag-check release-tag-fix hooks start install uninstall clean
+.PHONY: deps test test-dashboard test-tools test-sentinels contracts \
+	contracts-check vendor-check vendor-sync rules-html rules-check \
+	build-linux build-windows build-macos build-logs release-check \
+	release-tag-check release-tag-fix hooks start install uninstall clean
 
 deps:
 	npm ci --no-audit --no-fund
 
-test: test-dashboard test-sentinels contracts-check vendor-check rules-check
+test: test-dashboard test-tools test-sentinels contracts-check vendor-check rules-check
 
 test-dashboard:
 	npm test
+
+test-tools:
+	$(PYTHON) -m unittest discover -s tools/tests
 
 test-sentinels:
 	cd $(SENTINELS) && QA_SENTINELS_HOME=$(SENTINELS_HOME) $(PYTHON) -m unittest discover -s tests
@@ -26,6 +30,10 @@ contracts-check:
 
 vendor-check:
 	$(PYTHON) tools/check_vendor.py
+
+vendor-sync:
+	$(PYTHON) tools/sync_vendor.py --write --ref "$(REF)" \
+		--require-signature --generate
 
 rules-html:
 	$(PYTHON) tools/build_rules_html.py

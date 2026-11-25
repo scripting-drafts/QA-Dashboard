@@ -5,20 +5,20 @@
   "copyright": "Copyright (c) 2026 Gerard Sala",
   "source": "https://github.com/scripting-drafts/QA-Sentinels",
   "homepage": "https://github.com/scripting-drafts/QA-Sentinels",
-  "lastReviewed": "2026-11-22",
-  "reviewedVersion": "1.4.3",
+  "lastReviewed": "2026-11-25",
+  "reviewedVersion": "1.4.7",
   "reviewedComponents": {
-    "qa-sentinels": "1.4.3",
+    "qa-sentinels": "1.4.7",
     "python3": "3.10+",
     "sqlite": "3.37+",
-    "qa-dashboard": "0.5.14",
+    "qa-dashboard": "0.5.10",
     "qa-license-scanner": "0.1.0"
   },
   "components": [
     {
       "id": "qa-sentinels",
       "name": "QA Sentinels",
-      "version": "1.4.3",
+      "version": "1.4.7",
       "versionFrom": "qa-sentinels",
       "license": "MIT",
       "scope": "project"
@@ -26,14 +26,14 @@
     {
       "id": "c-sampler",
       "name": "C sampler (qa_sample)",
-      "version": "1.4.3",
+      "version": "1.4.7",
       "license": "MIT",
       "scope": "shipped"
     },
     {
       "id": "ebpf-tracer",
       "name": "eBPF tracer sources",
-      "version": "1.4.3",
+      "version": "1.4.7",
       "license": "MIT",
       "scope": "shipped"
     },

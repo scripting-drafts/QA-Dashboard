@@ -155,15 +155,44 @@ def parse_cpu_list(spec: str | None) -> set[int] | None:
 def faultcore_verdict(mask: set[int] | None) -> int | None:
     if mask is None or not config.FAULT_CORE_CPUS:
         return None
-    return 1 if any(c in mask for c in config.FAULT_CORE_CPUS) else 0
+    if not any(c in mask for c in config.FAULT_CORE_CPUS):
+        return 0
+    # An unpinned process allows every CPU by construction. That default mask
+    # is not evidence that the process ran on the fault core; only a narrower
+    # affinity (or a kernel event that names the CPU) is.
+    online = os.cpu_count() or 0
+    if online and len(mask) >= online:
+        return 0
+    return 1
 
 
-def _nearest_proc(conn, pid: int, ts: str) -> dict | None:
+def _nearest_proc(conn, pid: int, ts: str, exe: str = "") -> dict | None:
+    """Process snapshot for a crash PID, with provenance checks.
+
+    A bare ``PID`` match is not identity: PIDs are reused, and the nearest
+    sample can be days old. Returning that row attributes a stale affinity
+    mask and even a different process name to the crash. Only a recent sample
+    that names the same executable may supply affinity or fault-core verdict.
+    """
+    try:
+        anchor = parse_iso(ts)
+        lower = iso(anchor - timedelta(seconds=config.PROC_MATCH_WINDOW_S))
+    except (TypeError, ValueError):
+        return None
     row = conn.execute(
-        "SELECT * FROM proc_snap WHERE pid=? AND ts<=? ORDER BY ts DESC LIMIT 1",
-        (pid, ts),
+        "SELECT * FROM proc_snap WHERE pid=? AND ts<=? AND ts>=?"
+        " ORDER BY ts DESC LIMIT 1",
+        (pid, ts, lower),
     ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    sample = dict(row)
+    if exe:
+        want = os.path.basename(exe.rstrip("/"))
+        got = os.path.basename(str(sample.get("exe") or "").rstrip("/"))
+        if not got or got != want:
+            return None
+    return sample
 
 
 def _journal_context(epoch: float, window: int = 45, lines: int = 120) -> str:
@@ -202,7 +231,7 @@ def ingest_coredumps(conn, days: int = 30) -> int:
         if conn.execute("SELECT 1 FROM crashes WHERE fingerprint=?", (fp,)).fetchone():
             continue
 
-        proc = _nearest_proc(conn, pid, ts_s)
+        proc = _nearest_proc(conn, pid, ts_s, exe=exe)
         mask = parse_cpu_list(proc.get("cpus_allowed") if proc else None)
         verdict = faultcore_verdict(mask)
 

@@ -45,9 +45,28 @@ def component_for_crash(row: dict) -> tuple[str, str]:
     return vendor, component
 
 
-def _window(boot: dict) -> tuple[str, str]:
+def _window(boot: dict) -> tuple[str, str] | None:
+    """Death window for one boot, excluding its own startup probes.
+
+    A boot that lived less than the window has no "before the stop" period:
+    its entire journal is device enumeration and firmware loading. Clamping to
+    the settling boundary (and skipping the boot when no window remains) keeps
+    recovery-menu reboots and short boots from masquerading as recurring
+    failures.
+    """
     end = parse_iso(boot["last_ts"])
     start = end - timedelta(seconds=config.CORRELATE_WINDOW_S)
+    if boot.get("start_ts"):
+        try:
+            boot_start = parse_iso(boot["start_ts"])
+        except (TypeError, ValueError):
+            boot_start = None
+        if boot_start is not None:
+            settled = boot_start + timedelta(seconds=config.CORRELATE_SETTLE_S)
+            if settled > start:
+                start = settled
+    if (end - start).total_seconds() < config.CORRELATE_MIN_WINDOW_S:
+        return None
     return (
         start.strftime("%Y-%m-%dT%H:%M:%SZ"),
         end.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -66,7 +85,12 @@ def _display_text(value: str, fallback: str) -> str:
 
 # ---------------------------------------------------------------- clustering
 def clusters_for_boot(conn, boot: dict) -> list[dict]:
-    start, end = _window(boot)
+    if boot.get("maintenance"):
+        return []
+    window = _window(boot)
+    if window is None:
+        return []
+    start, end = window
     clusters: dict[tuple[str, str], dict] = {}
 
     def bump(vendor: str, component: str, signature: str, ts: str, rows: list[dict],
@@ -136,7 +160,8 @@ def correlate(conn, days: int = 30, notify: bool = True) -> dict:
     since = (utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     boots = [
         dict(r) for r in conn.execute(
-            "SELECT * FROM boots WHERE ended_clean=0 AND last_ts>=? ORDER BY last_ts", (since,)
+            "SELECT * FROM boots WHERE ended_clean=0"
+            " AND COALESCE(maintenance,0)=0 AND last_ts>=? ORDER BY last_ts", (since,)
         )
     ]
     written = 0
@@ -155,6 +180,15 @@ def correlate(conn, days: int = 30, notify: bool = True) -> dict:
                 ),
             )
             written += 1
+
+    # A boot that was reclassified as clean or maintenance no longer has a
+    # death window. Drop its stale rows instead of letting them inflate a
+    # later signature or appear in evidence as a "silent stop".
+    conn.execute(
+        "DELETE FROM correlations WHERE boot_id IN ("
+        "SELECT boot_id FROM boots WHERE ended_clean=1"
+        " OR COALESCE(maintenance,0)=1)"
+    )
 
     ready = [c for c in aggregate(conn, days) if c["ready"]]
     if notify:
@@ -198,13 +232,14 @@ def aggregate(conn, days: int = 30) -> list[dict]:
     """Group correlation rows across boots and score each component signature."""
     since = (utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     total_unclean = conn.execute(
-        "SELECT COUNT(*) FROM boots WHERE ended_clean=0 AND last_ts>=?", (since,)
+        "SELECT COUNT(*) FROM boots WHERE ended_clean=0"
+        " AND COALESCE(maintenance,0)=0 AND last_ts>=?", (since,)
     ).fetchone()[0]
     groups: dict[tuple[str, str], dict] = {}
     for row in conn.execute(
         "SELECT c.*, b.last_ts AS stop_ts FROM correlations c"
         " JOIN boots b ON b.boot_id=c.boot_id"
-        " WHERE b.ended_clean=0 AND b.last_ts>=?"
+        " WHERE b.ended_clean=0 AND COALESCE(b.maintenance,0)=0 AND b.last_ts>=?"
         " ORDER BY b.last_ts",
         (since,),
     ):
@@ -258,10 +293,18 @@ def aggregate(conn, days: int = 30) -> list[dict]:
 
 
 def rows_for_signature(conn, signature: str) -> list[dict]:
-    """Correlation rows for one signature, across every silent stop."""
+    """Correlation rows for one signature, across every silent stop.
+
+    Clean and maintenance boots are not stops; their rows may survive from a
+    time when the verdict was different, so they are filtered here too.
+    """
     return [
         dict(r) for r in conn.execute(
-            "SELECT * FROM correlations WHERE signature=? ORDER BY boot_id", (signature,)
+            "SELECT c.* FROM correlations c JOIN boots b ON b.boot_id=c.boot_id"
+            " WHERE c.signature=? AND b.ended_clean=0"
+            " AND COALESCE(b.maintenance,0)=0"
+            " ORDER BY c.boot_id",
+            (signature,),
         )
     ]
 

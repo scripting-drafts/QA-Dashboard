@@ -80,8 +80,10 @@ CREATE TABLE IF NOT EXISTS boots (
     boot_id TEXT NOT NULL UNIQUE,
     seq INTEGER,
     span TEXT,
+    start_ts TEXT,
     last_ts TEXT,
     ended_clean INTEGER,
+    maintenance INTEGER NOT NULL DEFAULT 0,
     markers TEXT,
     last_message TEXT,
     scans TEXT,
@@ -402,6 +404,13 @@ def init() -> None:
             conn.execute("ALTER TABLE events ADD COLUMN count INTEGER NOT NULL DEFAULT 1")
         if "last_ts" not in cols:
             conn.execute("ALTER TABLE events ADD COLUMN last_ts TEXT")
+        bcols = {r["name"] for r in conn.execute("PRAGMA table_info(boots)")}
+        if bcols and "start_ts" not in bcols:
+            conn.execute("ALTER TABLE boots ADD COLUMN start_ts TEXT")
+        if bcols and "maintenance" not in bcols:
+            conn.execute(
+                "ALTER TABLE boots ADD COLUMN maintenance INTEGER NOT NULL DEFAULT 0"
+            )
         ccols = {r["name"] for r in conn.execute("PRAGMA table_info(correlations)")}
         if ccols and "display" not in ccols:
             conn.execute("ALTER TABLE correlations ADD COLUMN display TEXT")

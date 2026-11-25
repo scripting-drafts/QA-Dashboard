@@ -1,0 +1,3236 @@
+"""Unit tests for the parts where a mistake would falsify QA evidence."""
+import json
+import unittest
+from unittest import mock
+
+from sentinels import classify, config
+from sentinels.ingest import faultcore_verdict, parse_cpu_list
+from sentinels.util import redact
+
+
+_FAULT_CORE_PATCHES = []
+
+
+def setUpModule():
+    for name, value in (
+        ("FAULT_CORE_CPUS", (2, 8)),
+        ("FAULT_CORE_ENABLE", False),
+    ):
+        patcher = mock.patch.object(config, name, value)
+        patcher.start()
+        _FAULT_CORE_PATCHES.append(patcher)
+
+
+def tearDownModule():
+    for patcher in reversed(_FAULT_CORE_PATCHES):
+        patcher.stop()
+
+
+class PreflightTests(unittest.TestCase):
+    def test_no_coredumps_is_not_an_access_failure(self):
+        from sentinels.cli import _coredump_access_ok
+        self.assertTrue(_coredump_access_ok(1, "No coredumps found.\n"))
+        self.assertTrue(_coredump_access_ok(0, ""))
+        self.assertFalse(_coredump_access_ok(1, "Failed to connect to bus"))
+
+
+class CpuMaskTests(unittest.TestCase):
+    def test_ranges_and_lists(self):
+        self.assertEqual(parse_cpu_list("0-3,8"), {0, 1, 2, 3, 8})
+        self.assertEqual(parse_cpu_list("2"), {2})
+        self.assertEqual(parse_cpu_list("0,6"), {0, 6})
+
+    def test_unknown_is_none_not_zero(self):
+        self.assertIsNone(parse_cpu_list(None))
+        self.assertIsNone(parse_cpu_list(""))
+        self.assertIsNone(parse_cpu_list("n/a"))
+
+    def test_faultcore_verdict(self):
+        self.assertEqual(faultcore_verdict({2, 8}), 1)
+        self.assertEqual(faultcore_verdict({0, 6}), 0)
+        self.assertIsNone(faultcore_verdict(None))
+
+
+class ClassificationTests(unittest.TestCase):
+    def test_kernel_panic_is_critical(self):
+        self.assertEqual(classify.classify("kernel panic - not syncing: Fatal exception"), "critical")
+
+    def test_segv_is_critical(self):
+        self.assertEqual(classify.classify("firefox-esr[123]: segfault at 0 ip 0000"), "critical")
+
+    def test_nvrm_loading_is_noise(self):
+        self.assertEqual(
+            classify.classify("NVRM: loading NVIDIA UNIX x86_64 Kernel Module 550.163.01"),
+            "noise",
+        )
+
+    def test_xorg_info_is_noise(self):
+        self.assertEqual(classify.classify("(--) NVIDIA(GPU-0): DFP-0: disconnected"), "noise")
+
+    def test_rasdaemon_tracepoint_control_is_noise(self):
+        for message in (
+            "rasdaemon: mce:mce_record event enabled",
+            "rasdaemon: mce:mce_record event disabled",
+            "rasdaemon: Enabled event mce:mce_record",
+            "Enabled event mce:mce_record",
+            "Enabled event cxl:cxl_poison",
+            "rasdaemon: cxl:cxl_aer_uncorrectable_error event enabled",
+        ):
+            with self.subTest(message=message):
+                self.assertEqual(classify.classify(message, 4), "noise")
+
+    def test_plain_failure_is_error(self):
+        self.assertEqual(classify.classify("Failed to start unit: input/output error"), "error")
+
+    def test_priority_fallback(self):
+        self.assertEqual(classify.priority_to_severity(3), "error")
+        self.assertEqual(classify.priority_to_severity(4), "warning")
+
+
+class SignatureTests(unittest.TestCase):
+    def test_numbers_and_addresses_collapse(self):
+        a = classify.signature("crash at 0xdeadbeef pid 4321 after 900 ms")
+        b = classify.signature("crash at 0xcafebabe pid 7654 after 12 ms")
+        self.assertEqual(a, b)
+
+    def test_event_latency_is_normalized(self):
+        a = classify.signature(
+            "(EE) event2 - Keyboard: client bug: event processing lagging behind by 23ms"
+        )
+        b = classify.signature(
+            "(EE) event2 - Keyboard: client bug: event processing lagging behind by 42ms"
+        )
+        self.assertEqual(a, b)
+
+    def test_display_text_keeps_error_codes(self):
+        from sentinels import tickets
+
+        shown = tickets._display_text(
+            {"message": "hidpp protocol error 0x08 on interface"}, "fallback"
+        )
+        self.assertIn("0x08", shown)
+        self.assertNotIn("0xADDR", shown)
+
+        issue = {
+            "key": "k1", "vendor": "canonical-kernel",
+            "signature": "hidpp protocol error 0xADDR",
+            "display": "hidpp protocol error 0x08",
+            "kind": "event", "count": 3, "first": "2026-11-05T00:00:00Z",
+            "last": "2026-11-05T00:00:00Z", "rows": [],
+        }
+        title, _ = tickets._draft(issue, None, {}, False)
+        self.assertIn("0x08", title)
+        self.assertNotIn("0xADDR", title)
+
+    def test_vendor_routing(self):
+        self.assertEqual(classify.vendor_for("mozilla::gfx::WebRender error"), "mozilla")
+        self.assertEqual(classify.vendor_for("NVRM: Xid (PCI:0000:0a:00): 79"), "nvidia")
+        self.assertEqual(classify.vendor_for("kernel: BUG: unable to handle page fault"), "canonical-kernel")
+        self.assertEqual(classify.vendor_for(
+            "Configuration file /run/systemd/system/netplan-ovs-cleanup.service is marked world-inaccessible"
+        ), "netplan")
+        self.assertEqual(classify.vendor_for("systemd[1]: Started Journal Service."), "systemd")
+
+    def test_ticket_filter(self):
+        self.assertFalse(classify.ticketworthy("not generating service for xdg-autostart", "event", "warning", 50))
+        self.assertTrue(classify.ticketworthy("anything", "crash", "critical", 1))
+        self.assertTrue(classify.ticketworthy("real error", "event", "error", 5))
+        self.assertFalse(classify.ticketworthy("noise", "event", "error", 2))
+
+
+class RedactionTests(unittest.TestCase):
+    def test_operator_identity_is_removed(self):
+        from sentinels import util
+
+        old_user, old_host = util._USER, util._HOSTNAME
+        util._USER, util._HOSTNAME = "alex", "test-host"
+        try:
+            raw = (
+                "user alex at /home/alex/ff-profile host test-host "
+                "mail alex@example.com mac aa:bb:cc:dd:ee:ff serial: XYZ123 "
+                "ip 198.51.100.20 uuid 123e4567-e89b-12d3-a456-426614174000"
+            )
+            out = redact(raw)
+        finally:
+            util._USER, util._HOSTNAME = old_user, old_host
+        for secret in ("alex", "test-host", "example.com", "aa:bb:cc", "XYZ123", "198.51.100.20"):
+            self.assertNotIn(secret, out)
+        self.assertIn("/home/<user>", out)
+        self.assertIn("<serial>", out)
+
+    def test_consented_identity_can_be_preserved_in_a_ticket(self):
+        from sentinels import util
+
+        old_user = util._USER
+        util._USER = "gerard"
+        try:
+            raw = (
+                "Name: Gerard Sala\n"
+                "LinkedIn: https://www.linkedin.com/in/gerard-sala/\n"
+                f"path {config.HOME}/x\n"
+            )
+            out = redact(
+                raw,
+                preserve=("https://www.linkedin.com/in/gerard-sala/",),
+            )
+        finally:
+            util._USER = old_user
+        self.assertIn("gerard-sala", out)
+        self.assertIn("/home/<user>", out)
+        self.assertNotIn(f"{config.HOME}/x", out)
+
+    def test_submitted_crash_id_is_preserved_but_other_uuids_are_not(self):
+        crash_id = "bp-3bb56c4b-1d41-4581-b552-219800261026"
+        local_id = "159a8019-9eaf-cfc0-2cc2-a20ac17e1332"
+        out = redact(f"Crash ID: {crash_id} local: {local_id}")
+        self.assertIn(crash_id, out)
+        self.assertNotIn(local_id, out)
+        self.assertIn("<uuid>", out)
+
+
+class ReportAggregationTests(unittest.TestCase):
+    def test_counts_are_weighted(self):
+        from sentinels.report import _event_groups
+
+        rows = [
+            {"unit": "kernel", "message": "BUG: soft lockup - CPU#2 stuck for 22s", "ts": "t1",
+             "last_ts": "t2", "severity": "critical", "count": 3},
+        ]
+        groups = _event_groups(rows)
+        self.assertEqual(groups[0]["count"], 3)
+
+
+class TicketCorrelationTests(unittest.TestCase):
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+        from sentinels.util import iso
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        conn.execute(
+            "INSERT INTO crashes(ts,pid,comm,exe,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (iso(), 4242, "firefox-esr", "firefox-esr", "SIGSEGV",
+             "present", "2,8", 1, "WebRender crash", "test-fp"),
+        )
+        return conn
+
+    def test_faultcore_crash_reaches_both_owner_and_hardware_vendor(self):
+        from sentinels import tickets
+
+        issues = tickets._collect_issues(self._conn(), days=7)
+        vendors = {i["vendor"] for i in issues}
+        self.assertIn("mozilla", vendors)
+        self.assertIn("hardware", vendors)
+
+    def test_draft_preserves_producer_fault_core_context(self):
+        from sentinels import tickets
+        from sentinels.util import iso
+
+        conn = self._conn()
+        conn.execute("DELETE FROM crashes")
+        conn.execute(
+            "INSERT INTO crashes(ts,pid,comm,exe,sig,corefile,cpus_allowed,"
+            "faultcore_involved,context,fingerprint)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                iso(), 1, "rasdaemon", "", "mce", "present", "",
+                None,
+                "incident=x\n"
+                "fault_core=fault core (CPUs 2,8; seed CPU 2) mode=retired\n"
+                "matched_cpus=[] event_cpus=[]\n"
+                "rasdaemon: mce:mce_record event enabled",
+                "rasdaemon-tp",
+            ),
+        )
+        retired = {"present": None, "state": "retired", "logical": [],
+                   "physical_id": None, "configured": [2, 8],
+                   "degraded": [2, 8]}
+        issues = tickets._collect_issues(conn, days=7)
+        issue = next(i for i in issues if i["vendor"] == "canonical-kernel")
+        with mock.patch.object(tickets.faultcore, "topology",
+                               return_value=retired), \
+             mock.patch.object(tickets, "held_context", return_value={}):
+            _title, body = tickets._draft(issue, None, {}, False)
+        self.assertIn("fault_core=fault core (CPUs 2,8", body)
+        self.assertNotIn("fault_core=unattributed", body)
+
+    def test_draft_summarizes_unavailable_faultcore_and_withholds_identity(self):
+        from sentinels import tickets
+
+        retired = {"present": None, "state": "retired", "logical": [],
+                   "physical_id": None, "configured": [2, 8],
+                   "degraded": [2, 8]}
+        issues = tickets._collect_issues(self._conn(), days=7)
+        issue = next(i for i in issues if i["vendor"] == "hardware")
+        with mock.patch.object(tickets.faultcore, "topology",
+                               return_value=retired):
+            title, body = tickets._draft(issue, None, {}, False)
+        self.assertIn("fault-core affinity", title.lower())
+        self.assertNotIn("retired", title.lower())
+        self.assertNotIn("offline", body.lower())
+        self.assertNotIn("not available", body)
+        self.assertNotIn("## Fault core (CPUs 2,8) correlation", body)
+        self.assertNotIn("| yes |", body)
+        self.assertIn("withheld", body)
+        self.assertNotIn("linkedin.com", body.lower())
+
+
+class FaultcoreTriageTests(unittest.TestCase):
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def _crash(self, conn, fp, comm, mask, involved):
+        conn.execute(
+            "INSERT INTO crashes(ts,pid,comm,exe,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?)",
+            ("2026-11-02T20:00:00Z", 1, comm, comm, "SIGSEGV", "present",
+             mask, involved, "ctx", fp),
+        )
+
+    def test_event_regex_matches_faultcore_only(self):
+        from sentinels.triage import event_is_faultcore
+
+        self.assertTrue(event_is_faultcore("mce: [Hardware Error]: CPU 2: Machine Check"))
+        self.assertTrue(event_is_faultcore("watchdog: BUG: soft lockup - CPU#2 stuck"))
+        self.assertTrue(event_is_faultcore("physical core 2 failed"))
+        self.assertFalse(event_is_faultcore("CPU 12 timed out"))
+        self.assertFalse(event_is_faultcore("event16 mouse lag"))
+
+    def test_side_queue_keeps_confirmed_and_matching_controls(self):
+        from sentinels import triage
+
+        conn = self._conn()
+        self._crash(conn, "a", "firefox-esr", "2,8", 1)
+        self._crash(conn, "b", "firefox-esr", "0,6", 0)
+        self._crash(conn, "c", "nvidia-settings", "0,6", 0)
+        result = triage.refresh(conn, days=30, persist_files=False)
+        rows = triage.cases(conn, limit=20)
+        verdicts = {(r["process"], r["verdict"]) for r in rows}
+        self.assertIn(("firefox-esr", "confirmed"), verdicts)
+        self.assertIn(("firefox-esr", "control"), verdicts)
+        self.assertNotIn(("nvidia-settings", "control"), verdicts)
+        self.assertEqual(result["total"], 2)
+
+    def test_unresolved_browser_crash_is_kept_before_confirmation(self):
+        from sentinels import triage
+
+        conn = self._conn()
+        self._crash(conn, "d", "firefox-esr", None, None)
+        triage.refresh(conn, days=30, persist_files=False)
+        rows = triage.cases(conn, limit=20)
+        self.assertEqual(rows[0]["verdict"], "unresolved")
+
+    def test_unknown_affinity_is_kept_as_unresolved_not_dropped(self):
+        from sentinels import triage
+
+        conn = self._conn()
+        self._crash(conn, "e", "nvidia-settings", None, None)
+        triage.refresh(conn, days=30, persist_files=False)
+        rows = triage.cases(conn, limit=20)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["verdict"], "unresolved")
+
+
+class PostureTests(unittest.TestCase):
+    def test_live_posture_is_unprivileged(self):
+        from sentinels import posture
+
+        data = posture.collect()
+        self.assertEqual(data["euid"], __import__("os").geteuid())
+        self.assertIn(data["verdict"], ("unprivileged", "privileged"))
+        self.assertFalse(data["sudo_nopasswd"])
+        self.assertIsInstance(int(data["perf_event_paranoid"]), int)
+        self.assertIn("lockdown_active", data)
+        self.assertIsInstance(data["baseline_changed"], list)
+
+    def test_baseline_defaults_perf_event_paranoid_to_minus_one(self):
+        from sentinels import posture
+
+        baseline = posture._new_baseline({
+            "perf_event_paranoid": "4",
+            "lockdown_active": "none",
+            "secure_boot": "0",
+        })
+        self.assertEqual(baseline["perf_event_paranoid"], "-1")
+        self.assertEqual(baseline["lockdown_active"], "none")
+        self.assertEqual(baseline["secure_boot"], "0")
+
+
+class LayerTests(unittest.TestCase):
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def test_layer1_rules_find_crash_event_and_resource_pressure(self):
+        import json
+        from sentinels import detect
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO crashes(ts,pid,comm,exe,sig,corefile,cpus_allowed,faultcore_involved,context,fingerprint)"
+            " VALUES(datetime('now'),1,'firefox-esr','firefox-esr','SIGSEGV','present','2,8',1,'ctx','fp1')"
+        )
+        conn.execute(
+            "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,message,fingerprint,raw)"
+            " VALUES(datetime('now'),'b','kernel','critical','kernel',1,'kernel',"
+            "'mce: [Hardware Error]: CPU 2: Machine Check','fp2','{}')"
+        )
+        payload = {
+            "mem": {"MemTotal": 1000000, "MemAvailable": 1000},
+            "psi": {"memory": {"full": {"avg300": 50}}, "io": {"some": {"avg300": 80}}},
+            "thermal": [{"type": "Tctl", "millideg_c": 95000}],
+        }
+        conn.execute(
+            "INSERT INTO samples(ts,boot_id,payload) VALUES(datetime('now'),'b',?)",
+            (json.dumps(payload),),
+        )
+        rules = {f["rule"] for f in detect.scan(conn)}
+        for expected in ("crash.faultcore", "kernel.hardware", "memory.low",
+                         "memory.pressure", "io.pressure", "thermal.high"):
+            self.assertIn(expected, rules)
+
+    def test_rasdaemon_tracepoint_control_is_not_a_hardware_finding(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        for index, message in enumerate((
+            "rasdaemon: mce:mce_record event enabled",
+            "Enabled event cxl:cxl_poison",
+            "mce: [Hardware Error]: CPU 2: Machine Check",
+        )):
+            conn.execute(
+                "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,"
+                "message,fingerprint,raw) VALUES('2026-11-20T12:00:00Z','b',"
+                "'kernel','critical','kernel',1,'kernel',?,?,'{}')",
+                (message, f"tp-{index}"),
+            )
+        findings = detect._event_findings(conn, "1970-01-01T00:00:00Z")
+        hardware = [
+            finding for finding in findings if finding["rule"] == "kernel.hardware"
+        ]
+        self.assertEqual(len(hardware), 1)
+        self.assertIn("Hardware Error", hardware[0]["detail"])
+        self.assertNotIn("mce_record", hardware[0]["detail"])
+
+    def test_noncritical_kernel_warnings_become_findings(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        messages = [
+            ("error",
+             "NOHZ tick-stop error: local softirq work is pending, handler #200!!!"),
+            ("error", "KHO: Failed to reserve lowmem scratch buffer"),
+            ("error",
+             "KHO: Failed to reserve scratch area, disabling kexec handover"),
+            ("error", "Bluetooth: hci0: FW download error recovery failed (-19)"),
+            ("error",
+             "[drm:nv_drm_atomic_commit [nvidia_drm]] *ERROR* "
+             "[nvidia-drm] [GPU ID 0x00000a00] Flip event timeout on head 0"),
+        ]
+        for index, (severity, message) in enumerate(messages):
+            conn.execute(
+                "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,"
+                "message,fingerprint,raw) VALUES(datetime('now'),'b','kernel',"
+                "?,'kernel',1,'kernel',?,?,'{}')",
+                (severity, message, f"fp-{index}"),
+            )
+        with mock.patch.object(detect.faultcore, "findings", return_value=[]), \
+             mock.patch.object(detect.boot, "findings", return_value=[]):
+            new = detect.scan(conn)
+        by_rule = {finding["rule"]: finding for finding in new}
+        for rule in ("kernel.nohz", "kernel.kho", "kernel.bluetooth",
+                     "gpu.drm.timeout"):
+            self.assertIn(rule, by_rule)
+            self.assertEqual(by_rule[rule]["severity"], "warning")
+        self.assertIn("2 occurrence", by_rule["kernel.kho"]["detail"])
+
+    def test_stale_ebpf_build_is_a_warning_finding(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        with mock.patch.object(
+            detect.deep, "ebpf_state",
+            return_value=(False, "built for 6.8.0-1, host is 7.0.0-44"),
+        ):
+            new = detect.runtime_findings(conn)
+        self.assertEqual(len(new), 1)
+        self.assertEqual(new[0]["rule"], "deep.ebpf.stale")
+        self.assertEqual(new[0]["severity"], "warning")
+        self.assertIn("root/ebpf/build.sh", new[0]["detail"])
+        with mock.patch.object(
+            detect.deep, "ebpf_state", return_value=(True, "built for this kernel")
+        ):
+            self.assertEqual(detect.runtime_findings(conn), [])
+        row = conn.execute(
+            "SELECT status FROM findings WHERE rule='deep.ebpf.stale'"
+        ).fetchone()
+        self.assertEqual(row["status"], "resolved")
+
+    def test_layer1_dedupes_repeated_findings(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        payload = {"mem": {"MemTotal": 1000000, "MemAvailable": 1000}}
+        conn.execute(
+            "INSERT INTO samples(ts,boot_id,payload) VALUES(datetime('now'),'b',?)",
+            (__import__("json").dumps(payload),),
+        )
+        with mock.patch.object(detect.faultcore, "findings", return_value=[]):
+            self.assertEqual(len(detect.scan(conn)), 1)
+            self.assertEqual(detect.scan(conn), [])
+
+    def test_sysv_lsb_findings_are_resolved_on_noble(self):
+        from sentinels import detect
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO findings(fingerprint,ts,rule,subject,detail,status)"
+            " VALUES('sysv','2026-11-19T09:00:00Z','systemd.service_start',"
+            "'init','Failed to start LSB: OpenIPMI Driver init script.','open')"
+        )
+        conn.execute(
+            "INSERT INTO findings(fingerprint,ts,rule,subject,detail,status)"
+            " VALUES('native','2026-11-19T09:00:00Z','systemd.service_start',"
+            "'init','Failed to start Network Manager Wait Online.','open')"
+        )
+        with mock.patch.object(detect.compat, "sysv_available",
+                               return_value=False):
+            self.assertEqual(detect.resolve_sysv_findings(conn), 1)
+        rows = {row["fingerprint"]: row["status"] for row in conn.execute(
+            "SELECT fingerprint,status FROM findings")}
+        self.assertEqual(rows["sysv"], "resolved")
+        self.assertEqual(rows["native"], "open")
+
+    def test_layer2_logs_are_scoped_to_the_sentinels_root(self):
+        import pathlib
+        from sentinels import logs
+
+        with mock.patch.object(logs.config, "ROOT", pathlib.Path("/tmp/qa-a")), \
+             mock.patch.object(logs, "run", return_value=(
+                 0, "QA_SENTINELS_HOME=/tmp/qa-a PYTHONUNBUFFERED=1", "")):
+            self.assertTrue(logs.unit_matches_root())
+        with mock.patch.object(logs.config, "ROOT", pathlib.Path("/tmp/qa-b")), \
+             mock.patch.object(logs, "run", return_value=(
+                 0, "QA_SENTINELS_HOME=/tmp/qa-a PYTHONUNBUFFERED=1", "")):
+            self.assertFalse(logs.unit_matches_root())
+        with mock.patch.object(logs, "run", return_value=(1, "", "unavailable")):
+            self.assertFalse(logs.unit_matches_root())
+
+    def test_trace_summary(self):
+        from sentinels import deep
+
+        text = (
+            "swapper/2-0 [002] d..2. 123.456: sched_switch: prev_comm=swapper/2\n"
+            "firefox-42 [002] d..2. 123.500: exceptions:page_fault_user: address=0x0\n"
+            "bash-7 [000] d..2. 123.600: sched_switch: prev_comm=bash\n"
+        )
+        summary = deep.summarize_trace(text)
+        self.assertEqual(summary["lines"], 3)
+        self.assertEqual(summary["by_cpu"]["2"], 2)
+        self.assertEqual(summary["page_faults"], 1)
+        self.assertGreater(summary["faultcore_event_pct"], 60)
+        self.assertEqual(summary["top_faultcore_comms"][0][0], "firefox")
+
+    def test_layer2_reports_privilege_honestly(self):
+        from sentinels import deep
+
+        priv = deep.privilege()
+        self.assertIn("ok", priv)
+        self.assertIn("CAP_SYS_ADMIN", priv["caps"])
+        self.assertIn("CAP_BPF", priv["caps"])
+        self.assertIn("can_bpf", priv)
+        self.assertEqual(priv["ok"], priv["euid"] == 0 or (
+            priv["caps"]["CAP_SYS_ADMIN"] and priv["caps"]["CAP_PERFMON"]
+            and priv["caps"]["CAP_DAC_OVERRIDE"]
+        ))
+
+    def test_critical_findings_queue_deep_runs_with_cooldown(self):
+        import pathlib
+        import tempfile
+        from sentinels import config, detect
+
+        conn = self._conn()
+        finding = {
+            "id": 1, "fingerprint": "f1", "severity": "critical",
+            "rule": "kernel.hardware", "subject": "kernel", "case_id": None,
+        }
+        old = config.DEEP_REQUEST_DIR
+        with tempfile.TemporaryDirectory() as tmp:
+            config.DEEP_REQUEST_DIR = pathlib.Path(tmp)
+            try:
+                first = detect.queue_escalations(conn, [finding], cooldown_s=1800)
+                second = detect.queue_escalations(conn, [finding], cooldown_s=1800)
+                self.assertEqual(len(first), 1)
+                self.assertEqual(second, [])
+                self.assertEqual(len(list(pathlib.Path(tmp).glob("*.json"))), 1)
+            finally:
+                config.DEEP_REQUEST_DIR = old
+
+
+class EbpfTests(unittest.TestCase):
+    def test_binary_and_object_are_present(self):
+        from sentinels import config
+
+        binary = config.BIN / "qa_ebpf"
+        obj = config.BIN / "qa_trace.bpf.o"
+        if not binary.exists() or not obj.exists():
+            self.skipTest("eBPF not built; run root/ebpf/bootstrap-ebpf.sh && build.sh")
+        import subprocess
+
+        result = subprocess.run([str(binary), "--help"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("--duration", result.stdout)
+        self.assertGreater(obj.stat().st_size, 1000)
+
+    def test_unprivileged_loader_fails_cleanly(self):
+        import os
+        from sentinels import config
+
+        binary = config.BIN / "qa_ebpf"
+        if not binary.exists():
+            self.skipTest("eBPF not built")
+        if os.geteuid() == 0:
+            self.skipTest("running as root")
+        import subprocess
+
+        result = subprocess.run(
+            [str(binary), "--duration", "1"], capture_output=True, text=True, timeout=20
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Operation not permitted", result.stderr)
+
+
+class DeploymentTests(unittest.TestCase):
+    def test_installer_watches_the_real_deep_request_queue(self):
+        from sentinels import config
+
+        script = (config.ROOT / "root" / "install-system.sh").read_text()
+        self.assertIn("PathExistsGlob=$ROOT/triage/faultcore/deep-requests/*.json", script)
+        self.assertEqual(config.DEEP_REQUEST_DIR, config.TRIAGE_DIR / "deep-requests")
+
+    def test_single_installer_is_interactive_and_covers_both_layers(self):
+        import os
+        import subprocess
+        from sentinels import config
+
+        script = config.ROOT / "install.sh"
+        text = script.read_text()
+        self.assertIn('dirname "${BASH_SOURCE[0]}")"', text)
+        self.assertNotIn('BASH_SOURCE[0]}")/..', text)
+        for needle in ("--layer1", "--no-layer1", "--layer2", "--no-layer2",
+                       "--dry-run", "--check", "--yes", "ask ", "audit_install"):
+            self.assertIn(needle, text)
+        self.assertTrue(os.access(script, os.X_OK))
+        check = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
+    def test_installer_wires_the_pstore_export_unit(self):
+        import subprocess
+        from sentinels import config
+
+        install = (config.ROOT / "install.sh").read_text()
+        system = (config.ROOT / "root" / "install-system.sh").read_text()
+        exporter = (config.ROOT / "root" / "pstore-export.sh").read_text()
+        uninstall = (config.ROOT / "uninstall.sh").read_text()
+
+        self.assertIn("qa-pstore-export.service", install)
+        self.assertIn("After=systemd-pstore.service", install)
+        self.assertIn("ExecStart=$ROOT/root/pstore-export.sh --refresh", install)
+        self.assertNotIn("install-pstore.sh", install)
+        self.assertNotIn("install-pstore.sh", system)
+        self.assertFalse((config.ROOT / "root" / "install-pstore.sh").exists())
+        self.assertIn("--refresh", exporter)
+        self.assertIn("qa-pstore-export.service", uninstall)
+        check = subprocess.run(["bash", "-n", str(config.ROOT / "root" / "pstore-export.sh")],
+                               capture_output=True, text=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
+    def test_installer_dry_run_selects_each_layer_without_changing_anything(self):
+        import subprocess
+        from sentinels import config
+
+        script = str(config.ROOT / "install.sh")
+        both = subprocess.run(
+            [script, "--dry-run", "--yes", "--layer1", "--layer2"],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(both.returncode, 0, both.stderr)
+        self.assertIn("layer 1: build sampler", both.stdout)
+        self.assertIn("layer 2: deep-trace", both.stdout)
+        self.assertIn("   $ make -C src install", both.stdout)
+        self.assertIn("   $ ./bin/qa deploy-layer2", both.stdout)
+        self.assertIn("   $ ./bin/qa install-cron", both.stdout)
+        self.assertIn("dry run complete", both.stdout)
+        self.assertIn("not executed", both.stdout)
+
+        layer2_only = subprocess.run(
+            [script, "--dry-run", "--yes", "--no-layer1", "--layer2"],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(layer2_only.returncode, 0, layer2_only.stderr)
+        self.assertIn("layer 1: skipped", layer2_only.stdout)
+        self.assertIn("   $ ./bin/qa deploy-layer2", layer2_only.stdout)
+
+        systemd = subprocess.run(
+            [script, "--dry-run", "--yes", "--layer1", "--no-layer2", "--systemd"],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(systemd.returncode, 0, systemd.stderr)
+        self.assertIn("$ sudo root/install-system.sh --takeover", systemd.stdout)
+
+        nothing = subprocess.run(
+            [script, "--yes", "--no-layer1", "--no-layer2"],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(nothing.returncode, 2)
+        self.assertIn("nothing selected", nothing.stderr)
+
+    def test_installer_check_reports_leftovers_without_changing_anything(self):
+        import subprocess
+        from sentinels import config
+
+        script = config.ROOT / "install.sh"
+        before = {p: p.stat().st_mtime for p in (
+            config.BIN / "qa_sample", config.ROOT / "README.md"
+        ) if p.exists()}
+        proc = subprocess.run(
+            [str(script), "--check"], capture_output=True, text=True, timeout=120,
+        )
+        self.assertIn(proc.returncode, (0, 1), proc.stderr)
+        self.assertIn("installation check", proc.stdout)
+        self.assertIn("schedulers", proc.stdout)
+        self.assertIn("leftovers", proc.stdout)
+        self.assertTrue(
+            "nothing was changed" in proc.stdout or "no leftovers" in proc.stdout,
+            proc.stdout,
+        )
+        self.assertNotIn("Proceed?", proc.stdout)
+        for path, stamp in before.items():
+            self.assertEqual(path.stat().st_mtime, stamp, path)
+
+    def test_deploy_layer2_keeps_the_phase_alias(self):
+        from sentinels import cli
+
+        parser = cli.build_parser()
+        for name in ("deploy-layer2", "deploy-phase2"):
+            args = parser.parse_args([name, "--check"])
+            self.assertIs(args.func, cli.cmd_deploy_layer2)
+
+    def test_uninstaller_keeps_gathered_data_by_default(self):
+        import os
+        import subprocess
+        from sentinels import config
+
+        script = config.ROOT / "uninstall.sh"
+        text = script.read_text()
+        self.assertIn('dirname "${BASH_SOURCE[0]}")"', text)
+        self.assertNotIn('BASH_SOURCE[0]}")/..', text)
+        for needle in ("--dry-run", "--keep-build", "--purge-data", "--yes",
+                       "will keep", "config/identity.env"):
+            self.assertIn(needle, text)
+        self.assertTrue(os.access(script, os.X_OK))
+        check = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
+        sampler = config.BIN / "qa_sample"
+        existed = sampler.exists()
+        proc = subprocess.run(
+            [str(script), "--dry-run", "--yes"],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("will keep", proc.stdout)
+        self.assertIn("var/", proc.stdout)
+        self.assertIn("dry run complete", proc.stdout)
+        self.assertIn("nothing was removed", proc.stdout)
+        self.assertEqual(sampler.exists(), existed)
+
+    def test_uninstaller_refuses_to_purge_without_confirmation(self):
+        import subprocess
+        from sentinels import config
+
+        names = ("var", "journal", "evidence", "tickets", "triage")
+        before = {name: (config.ROOT / name).exists() for name in names}
+        proc = subprocess.run(
+            [str(config.ROOT / "uninstall.sh"), "--purge-data"],
+            input="no\n", capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("aborted; no data was deleted", proc.stderr)
+        for name in names:
+            self.assertEqual((config.ROOT / name).exists(), before[name])
+
+    def test_privilege_failure_markers(self):
+        from sentinels.cli import _privilege_failure
+
+        self.assertTrue(_privilege_failure("sudo: a password is required"))
+        self.assertTrue(_privilege_failure("sudo: a terminal is required"))
+        self.assertFalse(_privilege_failure("Job for qa-sentinel-deep.path failed"))
+
+    def test_ebpf_build_stamp_matches_the_running_kernel(self):
+        from sentinels import config
+
+        if not (config.BIN / "qa_ebpf.build.json").exists():
+            self.skipTest("eBPF not built")
+        from sentinels.cli import _ebpf_state
+
+        ok, detail = _ebpf_state()
+        self.assertTrue(ok, detail)
+
+
+class SecurityHardeningTests(unittest.TestCase):
+    """Fail closed on unsafe paths and keep local evidence private."""
+
+    def test_bundle_verifier_rejects_path_traversal(self):
+        import pathlib
+        import tempfile
+        from sentinels import evidence
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            bundle = root / "bundle"
+            bundle.mkdir()
+            (root / "outside").write_text("secret\n", encoding="utf-8")
+            (bundle / "manifest.json").write_text(json.dumps({
+                "files": {"../outside": "irrelevant"},
+            }), encoding="utf-8")
+            result = evidence.verify_bundle(str(bundle))
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("unsafe path" in p for p in result["problems"]))
+
+    def test_bundle_verifier_rejects_symlink_escape(self):
+        import pathlib
+        import tempfile
+        from sentinels import evidence
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            bundle = root / "bundle"
+            bundle.mkdir()
+            outside = root / "outside"
+            outside.write_text("secret\n", encoding="utf-8")
+            (bundle / "link").symlink_to(outside)
+            (bundle / "manifest.json").write_text(json.dumps({
+                "files": {"link": "irrelevant"},
+            }), encoding="utf-8")
+            result = evidence.verify_bundle(str(bundle))
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("unsafe path" in p for p in result["problems"]))
+
+    def test_atomic_json_write_is_private(self):
+        import pathlib
+        import tempfile
+        from sentinels import util
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "state.json"
+            util.write_json(path, {"a": 1})
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(json.loads(path.read_text()), {"a": 1})
+            self.assertFalse(list(path.parent.glob(".state.json.*")))
+
+    def test_cron_block_quotes_root_and_sets_private_umask(self):
+        import pathlib
+        from unittest import mock
+        from sentinels import cli
+
+        with mock.patch.object(cli.config, "ROOT", pathlib.Path("/tmp/qa sentinels")):
+            block = cli._cron_block()
+        self.assertIn("cd '/tmp/qa sentinels'", block)
+        self.assertEqual(block.count("umask 077"), 2)
+
+
+class CycleTests(unittest.TestCase):
+    """Layer 1 runs every duty from one scheduled command."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def test_cycle_and_legacy_aliases_share_one_command(self):
+        from sentinels import cli
+
+        parser = cli.build_parser()
+        for name in ("cycle", "tick", "layer1", "phase1"):
+            args = parser.parse_args([name])
+            self.assertIs(args.func, cli.cmd_cycle, name)
+
+    def test_due_tasks_persist_their_last_run(self):
+        from sentinels import cli
+
+        conn = self._conn()
+        self.assertTrue(cli._cycle_due(conn, "raise", 3600))
+        cli._cycle_mark(conn, "raise")
+        self.assertFalse(cli._cycle_due(conn, "raise", 3600))
+        self.assertTrue(cli._cycle_due(conn, "raise", 0))
+
+    def test_cron_block_schedules_only_cycle(self):
+        from sentinels import cli
+
+        block = cli._cron_block()
+        self.assertEqual(block.count("qa cycle"), 2)  # every minute + @reboot
+        self.assertIn("var/cycle.lock", block)
+        for gone in ("qa tick", "--drafts", "crosscheck", "report --kind daily"):
+            self.assertNotIn(gone, block)
+
+    def test_systemd_timer_runs_the_locked_cycle(self):
+        from sentinels import config
+
+        script = (config.ROOT / "root" / "install-system.sh").read_text()
+        self.assertIn("flock -n $ROOT/var/cycle.lock $ROOT/bin/qa cycle", script)
+        self.assertNotIn("ExecStart=$ROOT/bin/qa tick", script)
+
+
+class LogRotationTests(unittest.TestCase):
+    """cron.log must stay bounded without breaking the live viewer."""
+
+    def test_policy_defaults_stay_within_the_agreed_budget(self):
+        from sentinels import config
+
+        self.assertGreaterEqual(config.LOG_MAX_MB, 10)
+        self.assertLessEqual(config.LOG_MAX_MB, 25)
+        self.assertGreaterEqual(config.LOG_KEEP, 10)
+        self.assertLessEqual(config.LOG_KEEP, 20)
+        self.assertLessEqual(config.LOG_MAX_MB * config.LOG_KEEP, 500)
+
+    def test_rotation_copies_truncates_and_drops_the_oldest(self):
+        import pathlib
+        import tempfile
+        from sentinels import logs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "cron.log"
+            path.write_bytes(b"a" * 200)
+            result = logs.rotate(path=path, max_bytes=100, keep=2)
+            self.assertEqual(result["bytes"], 200)
+            self.assertEqual(path.read_bytes(), b"")
+            self.assertEqual((path.parent / "cron.log.1").read_bytes(), b"a" * 200)
+
+            path.write_bytes(b"b" * 200)
+            logs.rotate(path=path, max_bytes=100, keep=2)
+            self.assertEqual((path.parent / "cron.log.1").read_bytes(), b"b" * 200)
+            self.assertEqual((path.parent / "cron.log.2").read_bytes(), b"a" * 200)
+
+            path.write_bytes(b"c" * 200)
+            logs.rotate(path=path, max_bytes=100, keep=2)
+            self.assertEqual((path.parent / "cron.log.1").read_bytes(), b"c" * 200)
+            self.assertEqual((path.parent / "cron.log.2").read_bytes(), b"b" * 200)
+            self.assertFalse((path.parent / "cron.log.3").exists())
+
+    def test_small_or_missing_log_is_left_alone(self):
+        import pathlib
+        import tempfile
+        from sentinels import logs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "cron.log"
+            self.assertEqual(logs.rotate(path=path, max_bytes=100, keep=2), {})
+            path.write_bytes(b"x" * 99)
+            self.assertEqual(logs.rotate(path=path, max_bytes=100, keep=2), {})
+            self.assertEqual(path.read_bytes(), b"x" * 99)
+
+
+class LayerLogViewTests(unittest.TestCase):
+    """The combined log view must show both layers without inventing entries."""
+
+    def test_journal_tail_honours_the_line_limit(self):
+        from unittest import mock
+        from sentinels import logs
+
+        with mock.patch.object(
+            logs, "run",
+            return_value=(0, "2026-11-06T10:00:00Z one\n2026-11-06T10:00:01Z two\n", ""),
+        ):
+            self.assertEqual(logs.journal_tail("unit", 1), ["2026-11-06T10:00:01Z two"])
+
+    def test_autostart_launches_all_layers(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, logs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "bin").mkdir()
+            with mock.patch.object(config, "ROOT", root), \
+                 mock.patch.object(config, "BIN", root / "bin"), \
+                 mock.patch.object(logs.os.path, "expanduser",
+                                   return_value=str(root / "home")):
+                result = logs.install_autostart()
+            wrapper = pathlib.Path(result["wrapper"]).read_text()
+
+        self.assertIn("logs --all-layers --follow", wrapper)
+
+    def test_all_layers_prints_both_sources(self):
+        import contextlib
+        import io
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import logs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "cron.log"
+            path.write_text("layer one line\n", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch.object(
+                logs, "unit_matches_root", return_value=True,
+            ), mock.patch.object(
+                logs, "journal_tail",
+                return_value=["2026-11-06T10:00:00Z layer two line"],
+            ), contextlib.redirect_stdout(output):
+                logs.all_layers(path, lines=5, color=False)
+        text = output.getvalue()
+        self.assertIn("layer 1", text)
+        self.assertIn("layer one line", text)
+        self.assertIn("layer 2", text)
+        self.assertIn("layer two line", text)
+
+    def test_all_layers_reports_missing_layer_two(self):
+        import contextlib
+        import io
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import logs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "cron.log"
+            path.write_text("layer one line\n", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch.object(
+                logs, "unit_matches_root", return_value=False,
+            ), contextlib.redirect_stdout(output):
+                logs.all_layers(path, lines=5, color=False)
+        text = output.getvalue()
+        self.assertIn("layer 1", text)
+        self.assertIn("layer one line", text)
+        self.assertIn("not deployed", text)
+        self.assertNotIn("layer two line", text)
+
+
+class NotificationFlowTests(unittest.TestCase):
+    """Queued notifications retry fairly, back off, and expire."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def _add(self, conn, key, ts=None):
+        from sentinels.util import iso
+
+        conn.execute(
+            "INSERT INTO notifications(ts,kind,key,title,body,delivered)"
+            " VALUES(?,?,?,?,?,0)",
+            (ts or iso(), "draft", key, key, "body"),
+        )
+
+    def _rows(self, conn):
+        return {r["key"]: dict(r) for r in conn.execute("SELECT * FROM notifications")}
+
+    def test_schema_carries_retry_bookkeeping(self):
+        conn = self._conn()
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(notifications)")}
+        for name in ("attempts", "last_attempt", "last_error"):
+            self.assertIn(name, cols)
+
+    def test_failed_rows_back_off_while_fresh_rows_go_first(self):
+        from unittest import mock
+        from sentinels import notify
+
+        conn = self._conn()
+        for key in ("a", "b", "c"):
+            self._add(conn, key)
+        with mock.patch.object(notify, "send",
+                               side_effect=[(False, "no session"), (True, "sent")]):
+            first = notify.drain(conn, limit=2)
+        self.assertEqual(first["sent"], 1)
+        self.assertEqual([f["key"] for f in first["failed"]], ["a"])
+        self.assertEqual(first["failed"][0]["attempts"], 1)
+        rows = self._rows(conn)
+        self.assertEqual(rows["a"]["attempts"], 1)
+        self.assertEqual(rows["a"]["last_error"], "no session")
+        self.assertEqual(rows["b"]["delivered"], 1)
+
+        # c is unattempted and goes first; a is still inside its backoff window
+        with mock.patch.object(notify, "send", return_value=(True, "sent")):
+            second = notify.drain(conn, limit=2)
+        self.assertEqual(second["sent"], 1)
+        rows = self._rows(conn)
+        self.assertEqual(rows["c"]["delivered"], 1)
+        self.assertEqual(rows["a"]["delivered"], 0)
+
+    def test_row_retries_after_backoff_expires(self):
+        from datetime import timedelta
+        from unittest import mock
+        from sentinels import notify
+        from sentinels.util import iso, utcnow
+
+        conn = self._conn()
+        self._add(conn, "a")
+        conn.execute(
+            "UPDATE notifications SET attempts=1, last_attempt=? WHERE key='a'",
+            (iso(utcnow() - timedelta(seconds=notify._backoff_seconds(1) + 1)),),
+        )
+        with mock.patch.object(notify, "send", return_value=(True, "sent")):
+            result = notify.drain(conn)
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(self._rows(conn)["a"]["delivered"], 1)
+
+    def test_undelivered_rows_expire(self):
+        from datetime import timedelta
+        from unittest import mock
+        from sentinels import config, notify
+        from sentinels.util import iso, utcnow
+
+        conn = self._conn()
+        old = iso(utcnow() - timedelta(days=config.NOTIFY_TTL_DAYS + 1))
+        self._add(conn, "old", ts=old)
+        self._add(conn, "new")
+        with mock.patch.object(notify, "send", return_value=(False, "dead")):
+            notify.drain(conn)
+        rows = self._rows(conn)
+        self.assertNotIn("old", rows)
+        self.assertIn("new", rows)
+
+    def test_drafts_do_not_queue_notifications(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import notify
+
+        conn = self._conn()
+        conn.executescript(
+            "CREATE TABLE IF NOT EXISTS ticket_drafts ("
+            " id INTEGER PRIMARY KEY, ts TEXT, vendor TEXT, path TEXT,"
+            " title TEXT, issue_key TEXT UNIQUE)"
+        )
+        self._add(conn, "drafts|old")
+        conn.execute(
+            "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+            " VALUES('2026-11-04T00:00:00Z','nvidia','/tmp/d.md','d','k1')"
+        )
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(notify.config, "DRAFT_DIR", pathlib.Path(tmp)), \
+             mock.patch("sentinels.correlate.aggregate", return_value=[]):
+            result = notify.collect(conn)
+        self.assertEqual(result["queued"], 0)
+        self.assertEqual(notify.pending_count(conn), 0)
+        rows = conn.execute(
+            "SELECT * FROM notifications WHERE kind='draft' AND delivered=0"
+        ).fetchall()
+        self.assertEqual(rows, [])
+
+    def test_crosscheck_key_depends_on_drift_composition(self):
+        from sentinels import crosscheck
+
+        stale = [{"issue_key": "a"}]
+        missing = [{"key": "b"}]
+        ready = []
+        first = crosscheck._drift_key(stale, missing, ready)
+        self.assertEqual(first, crosscheck._drift_key(stale, missing, ready))
+        self.assertNotEqual(first, crosscheck._drift_key(stale, missing, [{"key": "c"}]))
+
+    def test_available_uses_the_session_bus_not_display(self):
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.object(notify.shutil, "which", return_value="/usr/bin/notify-send"), \
+             mock.patch.object(notify, "_gi_available", return_value=False), \
+             mock.patch.object(notify, "_session_bus",
+                               return_value="unix:path=/run/user/1000/bus"), \
+             mock.patch.dict(notify.os.environ,
+                             {"DISPLAY": "", "WAYLAND_DISPLAY": ""}):
+            self.assertEqual(notify.available(), (True, "ok"))
+
+    def test_available_requires_a_session_bus(self):
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.object(notify.shutil, "which", return_value="/usr/bin/notify-send"), \
+             mock.patch.object(notify, "_gi_available", return_value=False), \
+             mock.patch.object(notify, "_session_bus", return_value=None):
+            ok, why = notify.available()
+        self.assertFalse(ok)
+        self.assertIn("session bus", why)
+
+    def test_pygobject_is_a_notification_backend_without_notify_send(self):
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.object(notify.shutil, "which", return_value=None), \
+             mock.patch.object(notify, "_gi_available", return_value=True), \
+             mock.patch.object(notify, "_session_bus", return_value="unix:path=bus"):
+            self.assertEqual(notify.available(), (True, "ok"))
+
+    def test_plain_send_falls_back_to_pygobject(self):
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.object(notify.shutil, "which", return_value=None), \
+             mock.patch.object(notify, "_gi_available", return_value=True), \
+             mock.patch.object(notify, "_gi_send",
+                               return_value=(True, "sent (D-Bus)")) as gi_send:
+            result = notify._plain_send("t", "b", "normal")
+        self.assertEqual(result, (True, "sent (D-Bus)"))
+        gi_send.assert_called_once()
+
+    def test_headless_delivery_keeps_the_message(self):
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.object(notify, "available", return_value=(True, "ok")), \
+             mock.patch.object(notify, "_gi_available", return_value=True), \
+             mock.patch.object(notify, "_graphical_session", return_value=False), \
+             mock.patch.object(notify, "_spawn_click_helper") as spawn, \
+             mock.patch.object(notify, "_plain_send",
+                               return_value=(True, "sent")) as plain:
+            ok, detail = notify.send("t", "b", path="/tmp/x.md")
+        self.assertTrue(ok)
+        self.assertIn("no graphical session", detail)
+        plain.assert_called_once()
+        spawn.assert_not_called()
+
+    def test_env_prepends_the_repository_to_pythonpath(self):
+        import os
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.dict(notify.os.environ,
+                             {"PYTHONPATH": "/somewhere/else"}, clear=True):
+            env = notify._env()
+        parts = env["PYTHONPATH"].split(os.pathsep)
+        self.assertEqual(parts[0], str(notify.config.ROOT))
+        self.assertEqual(parts[-1], "/somewhere/else")
+
+    def test_click_helper_startup_failure_is_not_delivery(self):
+        import subprocess
+        from unittest import mock
+        from sentinels import notify
+
+        class Dead:
+            def wait(self, timeout=None):
+                return 1
+
+        class Alive:
+            def wait(self, timeout=None):
+                raise subprocess.TimeoutExpired("helper", timeout)
+
+        with mock.patch.object(notify.subprocess, "Popen", return_value=Dead()):
+            self.assertFalse(notify._spawn_click_helper(
+                "/tmp/x.md", "t", "b", "normal"
+            ))
+        with mock.patch.object(notify.subprocess, "Popen", return_value=Alive()):
+            self.assertTrue(notify._spawn_click_helper(
+                "/tmp/x.md", "t", "b", "normal"
+            ))
+
+    def test_claim_has_exactly_one_owner(self):
+        from sentinels import notify
+
+        conn = self._conn()
+        self._add(conn, "a")
+        row = dict(conn.execute(
+            "SELECT * FROM notifications WHERE key='a'"
+        ).fetchone())
+        self.assertTrue(notify._claim(conn, row, "2026-11-05T12:00:00Z"))
+        self.assertFalse(notify._claim(conn, row, "2026-11-05T12:00:00Z"))
+        current = conn.execute(
+            "SELECT attempts FROM notifications WHERE key='a'"
+        ).fetchone()
+        self.assertEqual(current["attempts"], 1)
+
+    def test_supersede_replaces_only_undelivered_older_rows(self):
+        from sentinels import notify
+
+        conn = self._conn()
+        self._add(conn, "old")
+        conn.execute(
+            "INSERT INTO notifications(ts,kind,key,title,body,delivered)"
+            " VALUES('2026-11-05T00:00:00Z','draft','done','t','b',1)"
+        )
+        self.assertTrue(notify.enqueue(
+            conn, "draft", "new", "t", "b", supersede=True
+        ))
+        keys = {r["key"] for r in conn.execute("SELECT key FROM notifications")}
+        self.assertEqual(keys, {"new", "done"})
+
+    def test_no_drafts_clears_a_pending_digest(self):
+        from unittest import mock
+        from sentinels import notify
+
+        conn = self._conn()
+        self._add(conn, "drafts|old")
+        with mock.patch("sentinels.correlate.aggregate", return_value=[]):
+            result = notify.collect(conn)
+        self.assertEqual(result["queued"], 0)
+        self.assertEqual(notify.pending_count(conn), 0)
+
+    def test_notify_cli_fails_when_drain_has_failures(self):
+        from contextlib import contextmanager
+        from types import SimpleNamespace
+        from unittest import mock
+        from sentinels import cli, notify
+
+        conn = self._conn()
+        self._add(conn, "a")
+
+        @contextmanager
+        def session():
+            yield conn
+
+        import contextlib
+        import io
+
+        with mock.patch.object(cli.db, "session", session), \
+             mock.patch.object(notify, "available", return_value=(False, "no session")), \
+             mock.patch.object(notify, "collect", return_value={"queued": 0, "pending": 1}), \
+             mock.patch.object(notify, "send", return_value=(False, "no session")), \
+             contextlib.redirect_stdout(io.StringIO()):
+            rc = cli.cmd_notify(SimpleNamespace(test=False, drain=True))
+        self.assertEqual(rc, 1)
+
+
+class HeldPackageTests(unittest.TestCase):
+    """A crash in a held, outdated module may already be fixed upstream."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def test_only_the_owner_family_is_matched_and_outdated_is_flagged(self):
+        from unittest import mock
+        from sentinels import holds, packages
+
+        holds.held.cache_clear()
+        holds._policies.cache_clear()
+        installed = (
+            ("nvidia-settings", "610.43.02"), ("nvidia-driver-550", "550.163.01"),
+            ("vim", "9.0"),
+        )
+        try:
+            with mock.patch.object(packages, "installed", return_value=installed), \
+                 mock.patch.object(packages, "owner",
+                                   return_value={"package": "nvidia-settings"}), \
+                 mock.patch.object(holds, "held", return_value=(
+                     "nvidia-settings", "nvidia-driver-550", "vim", "nvidia-driver-595")), \
+                 mock.patch.object(holds, "_policies", return_value={
+                     "nvidia-settings": {"installed": "610.43.02", "candidate": "615.71.10"},
+                     "nvidia-driver-550": {"installed": "550.163.01",
+                                           "candidate": "550.163.01"},
+                 }):
+                result = holds.relevant("/usr/bin/nvidia-settings")
+        finally:
+            holds.held.cache_clear()
+            holds._policies.cache_clear()
+        matched = {row["package"] for row in result["relevant"]}
+        self.assertIn("nvidia-settings", matched)
+        self.assertIn("nvidia-driver-550", matched)
+        self.assertNotIn("vim", matched)              # unrelated hold
+        self.assertNotIn("nvidia-driver-595", matched)  # not installed
+        self.assertEqual([r["package"] for r in result["outdated"]], ["nvidia-settings"])
+
+    def test_unrelated_held_family_does_not_block_another_owner(self):
+        from unittest import mock
+        from sentinels import holds, packages
+
+        holds.held.cache_clear()
+        holds._policies.cache_clear()
+        installed = (
+            ("firefox-esr", "153.6.0esr"), ("nvidia-settings", "610.43.02"),
+            ("nvidia-driver-550", "550.163.01"),
+        )
+        try:
+            with mock.patch.object(packages, "installed", return_value=installed), \
+                 mock.patch.object(packages, "owner",
+                                   return_value={"package": "firefox-esr"}), \
+                 mock.patch.object(holds, "held", return_value=(
+                     "nvidia-settings", "nvidia-driver-550")), \
+                 mock.patch.object(holds, "_policies", return_value={
+                     "nvidia-settings": {"installed": "610.43.02",
+                                         "candidate": "615.71.10"},
+                 }):
+                result = holds.relevant("/usr/lib/firefox-esr/firefox-bin")
+        finally:
+            holds.held.cache_clear()
+            holds._policies.cache_clear()
+        self.assertEqual(result["relevant"], [])
+        self.assertEqual(result["outdated"], [])
+
+    def test_draft_hides_an_unrelated_global_hold(self):
+        from sentinels import tickets
+        from sentinels.util import iso
+
+        issue = {
+            "key": "ff", "vendor": "mozilla",
+            "signature": "firefox-esr SIGSEGV",
+            "display": "firefox-esr SIGSEGV",
+            "kind": "crash", "count": 1, "severity": "critical",
+            "first": iso(), "last": iso(),
+            "rows": [{
+                "ts": iso(), "comm": "firefox-esr",
+                "exe": "/usr/lib/firefox-esr/firefox-bin",
+                "sig": "SIGSEGV", "context": "ctx",
+            }],
+            "held": {
+                "owner": "firefox-esr", "mass_hold": True, "held_total": 41874,
+                "held_installed": 31, "outdated": [], "relevant": [],
+            },
+        }
+        _, body = tickets._draft(issue, None, {}, False)
+        self.assertNotIn("Global hold", body)
+
+    def test_global_hold_is_flagged(self):
+        from unittest import mock
+        from sentinels import holds, packages
+
+        holds.held.cache_clear()
+        try:
+            with mock.patch.object(holds, "held",
+                                   return_value=tuple(f"p{i}" for i in range(1000))), \
+                 mock.patch.object(packages, "installed",
+                                   return_value=tuple((f"p{i}", "1") for i in range(100))):
+                result = holds.counts()
+        finally:
+            holds.held.cache_clear()
+        self.assertTrue(result["mass_hold"])
+        self.assertEqual(result["held_installed"], 100)
+
+    def test_crash_finding_names_the_held_outdated_package(self):
+        from unittest import mock
+        from sentinels import detect
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO crashes(ts,pid,comm,exe,sig,corefile,cpus_allowed,"
+            "faultcore_involved,context,fingerprint) VALUES(datetime('now'),7,'nvidia-settings',"
+            "'/usr/bin/nvidia-settings','SIGABRT','present','2,8',1,'ctx','fp-hold')"
+        )
+        hold = {"relevant": [], "mass_hold": False, "outdated": [
+            {"package": "nvidia-settings", "installed": "610.43.02",
+             "candidate": "615.71.10", "outdated": True},
+        ]}
+        with mock.patch.object(detect.holds, "relevant", return_value=hold):
+            findings = detect._crash_findings(conn, "2000-01-01T00:00:00Z")
+        self.assertIn("held-outdated", findings[0]["detail"])
+        self.assertIn("610.43.02->615.71.10", findings[0]["detail"])
+
+    def test_deep_request_records_held_packages(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, deep
+
+        conn = self._conn()
+        held = [{"package": "nvidia-settings", "installed": "610", "candidate": "615",
+                 "outdated": True}]
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(config, "DEEP_REQUEST_DIR", pathlib.Path(tmp)):
+                path = deep.enqueue(conn, reason="auto:crash.faultcore", pid=1, comm="x",
+                                    held_packages=held, hold_summary={"mass_hold": False})
+                request = json.loads(pathlib.Path(path).read_text())
+        self.assertEqual(request["held_packages"], held)
+        self.assertEqual(request["hold_summary"]["mass_hold"], False)
+
+
+class InventoryCadenceTests(unittest.TestCase):
+    def test_baseline_uses_base_interval(self):
+        from sentinels import config
+        from sentinels.inventory import next_interval
+
+        self.assertEqual(next_interval(0, 3000, baseline=True), config.INVENTORY_INTERVAL_S)
+
+    def test_churn_shortens_and_stability_lengthens(self):
+        from sentinels import config
+        from sentinels.inventory import next_interval
+
+        base = config.INVENTORY_INTERVAL_S
+        self.assertEqual(next_interval(100, 3000), base // 4)   # >2% churn
+        self.assertEqual(next_interval(20, 3000), base // 2)    # >0.5%
+        self.assertEqual(next_interval(1, 3000), base * 2)      # <0.05%
+        self.assertEqual(next_interval(3, 3000), base)          # steady
+
+    def test_interval_is_clamped(self):
+        from sentinels import config
+        from sentinels.inventory import next_interval
+
+        self.assertGreaterEqual(next_interval(3000, 3000), config.INVENTORY_MIN_S)
+        self.assertLessEqual(next_interval(0, 3000), config.INVENTORY_MAX_S)
+
+
+class BootBoundaryTests(unittest.TestCase):
+    """A boot verdict decides whether a crash is even investigable."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def _boot(self, conn, boot_id="b1", clean=0, ts=None):
+        if ts is None:
+            from sentinels.util import utcnow
+
+            ts = utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn.execute(
+            "INSERT INTO boots(boot_id, seq, span, last_ts, ended_clean, markers,"
+            " last_message, scans, pstore, kexec_loaded, crashkernel, vmcores, captured_ts)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (boot_id, -1, "span", ts, clean, "", "last line", "{}",
+             "[]", 0, "", 0, ts),
+        )
+
+    def test_only_clean_boots_are_quiet(self):
+        from sentinels import boot
+
+        conn = self._conn()
+        self._boot(conn, "clean", clean=1)
+        self.assertEqual(boot.findings(conn, "2026-11-01T00:00:00Z"), [])
+        self.assertEqual(boot.verdict({"ended_clean": 1}), "CLEAN")
+        self.assertEqual(boot.verdict({"ended_clean": 0}), "UNCLEAN")
+        self.assertEqual(boot.verdict({"ended_clean": None}), "UNKNOWN")
+
+    def test_unclean_boot_becomes_one_critical_finding(self):
+        from sentinels import boot, detect
+
+        conn = self._conn()
+        self._boot(conn)
+        with mock.patch.object(detect.faultcore, "findings", return_value=[]):
+            new = detect.scan(conn)
+            rules = [f["rule"] for f in new]
+            self.assertEqual(rules, ["boot.unclean"])
+            self.assertEqual(new[0]["severity"], "critical")
+            self.assertIn("b1", new[0]["fingerprint"])
+            # same boot never re-alerts
+            self.assertEqual(detect.scan(conn), [])
+
+    def test_classification_reads_shutdown_marker_only(self):
+        from unittest import mock
+        from sentinels import boot
+
+        record = {"index": -1, "boot_id": "abc", "span": "span"}
+        with mock.patch.object(boot, "_journal", return_value="line\nsystemd-shutdown[1]: done\n"), \
+             mock.patch.object(boot, "_last_epoch", return_value="2026-11-03T09:00:00Z"):
+            self.assertEqual(boot.scan_boot(record)["ended_clean"], 1)
+        with mock.patch.object(boot, "_journal", return_value="line\nlast nvidia line\n"), \
+             mock.patch.object(boot, "_last_epoch", return_value="2026-11-03T09:00:00Z"):
+            self.assertEqual(boot.scan_boot(record)["ended_clean"], 0)
+
+    def test_bug_pattern_does_not_match_xorg_noise(self):
+        import re
+        from sentinels import boot
+
+        panic = {key: pattern for key, _label, pattern in boot.SCANS}["panic"]
+        regex = re.compile(panic)
+        self.assertIsNone(regex.search("(EE) event16 - Mouse: client bug: lagging behind"))
+        self.assertIsNotNone(regex.search("kernel BUG at mm/slub.c:1"))
+
+    def test_xorg_nvidia_flood_is_not_the_last_message(self):
+        from unittest import mock
+        from sentinels import boot
+
+        record = {"index": -1, "boot_id": "flood", "span": "span"}
+        tail = "\n".join(
+            f"2026-11-04T19:58:04+01:00 host gdm-x-session[1]: (--) NVIDIA(GPU-0): DFP-{i}: disconnected"
+            for i in range(50)
+        ) + "\n2026-11-04T19:58:05+01:00 host CRON[1]: last real line"
+        with mock.patch.object(boot, "_journal", return_value=tail), \
+             mock.patch.object(boot, "_scan_output", return_value=""), \
+             mock.patch.object(boot, "_last_epoch", return_value="2026-11-04T18:58:04Z"):
+            scanned = boot.scan_boot(record)
+        self.assertEqual(scanned["last_message"], "2026-11-04T19:58:05+01:00 host CRON[1]: last real line")
+
+    def test_journal_tail_count_ignores_nvidia_noise(self):
+        from unittest import mock
+        from sentinels import boot
+
+        out = (
+            "2026-11-04T19:58:04+01:00 host gdm-x-session[1]: (--) NVIDIA(GPU-0): DFP-0: disconnected\n"
+            "2026-11-04T19:58:01+01:00 host CRON[1]: last real line\n"
+        )
+        with mock.patch.object(boot, "run", return_value=(0, out, "")):
+            count, lines = boot.journal_tail("-1", limit=10)
+        self.assertEqual(count, 1)
+        self.assertEqual(lines[-1], "2026-11-04T19:58:01+01:00 host CRON[1]: last real line")
+
+    def test_root_only_pstore_archive_is_not_called_empty(self):
+        from sentinels import boot
+
+        state = boot._crash_capture_state([
+            {"name": "179381869", "readable": False, "panic": ""},
+        ])
+        self.assertIn("archive:179381869:root-only", state["pstore"])
+
+    def test_pstore_export_dir_honours_the_environment(self):
+        import importlib
+        import os
+        import pathlib
+        from unittest import mock
+        from sentinels import config
+
+        try:
+            with mock.patch.dict(os.environ, {"QA_PSTORE_EXPORT_DIR": "/tmp/qa-pstore-env"}):
+                reloaded = importlib.reload(config)
+                self.assertEqual(
+                    reloaded.PSTORE_EXPORT_DIR, pathlib.Path("/tmp/qa-pstore-env")
+                )
+        finally:
+            os.environ.pop("QA_PSTORE_EXPORT_DIR", None)
+            importlib.reload(config)
+
+    def test_archived_pstore_panic_is_read_and_reported(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import boot, config
+
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = pathlib.Path(tmp) / "179381869"
+            archive.mkdir()
+            (archive / "dmesg.txt").write_text(
+                "Panic#1 Part1\n"
+                "<0>[ 6527.559975] Kernel panic - not syncing: stack-protector: "
+                "Kernel stack is corrupted in: __schedule+0x66e/0x6a0 "
+                f"path {config.HOME}/private\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(config, "PSTORE_ARCHIVE_DIR", pathlib.Path(tmp)), \
+                 mock.patch.object(config, "PSTORE_EXPORT_DIR", pathlib.Path(tmp) / "export"), \
+                 mock.patch.object(boot, "_journal", return_value="last line\n"), \
+                 mock.patch.object(boot, "_scan_output", return_value=""), \
+                 mock.patch.object(boot, "_last_epoch", return_value="2026-11-04T18:58:04Z"):
+                scanned = boot.scan_boot({"index": -1, "boot_id": "arch", "span": "span"})
+
+        self.assertIn("archive:179381869:panic", scanned["pstore"])
+        scans = json.loads(scanned["scans"])
+        self.assertEqual(scans["pstore"]["count"], 1)
+        self.assertIn("stack-protector", scans["pstore"]["sample"][0])
+        self.assertIn("/home/<user>/private", scans["pstore"]["sample"][0])
+        self.assertNotIn(str(config.HOME), scans["pstore"]["sample"][0])
+
+        conn = self._conn()
+        self._boot(conn, "arch", ts=scanned["last_ts"])
+        conn.execute(
+            "UPDATE boots SET scans=?, pstore=? WHERE boot_id='arch'",
+            (scanned["scans"], json.dumps(scanned["pstore"])),
+        )
+        findings = boot.findings(conn, "2026-11-01T00:00:00Z")
+        self.assertIn("archived pstore panic=1", findings[0]["detail"])
+        self.assertIn("pstore=archive(panic)", findings[0]["detail"])
+
+    def test_pstore_refresh_updates_boots_without_journal(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import boot, config
+
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = pathlib.Path(tmp) / "179369479"
+            archive.mkdir()
+            (archive / "dmesg.txt").write_text(
+                "<0>[ 5938.083275] Kernel panic - not syncing: stack-protector: "
+                "Kernel stack is corrupted in: __schedule+0x66e/0x6a0\n",
+                encoding="utf-8",
+            )
+            conn = self._conn()
+            self._boot(conn, "old", ts="2026-11-03T08:33:14Z")
+            conn.execute(
+                "UPDATE boots SET scans=?, pstore=? WHERE boot_id='old'",
+                (json.dumps({"pstore": {
+                    "label": "archived pstore panic", "count": 0,
+                    "sample": ["179369479: root-only archive (no readable export)"],
+                }}), json.dumps(["archive:179369479:root-only"])),
+            )
+            with mock.patch.object(config, "PSTORE_ARCHIVE_DIR", pathlib.Path(tmp)), \
+                 mock.patch.object(config, "PSTORE_EXPORT_DIR", pathlib.Path(tmp) / "export"):
+                updated = boot.refresh_pstore(conn)
+
+        self.assertEqual(updated, 1)
+        row = conn.execute("SELECT * FROM boots WHERE boot_id='old'").fetchone()
+        self.assertIn("archive:179369479:panic", json.loads(row["pstore"]))
+        scans = json.loads(row["scans"])
+        self.assertEqual(scans["pstore"]["count"], 1)
+        self.assertIn("stack-protector", scans["pstore"]["sample"][0])
+
+
+class CorrelationTests(unittest.TestCase):
+    """Consistency is recurrence across stops, not volume inside one."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def _boot(self, conn, boot_id, last_ts):
+        conn.execute(
+            "INSERT INTO boots(boot_id, seq, span, last_ts, ended_clean, markers,"
+            " last_message, scans, pstore, kexec_loaded, crashkernel, vmcores, captured_ts)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (boot_id, -1, "span", last_ts, 0, "", "last line", "{}", "[]", 0, "", 0, last_ts),
+        )
+
+    def _event(self, conn, boot_id, ts, message, fingerprint, count=1, unit="kernel"):
+        conn.execute(
+            "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,message,"
+            "fingerprint,raw,count,last_ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (ts, boot_id, "journal", "critical", unit, 1, "x", message, fingerprint,
+             "{}", count, ts),
+        )
+
+    def _stops(self, conn):
+        from datetime import timedelta
+        from sentinels.util import iso, utcnow
+
+        now = utcnow()
+        first = iso(now - timedelta(hours=6))
+        second = iso(now - timedelta(hours=2))
+        self._boot(conn, "bootA", first)
+        self._boot(conn, "bootB", second)
+        return first, second
+
+    def test_recurring_signature_across_stops_is_ready(self):
+        from datetime import timedelta
+        from sentinels import correlate
+        from sentinels.util import parse_iso
+
+        conn = self._conn()
+        first, second = self._stops(conn)
+        for i, stop in enumerate((first, second)):
+            ts = (parse_iso(stop) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            self._event(
+                conn, f"boot{'AB'[i]}", ts,
+                "NVRM: Xid (PCI:0000:01:00): 79, GPU has fallen off the bus",
+                f"fp{i}", count=2,
+            )
+        summary = correlate.correlate(conn, days=30, notify=False)
+        self.assertEqual(summary["unclean_boots"], 2)
+        ready = correlate.aggregate(conn, days=30)
+        nvidia = [c for c in ready if c["vendor"] == "nvidia" and c["ready"]]
+        self.assertTrue(nvidia, ready)
+        self.assertEqual(nvidia[0]["boots"], 2)
+        self.assertEqual(nvidia[0]["repeat_rate"], 1.0)
+
+    def test_single_stop_is_not_consistent_enough(self):
+        from datetime import timedelta
+        from sentinels import correlate
+        from sentinels.util import parse_iso
+
+        conn = self._conn()
+        first, _second = self._stops(conn)
+        conn.execute("DELETE FROM boots WHERE boot_id='bootB'")
+        ts = (parse_iso(first) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._event(conn, "bootA", ts, "NVRM: Xid 79", "fp", count=4)
+        correlate.correlate(conn, days=30, notify=False)
+        clusters = correlate.aggregate(conn, days=30)
+        self.assertTrue(clusters)
+        self.assertFalse(any(c["ready"] for c in clusters))
+
+    def test_events_outside_the_death_window_do_not_count(self):
+        from datetime import timedelta
+        from sentinels import correlate
+        from sentinels.util import parse_iso
+
+        conn = self._conn()
+        first, _second = self._stops(conn)
+        conn.execute("DELETE FROM boots WHERE boot_id='bootB'")
+        ts = (parse_iso(first) - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._event(conn, "bootA", ts, "NVRM: Xid 79", "fp", count=9)
+        self.assertEqual(correlate.clusters_for_boot(
+            conn, dict(conn.execute("SELECT * FROM boots").fetchone())), [])
+
+    def test_unattributed_component_never_becomes_a_draft(self):
+        from datetime import timedelta
+        from sentinels import correlate
+        from sentinels.util import parse_iso
+
+        conn = self._conn()
+        first, second = self._stops(conn)
+        for i, stop in enumerate((first, second)):
+            ts = (parse_iso(stop) - timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            self._event(conn, f"boot{'AB'[i]}", ts,
+                        "something odd happened, no owner named", f"fp{i}", count=5,
+                        unit="mystery-widget")
+        correlate.correlate(conn, days=30, notify=False)
+        self.assertEqual(correlate.ticket_candidates(conn, days=30), [])
+
+    def test_correlation_keeps_raw_error_code_for_display(self):
+        from datetime import timedelta
+        from sentinels import correlate
+        from sentinels.util import parse_iso
+
+        conn = self._conn()
+        first, second = self._stops(conn)
+        for i, stop in enumerate((first, second)):
+            ts = (parse_iso(stop) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            self._event(
+                conn, f"boot{'AB'[i]}", ts,
+                "logitech-hidpp-device: received protocol error 0x08",
+                f"fp{i}", count=2,
+            )
+        correlate.correlate(conn, days=30, notify=False)
+        clusters = [c for c in correlate.aggregate(conn, days=30) if c["ready"]]
+        self.assertTrue(clusters)
+        self.assertIn("0x08", clusters[0]["display"])
+        self.assertIn("0xADDR", clusters[0]["signature"])
+        candidates = correlate.ticket_candidates(conn, days=30)
+        self.assertIn("0x08", candidates[0]["display"])
+
+    def test_candidate_carries_inferred_attribution_note(self):
+        from datetime import timedelta
+        from sentinels import correlate
+        from sentinels.util import parse_iso
+
+        conn = self._conn()
+        first, second = self._stops(conn)
+        for i, stop in enumerate((first, second)):
+            ts = (parse_iso(stop) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            self._event(conn, f"boot{'AB'[i]}", ts,
+                        "NVRM: Xid (PCI:0000:01:00): 79", f"fp{i}", count=2)
+        correlate.correlate(conn, days=30, notify=False)
+        candidates = correlate.ticket_candidates(conn, days=30)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["vendor"], "nvidia")
+        self.assertIn("inferred", candidates[0]["notes"])
+        self.assertEqual(candidates[0]["kind"], "correlation")
+
+
+class RaiseGateTests(unittest.TestCase):
+    """Only defensible tickets get staged, and each carries its own evidence."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def _issue(self, key="k1", vendor="nvidia", count=5, kind="event"):
+        from sentinels.util import iso
+
+        return {
+            "key": key, "vendor": vendor, "signature": "NVRM: Xid (PCI:0000:01:00): 79",
+            "kind": kind, "count": count,
+            "first": iso(), "last": iso(),
+            "rows": [{"ts": iso(), "message": "NVRM: Xid 79", "boot_id": "bootA",
+                      "severity": "critical"}],
+        }
+
+    def test_draft_cap_prioritises_substantive_issues(self):
+        from sentinels import tickets
+
+        issues = [
+            {"key": "low", "kind": "event", "severity": "critical", "count": 1},
+            {"key": "high", "kind": "event", "severity": "error", "count": 42},
+            {"key": "corr", "kind": "correlation", "severity": "critical", "count": 3},
+        ]
+        selected = tickets.select_issues(issues, max_tickets=2)
+        self.assertEqual([i["key"] for i in selected], ["corr", "high"])
+        self.assertEqual(len(tickets.select_issues(issues, max_tickets=0)), 3)
+
+    def test_stale_draft_is_not_viable(self):
+        from sentinels import raise_ticket
+
+        conn = self._conn()
+        verdict = raise_ticket.assess(conn, {"issue_key": "gone", "vendor": "nvidia"}, None)
+        self.assertFalse(verdict["viable"])
+        self.assertIn("no current evidence", " ".join(verdict["reasons"]))
+
+    def test_volume_below_threshold_is_not_viable(self):
+        from sentinels import raise_ticket
+
+        conn = self._conn()
+        verdict = raise_ticket.assess(
+            conn, {"issue_key": "k1", "vendor": "nvidia"}, self._issue(count=1)
+        )
+        self.assertFalse(verdict["viable"])
+        self.assertIn("substantiated", [c["check"] for c in verdict["checks"] if not c["ok"]])
+
+    def test_environmental_failure_is_not_viable(self):
+        from sentinels import raise_ticket
+        from sentinels.util import iso
+
+        conn = self._conn()
+        issue = {
+            "key": "k1", "vendor": "mozilla",
+            "signature": "Failed to fetch https://ppa.launchpadcontent.net/x",
+            "kind": "event", "count": 9, "first": iso(), "last": iso(),
+            "rows": [{"ts": iso(), "message": "Failed to fetch https://x", "severity": "critical"}],
+        }
+        verdict = raise_ticket.assess(conn, {"issue_key": "k1", "vendor": "mozilla"}, issue)
+        self.assertFalse(verdict["viable"])
+        self.assertIn("actionable", [c["check"] for c in verdict["checks"] if not c["ok"]])
+
+    def test_unattributed_component_is_not_viable(self):
+        from sentinels import raise_ticket
+
+        conn = self._conn()
+        verdict = raise_ticket.assess(
+            conn, {"issue_key": "k1", "vendor": "local"}, self._issue(vendor="local")
+        )
+        self.assertFalse(verdict["viable"])
+
+    def test_viable_draft_is_staged_with_evidence_and_redaction(self):
+        import pathlib
+        import socket
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            draft_path = root / "draft.md"
+            draft_path.write_text(
+                f"# draft\nhost {socket.gethostname()} path {config.HOME}/x\n", encoding="utf-8"
+            )
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+                (str(draft_path), "NVRM: Xid 79"),
+            )
+            issue = self._issue()
+            raised = root / "raise"
+            rejected = root / "rejected"
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "REJECT_DIR", rejected), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[issue]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                result = raise_ticket.run(conn, notify_ready=False)
+            self.assertEqual(result["viable"], 1, result)
+            directory = pathlib.Path(result["staged"][0])
+            self.assertTrue((directory / "ticket.md").exists())
+            self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
+            self.assertEqual((directory / "ticket.md").stat().st_mode & 0o777, 0o600)
+            self.assertTrue((directory / "evidence" / "logs.json").exists())
+            self.assertFalse((directory / "evidence" / "rows.json").exists())
+            self.assertTrue((directory / "evidence" / "trace.md").exists())
+            self.assertTrue((directory / "evidence" / "manifest.json").exists())
+            self.assertTrue((directory / "HOWTO.md").exists())
+            self.assertNotIn(socket.gethostname(), (directory / "ticket.md").read_text())
+            import json
+
+            manifest = json.loads((directory / "evidence" / "manifest.json").read_text())
+            self.assertEqual(manifest["issue_key"], "k1")
+            self.assertNotIn(str(config.HOME), (directory / "evidence" / "manifest.json").read_text())
+            import hashlib
+
+            digest = hashlib.sha256((directory / "ticket.md").read_bytes()).hexdigest()
+            self.assertEqual(manifest["evidence_files"]["ticket.md"], digest)
+            self.assertEqual(manifest["viability"]["score"], 6)
+
+    def test_ticket_keeps_an_issue_lifecycle_section(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            draft_path = root / "draft.md"
+            draft_path.write_text("# draft\n", encoding="utf-8")
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+                (str(draft_path), "NVRM: Xid 79"),
+            )
+            issue = self._issue()
+            raised, standby = root / "raise", root / "standby"
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", standby), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[issue]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                result = raise_ticket.run(conn, notify_ready=False)
+
+            directory = pathlib.Path(result["staged"][0])
+            ticket = (directory / "ticket.md").read_text(encoding="utf-8")
+            self.assertIn("## Issue's Lifecycle", ticket)
+            self.assertIn("classified", ticket)
+            log = [
+                json.loads(line) for line in
+                (directory / "evidence" / "lifecycle.jsonl").read_text().splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(log[0]["event"], "classified")
+            self.assertEqual(log[0]["to"], "raise")
+
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", standby), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"):
+                raise_ticket.reconcile(
+                    conn, {directory.name: "standby"},
+                    {directory.name: {"verdict": {"reasons": ["evidence expired"]}}},
+                )
+
+            moved = standby / directory.name
+            log = [
+                json.loads(line) for line in
+                (moved / "evidence" / "lifecycle.jsonl").read_text().splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(log[-1]["event"], "moved")
+            self.assertEqual((log[-1]["from"], log[-1]["to"]), ("raise", "standby"))
+            self.assertEqual(log[-1]["reason"], "evidence expired")
+            ticket = (moved / "ticket.md").read_text(encoding="utf-8")
+            self.assertIn("evidence expired", ticket)
+
+    def test_rejected_ticket_does_not_move_without_reproduction(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            rejected = root / "rejected"
+            evidence = rejected / "nvidia-held" / "evidence"
+            evidence.mkdir(parents=True)
+            (evidence / "manifest.json").write_text(json.dumps({
+                "vendor": "nvidia", "signature": "NVRM: Xid 79",
+                "kind": "crash", "generated": "2026-11-01T00:00:00Z",
+            }), encoding="utf-8")
+            with mock.patch.object(config, "RAISE_DIR", root / "raise"), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", rejected):
+                raise_ticket.reconcile(
+                    None, {"nvidia-held": "standby"},
+                    {"nvidia-held": {
+                        "verdict": {"reasons": ["no current evidence"]},
+                        "reproduced": False,
+                    }},
+                )
+
+            self.assertTrue((rejected / "nvidia-held").exists())
+            self.assertFalse((root / "standby" / "nvidia-held").exists())
+
+    def test_rejected_reproduction_moves_to_standby_then_raise(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            rejected = root / "rejected"
+            evidence = rejected / "nvidia-held" / "evidence"
+            evidence.mkdir(parents=True)
+            (evidence / "manifest.json").write_text(json.dumps({
+                "vendor": "nvidia", "signature": "NVRM: Xid 79",
+                "kind": "crash", "generated": "2026-11-01T00:00:00Z",
+            }), encoding="utf-8")
+            patches = [
+                mock.patch.object(config, "RAISE_DIR", root / "raise"),
+                mock.patch.object(config, "STANDBY_DIR", root / "standby"),
+                mock.patch.object(config, "REJECT_DIR", rejected),
+            ]
+            for patcher in patches:
+                patcher.start()
+            try:
+                raise_ticket.reconcile(
+                    None, {"nvidia-held": "standby"},
+                    {"nvidia-held": {
+                        "verdict": {"reasons": ["1 crash row; need 3 occurrences"]},
+                        "reproduced": True,
+                    }},
+                )
+                moved = root / "standby" / "nvidia-held"
+                self.assertTrue(moved.exists())
+                log = [
+                    json.loads(line) for line in
+                    (moved / "evidence" / "lifecycle.jsonl").read_text().splitlines()
+                    if line.strip()
+                ]
+                self.assertEqual(log[-1]["event"], "moved")
+                self.assertTrue(log[-1]["reason"].startswith(
+                    "new reproduction of the previously rejected issue"))
+
+                raise_ticket.reconcile(
+                    None, {"nvidia-held": "raise"},
+                    {"nvidia-held": {"verdict": {"reasons": []},
+                                     "reproduced": True}},
+                )
+            finally:
+                for patcher in reversed(patches):
+                    patcher.stop()
+
+            raised = root / "raise" / "nvidia-held"
+            self.assertTrue(raised.exists())
+            log = [
+                json.loads(line) for line in
+                (raised / "evidence" / "lifecycle.jsonl").read_text().splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(log[-1]["to"], "raise")
+            self.assertIn("further reproduction", log[-1]["reason"])
+
+    def test_dedupe_consolidates_into_the_viability_bucket(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        signature = "NVRM: Xid (PCI:0000:01:00): 79"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            for base, name, generated in (
+                (root / "raise", "nvidia-raise-new", "2026-11-08T00:00:00Z"),
+                (root / "standby", "nvidia-standby-old", "2026-11-01T00:00:00Z"),
+            ):
+                evidence = base / name / "evidence"
+                evidence.mkdir(parents=True)
+                (evidence / "manifest.json").write_text(json.dumps({
+                    "vendor": "nvidia", "signature": signature,
+                    "kind": "event", "generated": generated,
+                }), encoding="utf-8")
+            with mock.patch.object(config, "RAISE_DIR", root / "raise"), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"):
+                grouped = raise_ticket._existing_by_identity()
+                ident = raise_ticket._identity(signature)
+                winners, merged = raise_ticket._dedupe_existing(
+                    grouped, {ident: "standby"}
+                )
+
+            self.assertEqual(len(winners), 1)
+            winner = next(iter(winners.values()))
+            self.assertEqual(winner["bucket"], "standby")
+            self.assertEqual(winner["path"].name, "nvidia-standby-old")
+            self.assertFalse((root / "raise" / "nvidia-raise-new").exists())
+            self.assertTrue((root / "standby" / "nvidia-standby-old").exists())
+            self.assertEqual(merged[0]["bucket"], "raise")
+
+    def test_manual_bucket_change_is_not_reverted(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            name = "nvidia-manual"
+            evidence = root / "standby" / name / "evidence"
+            evidence.mkdir(parents=True)
+            (evidence / "manifest.json").write_text(json.dumps({
+                "vendor": "nvidia",
+                "signature": "NVRM: Xid (PCI:0000:01:00): 79",
+                "kind": "event", "bucket": "raise",
+                "generated": "2026-11-01T00:00:00Z",
+            }), encoding="utf-8")
+            (evidence / "lifecycle.jsonl").write_text(json.dumps({
+                "ts": "2026-11-01T00:00:00Z", "event": "classified",
+                "from": "", "to": "raise", "reason": "first classification",
+            }) + "\n", encoding="utf-8")
+            patches = [
+                mock.patch.object(config, "RAISE_DIR", root / "raise"),
+                mock.patch.object(config, "STANDBY_DIR", root / "standby"),
+                mock.patch.object(config, "REJECT_DIR", root / "rejected"),
+            ]
+            for patcher in patches:
+                patcher.start()
+            try:
+                result = raise_ticket.reconcile(
+                    None, {name: "raise"},
+                    {name: {"verdict": {"reasons": []},
+                            "reproduced": True}},
+                )
+                self.assertTrue((root / "standby" / name).exists())
+                self.assertFalse((root / "raise" / name).exists())
+                self.assertIn(name, result["manual"])
+                # A second pass must not append another manual event or move it.
+                raise_ticket.reconcile(
+                    None, {name: "raise"},
+                    {name: {"verdict": {"reasons": []},
+                            "reproduced": True}},
+                )
+            finally:
+                for patcher in reversed(patches):
+                    patcher.stop()
+            log = [
+                json.loads(line) for line in
+                (root / "standby" / name / "evidence" / "lifecycle.jsonl")
+                .read_text().splitlines() if line.strip()
+            ]
+            self.assertEqual(
+                [entry["event"] for entry in log],
+                ["classified", "manual"])
+            self.assertEqual(log[-1]["from"], "raise")
+            self.assertEqual(log[-1]["to"], "standby")
+
+    def test_run_does_not_restage_a_manually_moved_ticket(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            name = "nvidia-manual"
+            evidence = root / "standby" / name / "evidence"
+            evidence.mkdir(parents=True)
+            (evidence / "manifest.json").write_text(json.dumps({
+                "vendor": "nvidia",
+                "signature": "NVRM: Xid (PCI:0000:01:00): 79",
+                "kind": "event", "bucket": "raise",
+                "generated": "2026-11-01T00:00:00Z",
+            }), encoding="utf-8")
+            (evidence / "lifecycle.jsonl").write_text(json.dumps({
+                "ts": "2026-11-01T00:00:00Z", "event": "classified",
+                "from": "", "to": "raise", "reason": "first classification",
+            }) + "\n", encoding="utf-8")
+            draft_path = root / "draft.md"
+            draft_path.write_text("# draft\n", encoding="utf-8")
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+                (str(draft_path), "NVRM: Xid 79"),
+            )
+            issue = self._issue()
+            with mock.patch.object(config, "RAISE_DIR", root / "raise"), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[issue]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                result = raise_ticket.run(conn, notify_ready=False)
+            self.assertFalse((root / "raise" / name).exists())
+            self.assertTrue((root / "standby" / name).exists())
+            self.assertEqual(result["viable"], 0)
+            self.assertTrue(any(item["ticket"] == name
+                                for item in result["manual"]))
+
+    def test_legacy_rows_evidence_is_normalized(self):
+        import json
+        import pathlib
+        import tempfile
+        from sentinels import raise_ticket
+        from sentinels.util import sha256_text
+
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = pathlib.Path(tmp)
+            evidence = directory / "evidence"
+            evidence.mkdir()
+            (evidence / "rows.json").write_text('{"legacy": true}\n', encoding="utf-8")
+            (evidence / "prior-rows-20261105T000000Z.json").write_text(
+                '{"older": true}\n', encoding="utf-8"
+            )
+            (evidence / "manifest.json").write_text(json.dumps({
+                "evidence_files": {"evidence/rows.json": "old"},
+            }), encoding="utf-8")
+            (directory / "HOWTO.md").write_text(
+                "Check `evidence/rows.json`.\n", encoding="utf-8"
+            )
+            raise_ticket._normalize_evidence_names(directory)
+
+            self.assertFalse((evidence / "rows.json").exists())
+            self.assertTrue((evidence / "logs.json").exists())
+            self.assertTrue((evidence / "prior-logs-20261105T000000Z.json").exists())
+            manifest = json.loads((evidence / "manifest.json").read_text())
+            self.assertNotIn("evidence/rows.json", manifest["evidence_files"])
+            self.assertEqual(
+                manifest["evidence_files"]["evidence/logs.json"],
+                sha256_text('{"legacy": true}\n'),
+            )
+            self.assertIn("evidence/logs.json", (directory / "HOWTO.md").read_text())
+
+    def test_event_and_correlation_for_one_signature_stage_once(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            raised = root / "raise"
+            event = self._issue(key="k-event", kind="event", count=9)
+            corr = self._issue(key="k-corr", kind="correlation", count=4)
+            for key in ("k-event", "k-corr"):
+                draft = root / f"{key}.md"
+                draft.write_text("# draft\n", encoding="utf-8")
+                conn.execute(
+                    "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                    " VALUES(datetime('now'),'nvidia',?,? ,?)",
+                    (str(draft), "NVRM: Xid 79", key),
+                )
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[event, corr]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                first = raise_ticket.run(conn, notify_ready=False)
+                second = raise_ticket.run(conn, notify_ready=False)
+
+            self.assertEqual(first["viable"], 1, first)
+            self.assertEqual(len(first["staged"]), 1, first)
+            self.assertEqual(len(first["deduplicated"]), 1, first)
+            self.assertEqual(first["deduplicated"][0]["kept"], "k-corr")
+            self.assertEqual(first["written"], 1)
+            directories = [p for p in raised.iterdir() if p.is_dir()]
+            self.assertEqual(len(directories), 1, directories)
+            manifest = json.loads(
+                (directories[0] / "evidence" / "manifest.json").read_text()
+            )
+            self.assertEqual(manifest["issue_key"], "k-corr")
+            self.assertEqual(second["viable"], 1)
+            self.assertEqual(second["written"], 0)
+            self.assertEqual(len([p for p in raised.iterdir() if p.is_dir()]), 1)
+
+    def test_existing_duplicate_directories_are_merged(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+        from sentinels.util import iso
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            raised = root / "raise"
+            event_dir = raised / "nvidia-event-old"
+            corr_dir = raised / "nvidia-corr-new"
+            event_dir.mkdir(parents=True)
+            corr_dir.mkdir(parents=True)
+            (event_dir / "OLD.txt").write_text("old event\n", encoding="utf-8")
+            for directory, kind, key, generated in (
+                (event_dir, "event", "k-event", "2026-11-01T00:00:00Z"),
+                (corr_dir, "correlation", "k-corr", "2026-11-02T00:00:00Z"),
+            ):
+                (directory / "evidence").mkdir()
+                (directory / "evidence" / "manifest.json").write_text(json.dumps({
+                    "vendor": "nvidia",
+                    "signature": "NVRM: Xid (PCI:0000:01:00): 79",
+                    "kind": kind,
+                    "issue_key": key,
+                    "generated": generated,
+                    "bucket": "raise",
+                    "occurrences": 4,
+                    "last": iso(),
+                }), encoding="utf-8")
+            draft = root / "draft.md"
+            draft.write_text("# draft\n", encoding="utf-8")
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k-corr')",
+                (str(draft), "NVRM: Xid 79"),
+            )
+            issue = self._issue(key="k-corr", kind="correlation", count=4)
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[issue]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                result = raise_ticket.run(conn, notify_ready=False)
+
+            self.assertEqual(result["viable"], 1, result)
+            self.assertEqual(len(result["merged_existing"]), 1, result)
+            self.assertFalse(event_dir.exists())
+            self.assertTrue(corr_dir.exists())
+            self.assertFalse((raised / "nvidia-event-old").exists())
+            parked = list(corr_dir.rglob("OLD.txt"))
+            self.assertEqual(len(parked), 1, parked)
+
+    def test_vendor_reclassification_keeps_one_ticket(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        signature = (
+            "Configuration file /run/systemd/system/netplan-ovs-cleanup.service "
+            "is marked world-inaccessible"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            standby = root / "standby"
+            for name, vendor, generated in (
+                ("systemd-old", "systemd", "2026-11-05T14:33:05Z"),
+                ("netplan-new", "netplan", "2026-11-06T07:19:55Z"),
+            ):
+                evidence = standby / name / "evidence"
+                evidence.mkdir(parents=True)
+                (evidence / "manifest.json").write_text(json.dumps({
+                    "vendor": vendor, "signature": signature, "kind": "event",
+                    "generated": generated,
+                }), encoding="utf-8")
+            with mock.patch.object(config, "RAISE_DIR", root / "raise"), \
+                 mock.patch.object(config, "STANDBY_DIR", standby), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"):
+                grouped = raise_ticket._existing_by_identity()
+                winners, merged = raise_ticket._dedupe_existing(grouped)
+
+            self.assertEqual(len(winners), 1)
+            self.assertEqual(
+                next(iter(winners.values()))["path"].name, "netplan-new"
+            )
+            self.assertEqual(len(merged), 1)
+            self.assertFalse((standby / "systemd-old").exists())
+            self.assertTrue((standby / "netplan-new").exists())
+
+    def test_legacy_raised_duplicate_is_merged_into_active(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        signature = "Bluetooth: hci0: Invalid exception type N"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            for base, name, generated in (
+                (root / "raise", "bluetooth-active", "2026-11-06T07:00:00Z"),
+                (root / "raised", "bluetooth-old", "2026-11-05T17:00:00Z"),
+            ):
+                evidence = base / name / "evidence"
+                evidence.mkdir(parents=True)
+                (evidence / "manifest.json").write_text(json.dumps({
+                    "vendor": "canonical-kernel", "signature": signature,
+                    "kind": "event", "generated": generated,
+                }), encoding="utf-8")
+            with mock.patch.object(config, "RAISE_DIR", root / "raise"), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"):
+                grouped = raise_ticket._existing_by_identity()
+                winners, merged = raise_ticket._dedupe_existing(grouped)
+
+            self.assertEqual(len(winners), 1)
+            self.assertEqual(
+                next(iter(winners.values()))["path"].name, "bluetooth-active"
+            )
+            self.assertEqual(merged[0]["bucket"], "legacy-raised")
+            self.assertFalse((root / "raised" / "bluetooth-old").exists())
+            self.assertTrue(list(
+                (root / "raise" / "bluetooth-active").rglob("manifest.json")
+            ))
+
+    def test_unchanged_ticket_is_not_rewritten(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            draft = root / "draft.md"
+            draft.write_text("# draft\n", encoding="utf-8")
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+                (str(draft), "NVRM: Xid 79"),
+            )
+            issue = self._issue()
+            raised = root / "raise"
+            patches = [
+                mock.patch.object(config, "RAISE_DIR", raised),
+                mock.patch.object(config, "STANDBY_DIR", root / "standby"),
+                mock.patch.object(config, "REJECT_DIR", root / "rejected"),
+                mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                  return_value=[issue]),
+                mock.patch.object(raise_ticket.report, "append_journal"),
+            ]
+            for patcher in patches:
+                patcher.start()
+            try:
+                first = raise_ticket.run(conn, notify_ready=False)
+                directory = pathlib.Path(first["staged"][0])
+                before = {
+                    name: (directory / name).stat().st_mtime_ns
+                    for name in ("ticket.md", "HOWTO.md",
+                                 "evidence/logs.json", "evidence/manifest.json")
+                }
+                with mock.patch.object(raise_ticket, "stage") as stage:
+                    second = raise_ticket.run(conn, notify_ready=False)
+            finally:
+                for patcher in reversed(patches):
+                    patcher.stop()
+
+            stage.assert_not_called()
+            self.assertEqual(second["written"], 0)
+            after = {
+                name: (directory / name).stat().st_mtime_ns
+                for name in before
+            }
+            self.assertEqual(before, after)
+
+    def test_staged_ticket_is_never_deleted_and_records_history(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            draft_path = root / "draft.md"
+            draft_path.write_text("# draft\n", encoding="utf-8")
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+                (str(draft_path), "NVRM: Xid 79"),
+            )
+            issue = self._issue()
+            raised = root / "tickets" / "raise"
+            standby = root / "tickets" / "standby"
+            rejected = root / "tickets" / "rejected"
+            marker = raised / "nvidia-old-deadbeef" / "KEEP.txt"
+            marker.parent.mkdir(parents=True)
+            marker.write_text("staged earlier\n")
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", standby), \
+                 mock.patch.object(config, "REJECT_DIR", rejected), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[issue]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                raise_ticket.run(conn, notify_ready=False)
+                first = raise_ticket.run(conn, notify_ready=False)
+            # nothing is deleted: the non-viable directory is parked in standby
+            self.assertFalse(marker.exists())
+            self.assertTrue((standby / "nvidia-old-deadbeef" / "KEEP.txt").exists())
+            self.assertEqual(first["viable"], 1)
+            directory = pathlib.Path(first["staged"][0])
+            history = directory / "evidence" / "history.jsonl"
+            self.assertTrue(history.exists())
+            lines = [ln for ln in history.read_text().splitlines() if ln.strip()]
+            self.assertEqual(len(lines), 1)  # identical re-run stays quiet
+            self.assertIn("state", json.loads(lines[0]))
+            manifest = json.loads((directory / "evidence" / "manifest.json").read_text())
+            self.assertIn("last_checked", manifest)
+
+    def test_ticket_returns_to_raise_when_viable_again(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            draft_path = root / "draft.md"
+            draft_path.write_text("# draft\n", encoding="utf-8")
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+                (str(draft_path), "NVRM: Xid 79"),
+            )
+            raised, standby = root / "raise", root / "standby"
+            rejected = root / "rejected"
+            issue = self._issue()
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", standby), \
+                 mock.patch.object(config, "REJECT_DIR", rejected), \
+                 mock.patch.object(raise_ticket.report, "append_journal"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   side_effect=[[issue], [], [issue]]):
+                first = raise_ticket.run(conn, notify_ready=False)
+                self.assertEqual(first["viable"], 1)
+                name = pathlib.Path(first["staged"][0]).name
+                second = raise_ticket.run(conn, notify_ready=False)
+                self.assertEqual(second["viable"], 0)
+                self.assertFalse((raised / name).exists())
+                self.assertTrue((standby / name).exists())
+                third = raise_ticket.run(conn, notify_ready=False)
+                self.assertEqual(third["viable"], 1)
+                self.assertTrue((raised / name).exists())
+                self.assertFalse((standby / name).exists())
+                self.assertEqual(third["reactivated"], [name])
+            events = [
+                json.loads(line)["event"]
+                for line in (raised / name / "evidence" / "standby.jsonl")
+                .read_text().splitlines() if line.strip()
+            ]
+            self.assertEqual(events, ["standby", "reactivated"])
+
+    def test_standby_index_lists_parked_tickets(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            raised, standby = root / "raise", root / "standby"
+            (raised / "nvidia-gone-abc").mkdir(parents=True)
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", standby), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues", return_value=[]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                raise_ticket.run(conn, notify_ready=False)
+            index = (standby / "INDEX.md").read_text()
+            self.assertIn("nvidia-gone-abc", index)
+            self.assertIn("kept for traceability", index)
+
+    def test_new_draft_set_triggers_triage_once(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket, tickets
+        from sentinels.util import iso
+
+        conn = self._conn()
+        issue = {
+            "key": "k1", "vendor": "nvidia", "signature": "NVRM: Xid 79",
+            "kind": "event", "count": 5, "first": iso(), "last": iso(),
+            "rows": [{"ts": iso(), "message": "m", "severity": "critical"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(config, "DRAFT_DIR", pathlib.Path(tmp)), \
+             mock.patch.object(tickets, "collect_issues", return_value=[issue]), \
+             mock.patch.object(tickets, "_draft", return_value=("t", "b")), \
+             mock.patch.object(raise_ticket, "run",
+                               return_value={"viable": 1, "rejected": 0}) as run:
+            tickets.generate(conn, days=1)
+            self.assertEqual(run.call_count, 1)
+            tickets.generate(conn, days=1)
+            self.assertEqual(run.call_count, 1)  # same draft set, no second triage
+
+
+class RejectedReportTests(unittest.TestCase):
+    """Held, outdated builds produce a rejected report, never a vendor ticket."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def _held(self):
+        row = {"package": "nvidia-settings", "installed": "610.43.02",
+               "candidate": "615.71.10", "outdated": True}
+        return {"held_total": 1, "held_installed": 1, "mass_hold": False,
+                "owner": "nvidia-settings", "relevant": [row], "outdated": [row]}
+
+    def _issue(self, key="k1", held=True):
+        from sentinels.util import iso
+
+        ts = iso()
+        issue = {
+            "key": key, "vendor": "nvidia",
+            "signature": "nvidia-settings SIGABRT", "kind": "crash", "count": 3,
+            "first": ts, "last": ts, "severity": "critical",
+            "rows": [{
+                "ts": ts, "pid": 7, "comm": "nvidia-settings",
+                "exe": "/usr/bin/nvidia-settings", "sig": "SIGABRT",
+                "cpus_allowed": "2,8", "faultcore_involved": 1, "context": "ctx",
+                "boot_id": "bootA", "severity": "critical",
+            }],
+        }
+        if held:
+            issue["held"] = self._held()
+        return issue
+
+    def _draft(self, conn, root):
+        path = root / "draft.md"
+        path.write_text("# draft\n", encoding="utf-8")
+        conn.execute(
+            "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+            " VALUES(datetime('now'),'nvidia',?,?,'k1')",
+            (str(path), "nvidia-settings SIGABRT"),
+        )
+
+    def test_gate_flags_a_held_outdated_build(self):
+        from sentinels import raise_ticket
+
+        conn = self._conn()
+        verdict = raise_ticket.assess(
+            conn, {"issue_key": "k1", "vendor": "nvidia"}, self._issue()
+        )
+        self.assertFalse(verdict["viable"])
+        self.assertTrue(verdict["hold_explained"])
+        failed = [c["check"] for c in verdict["checks"] if not c["ok"]]
+        self.assertIn("build-current", failed)
+        self.assertIn("held-outdated", " ".join(verdict["reasons"]))
+
+    def test_mass_hold_only_blocks_unowned_crashes(self):
+        from sentinels import raise_ticket
+        from sentinels.util import iso
+
+        conn = self._conn()
+        issue = self._issue(key="ff", held=False)
+        issue["vendor"] = "mozilla"
+        issue["signature"] = "firefox-esr SIGSEGV"
+        issue["count"] = 1
+        issue["rows"] = [{
+            "ts": iso(), "comm": "firefox-esr",
+            "exe": "/usr/lib/firefox-esr/firefox-bin", "sig": "SIGSEGV",
+            "severity": "critical",
+        }]
+        issue["held"] = {
+            "owner": "firefox-esr", "mass_hold": True, "held_total": 41874,
+            "held_installed": 31, "outdated": [], "relevant": [],
+        }
+        verdict = raise_ticket.assess(
+            conn, {"issue_key": "ff", "vendor": "mozilla"}, issue
+        )
+        self.assertTrue(verdict["viable"], verdict)
+        self.assertFalse(verdict["hold_explained"])
+
+        issue["held"] = dict(issue["held"], owner=None)
+        verdict = raise_ticket.assess(
+            conn, {"issue_key": "ff", "vendor": "mozilla"}, issue
+        )
+        self.assertFalse(verdict["viable"])
+        self.assertTrue(verdict["hold_explained"])
+
+    def test_held_outdated_crash_is_filed_under_rejected(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._draft(conn, root)
+            raised, rejected = root / "raise", root / "rejected"
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", rejected), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[self._issue()]), \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                result = raise_ticket.run(conn, notify_ready=False)
+            self.assertEqual(result["viable"], 0, result)
+            self.assertEqual(len(result["rejected_staged"]), 1, result)
+            directory = pathlib.Path(result["rejected_staged"][0])
+            self.assertEqual(directory.parent, rejected)
+            self.assertTrue((directory / "ticket.md").exists())
+            self.assertTrue((directory / "evidence" / "manifest.json").exists())
+            note = (directory / "REJECTED.md").read_text()
+            self.assertIn("held-outdated", note)
+            self.assertIn("nvidia-settings", note)
+            manifest = json.loads((directory / "evidence" / "manifest.json").read_text())
+            self.assertEqual(manifest["bucket"], "rejected")
+            index = (rejected / "INDEX.md").read_text()
+            self.assertIn(directory.name, index)
+            self.assertIn("held-outdated", index)
+
+    def test_rejected_report_returns_to_raise_when_build_is_current(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, raise_ticket
+
+        conn = self._conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._draft(conn, root)
+            raised, rejected = root / "raise", root / "rejected"
+            with mock.patch.object(config, "RAISE_DIR", raised), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", rejected), \
+                 mock.patch.object(raise_ticket.report, "append_journal"), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   side_effect=[[self._issue()],
+                                                [self._issue(held=False)]]):
+                first = raise_ticket.run(conn, notify_ready=False)
+                self.assertEqual(first["viable"], 0)
+                name = pathlib.Path(first["rejected_staged"][0]).name
+                second = raise_ticket.run(conn, notify_ready=False)
+            self.assertEqual(second["viable"], 1, second)
+            self.assertTrue((raised / name / "ticket.md").exists())
+            self.assertFalse((rejected / name).exists())
+            self.assertIn(name, second["reactivated"])
+            events = [
+                json.loads(line)["event"]
+                for line in (raised / name / "evidence" / "rejected.jsonl")
+                .read_text().splitlines() if line.strip()
+            ]
+            self.assertEqual(events, ["rejected", "cleared"])
+
+    def test_held_context_only_resolves_absolute_crash_paths(self):
+        from unittest import mock
+        from sentinels import tickets
+
+        self.assertEqual(tickets.held_context(self._issue(held=False) | {"kind": "event"}), {})
+        relative = self._issue(held=False)
+        relative["rows"][0]["exe"] = "nvidia-settings"
+        self.assertEqual(tickets.held_context(relative), {})
+        absolute = self._issue(held=False)
+        with mock.patch.object(tickets.holds, "relevant", return_value={"outdated": [1]}) as rel:
+            self.assertEqual(tickets.held_context(absolute), {"outdated": [1]})
+        rel.assert_called_once_with("/usr/bin/nvidia-settings")
+
+
+class NotificationTraceCrosscheckTests(unittest.TestCase):
+    """The parts that decide whether a human is ever told, and whether the
+    record can still be defended later."""
+
+    def _conn(self):
+        import sqlite3
+        from sentinels import db
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        return conn
+
+    def test_notification_queue_dedupes_per_key(self):
+        from sentinels import notify
+
+        conn = self._conn()
+        self.assertTrue(notify.enqueue(conn, "draft", "draft|k1", "t", "b"))
+        self.assertFalse(notify.enqueue(conn, "draft", "draft|k1", "t", "b"))
+        self.assertEqual(notify.pending_count(conn), 1)
+
+    def test_drain_marks_delivered_only_on_success(self):
+        from unittest import mock
+        from sentinels import notify
+
+        conn = self._conn()
+        notify.enqueue(conn, "draft", "k1", "t", "b")
+        with mock.patch.object(notify, "send", return_value=(False, "no session")):
+            result = notify.drain(conn)
+        self.assertEqual(result["sent"], 0)
+        self.assertEqual(notify.pending_count(conn), 1)
+        # the failure sets a backoff; move the clock past it to retry
+        from datetime import timedelta
+        from sentinels.util import iso, utcnow
+
+        conn.execute(
+            "UPDATE notifications SET last_attempt=?",
+            (iso(utcnow() - timedelta(seconds=notify._backoff_seconds(1) + 1)),),
+        )
+        with mock.patch.object(notify, "send", return_value=(True, "sent")):
+            result = notify.drain(conn)
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(notify.pending_count(conn), 0)
+
+    def test_drafts_are_silent_but_ready_correlations_still_queue(self):
+        from sentinels import notify
+
+        conn = self._conn()
+        for i, vendor in enumerate(("nvidia", "canonical-kernel", "nvidia")):
+            conn.execute(
+                "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+                " VALUES(datetime('now'),?,?,?,?)",
+                (vendor, f"/tmp/d{i}.md", f"title {i}", f"key{i}"),
+            )
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config
+
+        cluster = {
+            "key": "abc123", "vendor": "nvidia", "signature": "NVRM: Xid 79",
+            "boots": 2, "total_unclean": 3, "occurrences": 5, "crashes": 1,
+            "score": 11, "threshold": 9, "ready": True,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(config, "DRAFT_DIR", pathlib.Path(tmp)), \
+                 mock.patch("sentinels.correlate.aggregate",
+                            return_value=[cluster]), \
+                 mock.patch.object(notify, "_correlation_report",
+                                   return_value=str(pathlib.Path(tmp) / "corr.md")):
+                result = notify.collect(conn)
+                self.assertEqual(result["queued"], 1)
+                self.assertEqual(notify.pending_count(conn), 1)
+                row = notify.pending(conn)[0]
+                self.assertEqual(row["kind"], "correlation")
+                self.assertFalse((pathlib.Path(tmp) / "INDEX.md").exists())
+
+    def test_click_opens_the_markdown_it_refers_to(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import notify
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = pathlib.Path(tmp) / "draft.md"
+            target.write_text("# draft\n")
+            with mock.patch.object(notify.subprocess, "Popen") as popen:
+                ok, detail = notify.open_target(str(target))
+            self.assertTrue(ok)
+            argv = popen.call_args.args[0]
+            self.assertIn("xdg-open", argv[0])
+            self.assertEqual(argv[-1], str(target))
+
+    def test_send_uses_click_helper_only_when_a_path_is_given(self):
+        from unittest import mock
+        from sentinels import notify
+
+        with mock.patch.object(notify, "available", return_value=(True, "ok")), \
+             mock.patch.object(notify, "_gi_available", return_value=True), \
+             mock.patch.object(notify, "_graphical_session", return_value=True), \
+             mock.patch.object(notify, "_spawn_click_helper", return_value=True) as spawn, \
+             mock.patch.object(notify, "_plain_send", return_value=(True, "sent")) as plain:
+            ok, _ = notify.send("t", "b", path="/tmp/x.md")
+            self.assertTrue(ok)
+            spawn.assert_called_once()
+            plain.assert_not_called()
+            ok, _ = notify.send("t", "b")
+            self.assertTrue(ok)
+            plain.assert_called_once()
+
+    def test_draft_regeneration_keeps_the_index_page(self):
+        import os
+        import pathlib
+        import tempfile
+        import time
+        from unittest import mock
+        from sentinels import config, tickets
+
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            (d / "INDEX.md").write_text("# index\n")
+            stale = d / "stale-draft.md"
+            stale.write_text("old\n")
+            old_time = time.time() - 2 * 86400
+            os.utime(stale, (old_time, old_time))
+            fresh = d / "fresh-draft.md"
+            fresh.write_text("recent\n")
+            with mock.patch.object(config, "DRAFT_DIR", d), \
+                 mock.patch.object(config, "DRAFT_RETENTION_DAYS", 1), \
+                 mock.patch.object(config, "MAX_TICKETS", 10), \
+                 mock.patch.object(tickets, "collect_issues", return_value=[]):
+                conn = self._conn()
+                tickets.generate(conn, days=1)
+            self.assertTrue((d / "INDEX.md").exists())
+            self.assertFalse(stale.exists())
+            self.assertTrue(fresh.exists())
+
+    def test_correlation_report_is_written_as_markdown(self):
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, notify
+
+        cluster = {
+            "key": "abc123", "vendor": "nvidia", "signature": "NVRM: Xid 79",
+            "boots": 2, "total_unclean": 3, "occurrences": 5, "crashes": 1,
+            "score": 11, "threshold": 9, "ready": True,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(config, "REPORT_DIR", pathlib.Path(tmp)):
+                path = notify._correlation_report(self._conn(), cluster)
+            self.assertTrue(path.endswith("correlation-abc123.md"))
+            text = pathlib.Path(path).read_text()
+            self.assertIn("NVRM: Xid 79", text)
+            self.assertIn("Attribution is inferred", text)
+
+    def test_missing_markdown_is_reported_not_invented(self):
+        from sentinels import notify
+
+        ok, detail = notify.open_target("/tmp/definitely-not-here-qa.md")
+        self.assertFalse(ok)
+        self.assertIn("missing target", detail)
+
+    def test_trace_finds_event_boot_and_draft_by_one_query(self):
+        from sentinels import trace
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO boots(boot_id,seq,span,last_ts,ended_clean,markers,last_message,"
+            "scans,pstore,kexec_loaded,crashkernel,vmcores,captured_ts)"
+            " VALUES('bootrace',-1,'s','2026-11-03T08:33:14Z',0,'','end','{}','[]',0,'',0,'x')"
+        )
+        conn.execute(
+            "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,message,"
+            "fingerprint,raw,count,last_ts) VALUES('2026-11-03T08:33:00Z','bootrace',"
+            "'journal','critical','kernel',1,'k','NVRM: Xid 79 bootrace','fp-race','{}',2,"
+            "'2026-11-03T08:33:00Z')"
+        )
+        record = trace.resolve(conn, "bootrace")
+        self.assertTrue(record["events"])
+        self.assertTrue(record["boots"])
+        rendered = "\n".join(trace.render(conn, "bootrace"))
+        self.assertIn("Silent stops", rendered)
+        self.assertIn("Events sharing the signature", rendered)
+
+    def test_trace_reports_absence_instead_of_inventing(self):
+        from sentinels import trace
+
+        conn = self._conn()
+        self.assertEqual(trace.render(conn, "nothing-here"), ["nothing recorded for 'nothing-here'"])
+
+    def test_crosscheck_flags_a_draft_the_evidence_no_longer_backs(self):
+        from unittest import mock
+        from sentinels import crosscheck
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO ticket_drafts(ts,vendor,path,title,issue_key)"
+            " VALUES('2026-11-03T00:00:00Z','nvidia','/tmp/x.md','gone','deadbeef')"
+        )
+        with mock.patch.object(crosscheck.report, "append_journal"):
+            result = crosscheck.run(conn, days=30, notify_drift=False)
+        self.assertIn("deadbeef", result["stale_drafts"])
+        self.assertGreater(result["drift"], 0)
+
+    def test_crosscheck_flags_reproducible_issue_without_draft(self):
+        from unittest import mock
+        from sentinels import crosscheck
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,message,"
+            "fingerprint,raw,count,last_ts) VALUES(datetime('now'),'b','journal',"
+            "'critical','kernel',1,'k','NVRM: Xid (PCI:0000:01:00): 79','fp-cc','{}',3,"
+            "datetime('now'))"
+        )
+        with mock.patch.object(crosscheck.report, "append_journal"):
+            result = crosscheck.run(conn, days=30, notify_drift=False)
+        self.assertTrue(result["unraised_issues"])
+
+    def test_crosscheck_counts_a_staged_ticket_as_drafted(self):
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config, crosscheck, tickets
+
+        conn = self._conn()
+        conn.execute(
+            "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,message,"
+            "fingerprint,raw,count,last_ts) VALUES(datetime('now'),'b','journal',"
+            "'critical','kernel',1,'k','NVRM: Xid (PCI:0000:01:00): 79','fp-staged','{}',3,"
+            "datetime('now'))"
+        )
+        issues = tickets.collect_issues(conn, days=30)
+        key = next(i["key"] for i in issues if i["kind"] == "event")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            evidence = root / "nvidia-x-abc" / "evidence"
+            evidence.mkdir(parents=True)
+            (evidence / "manifest.json").write_text(
+                json.dumps({"issue_key": key}), encoding="utf-8"
+            )
+            with mock.patch.object(config, "RAISE_DIR", root), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(crosscheck.report, "append_journal"):
+                result = crosscheck.run(conn, days=30, notify_drift=False)
+        self.assertNotIn(key, result["unraised_issues"])
+        self.assertEqual(result["drift"], 0)
+
+    def test_crosscheck_does_not_count_capped_issues_as_drift(self):
+        from unittest import mock
+        from sentinels import crosscheck
+
+        conn = self._conn()
+        for i, (message, count) in enumerate((
+            ("NVRM: Xid (PCI:0000:01:00): 79", 5),
+            ("kworker: unusual critical warning", 1),
+        )):
+            conn.execute(
+                "INSERT INTO events(ts,boot_id,source,severity,unit,pid,comm,message,"
+                "fingerprint,raw,count,last_ts) VALUES(datetime('now'),'b','journal',"
+                "'critical','kernel',1,'k',?,'fp-cc-"+str(i)+"','{}',?,datetime('now'))",
+                (message, count),
+            )
+        with mock.patch.object(crosscheck.config, "MAX_TICKETS", 1), \
+             mock.patch.object(crosscheck.report, "append_journal"):
+            result = crosscheck.run(conn, days=30, notify_drift=False)
+        self.assertEqual(len(result["unraised_issues"]), 1)
+        self.assertEqual(len(result["capped_issues"]), 1)
+        self.assertEqual(result["drift"], 1)
+
+    def test_log_line_gets_timestamp_and_severity_colour(self):
+        from sentinels import logs
+
+        plain = logs.format_line("boots: 1 unclean", color=False, stamp="12:00:00")
+        self.assertTrue(plain.startswith("[12:00:00]"))
+        coloured = logs.format_line("kernel panic - not syncing", color=True, stamp="12:00:00")
+        self.assertIn(logs.COLORS["critical"], coloured)
+        self.assertEqual(logs.classify_line("Kernel panic"), "critical")
+        self.assertEqual(logs.classify_line("service failed to start"), "error")
+        self.assertEqual(logs.classify_line("warning: retry"), "warning")
+
+    def test_colour_is_optional_for_pipes(self):
+        import os
+        from sentinels import logs
+
+        class FakeTTY:
+            def isatty(self):
+                return True
+
+        saved = os.environ.pop("NO_COLOR", None)
+        try:
+            self.assertTrue(logs.supports_color(stream=FakeTTY()))
+            os.environ["NO_COLOR"] = "1"
+            self.assertFalse(logs.supports_color(stream=FakeTTY()))
+        finally:
+            os.environ.pop("NO_COLOR", None)
+            if saved is not None:
+                os.environ["NO_COLOR"] = saved
+
+
+class SettingsConfigTests(unittest.TestCase):
+    def test_dashboard_settings_file_accepts_numbers_and_typed_faultcore_enums(self):
+        import json
+        import os
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config
+
+        keys = (
+            "QA_EVENT_RETENTION_DAYS", "QA_CYCLE_RAISE_HOURS",
+            "QA_PRIVILEGED", "QA_BAD", "NOT_QA", "QA_SAMPLE_RETENTION_DAYS",
+            "QA_FAULT_CORE_ENABLE", "QA_FAULT_CORE_ENFORCE",
+            "QA_FAULT_CORE_CPUS",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "settings.json"
+            path.write_text(json.dumps({
+                "QA_EVENT_RETENTION_DAYS": 12,
+                "QA_CYCLE_RAISE_HOURS": "2.5",
+                "QA_PRIVILEGED": "rm -rf /",
+                "QA_BAD": "12; echo pwned",
+                "NOT_QA": 1,
+                "QA_FAULT_CORE_ENABLE": "0",
+                "QA_FAULT_CORE_ENFORCE": "lab",
+                "QA_FAULT_CORE_CPUS": "2,8",
+            }), encoding="utf-8")
+            clean = {key: value for key, value in os.environ.items()
+                     if key not in keys}
+            clean["QA_SAMPLE_RETENTION_DAYS"] = "5"
+            clean["QA_FAULT_CORE_ENFORCE"] = "retired"
+            with mock.patch.dict(os.environ, clean, clear=True):
+                config.apply_settings_file(path)
+                self.assertEqual(os.environ["QA_EVENT_RETENTION_DAYS"], "12")
+                self.assertEqual(os.environ["QA_CYCLE_RAISE_HOURS"], "2.5")
+                self.assertEqual(os.environ["QA_SAMPLE_RETENTION_DAYS"], "5")
+                self.assertEqual(os.environ["QA_FAULT_CORE_ENABLE"], "0")
+                self.assertEqual(os.environ["QA_FAULT_CORE_ENFORCE"], "retired")
+                self.assertNotIn("QA_FAULT_CORE_CPUS", os.environ)
+                self.assertNotIn("QA_PRIVILEGED", os.environ)
+                self.assertNotIn("QA_BAD", os.environ)
+                self.assertNotIn("NOT_QA", os.environ)
+
+    def test_dashboard_settings_file_rejects_invalid_faultcore_enums(self):
+        import json
+        import os
+        import pathlib
+        import tempfile
+        from unittest import mock
+        from sentinels import config
+
+        keys = ("QA_FAULT_CORE_ENABLE", "QA_FAULT_CORE_ENFORCE")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "settings.json"
+            path.write_text(json.dumps({
+                "QA_FAULT_CORE_ENABLE": "maybe",
+                "QA_FAULT_CORE_ENFORCE": "bogus",
+            }), encoding="utf-8")
+            clean = {key: value for key, value in os.environ.items()
+                     if key not in keys}
+            with mock.patch.dict(os.environ, clean, clear=True):
+                config.apply_settings_file(path)
+                self.assertNotIn("QA_FAULT_CORE_ENABLE", os.environ)
+                self.assertNotIn("QA_FAULT_CORE_ENFORCE", os.environ)
+
+    def test_zero_retention_keeps_events_until_changed(self):
+        import sqlite3
+        from unittest import mock
+        from sentinels import config, db, sampler
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        conn.execute(
+            "INSERT INTO events(ts,severity,fingerprint) VALUES(?,?,?)",
+            ("2000-01-01T00:00:00Z", "error", "old-fp"),
+        )
+        with mock.patch.object(config, "KEEP_FOREVER", False), \
+             mock.patch.object(config, "SAMPLE_RETENTION_DAYS", 0), \
+             mock.patch.object(config, "PROC_RETENTION_DAYS", 0), \
+             mock.patch.object(config, "EVENT_RETENTION_DAYS", 0), \
+             mock.patch.object(config, "INVENTORY_RETENTION_DAYS", 0):
+            sampler.prune(conn)
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM events").fetchone()[0], 1)
+            with mock.patch.object(config, "EVENT_RETENTION_DAYS", 1):
+                sampler.prune(conn)
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM events").fetchone()[0], 0)
+
+    def test_raise_gate_uses_the_configured_lookback(self):
+        import pathlib
+        import sqlite3
+        import tempfile
+        from unittest import mock
+        from sentinels import config, db, raise_ticket
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(db.SCHEMA)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            with mock.patch.object(config, "RAISE_DIR", root / "raise"), \
+                 mock.patch.object(config, "STANDBY_DIR", root / "standby"), \
+                 mock.patch.object(config, "REJECT_DIR", root / "rejected"), \
+                 mock.patch.object(config, "RAISE_LOOKBACK_DAYS", 17), \
+                 mock.patch.object(raise_ticket.tickets, "collect_issues",
+                                   return_value=[]) as collect, \
+                 mock.patch.object(raise_ticket.report, "append_journal"):
+                raise_ticket.run(conn, notify_ready=False)
+            self.assertEqual(collect.call_args[0][1], 17)
+
+
+if __name__ == "__main__":
+    unittest.main()

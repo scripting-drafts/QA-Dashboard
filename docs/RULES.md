@@ -1,7 +1,7 @@
 # QA Sentinels rules
 
 This register describes every finding rule and operational check implemented by
-QA Sentinels `1.4.3`. Rules are code, not policy prose: the linked module is the
+QA Sentinels `1.4.7`. Rules are code, not policy prose: the linked module is the
 authoritative implementation.
 
 ## Severity model
@@ -17,13 +17,34 @@ Findings are deduplicated by fingerprint. Repeated journal rules are grouped by
 a stable signature and show an occurrence count. `critical` findings do not
 automatically submit tickets; drafts remain human-reviewed.
 
+## Probe provenance
+
+A probe result is only evidence at the point in time it describes. Three guards
+keep read-at-the-wrong-time values out of tickets:
+
+- **Boot stage** — the correlation death window starts after a settling period
+  (`QA_CORRELATE_SETTLE_S`, default 300 s). A boot shorter than the remaining
+  window contributes no event clusters: its whole journal is startup.
+- **Stop verdict** — recovery/rescue exits and explicit reboot/poweroff targets
+  count as clean, not as silent stops. Maintenance boots are excluded from
+  unclean findings and repeat rates.
+- **Process identity** — a crash may only inherit affinity from a process
+  sample inside `QA_PROC_MATCH_WINDOW_S` (default 180 s) that names the same
+  executable. A stale PID sample or PID reuse yields an unknown affinity, not
+  a fault-core verdict.
+
+Finding `count` is the number of collection runs that re-observed a condition,
+never the number of independent events. The raise gate counts distinct finding
+rows, so a persistent pstore archive or a coverage limitation cannot inflate
+itself into a ticket.
+
 ## Journal and kernel rules
 
 Implemented in `sentinels/detect.py`.
 
 | Rule | Severity | Trigger |
 |---|---|---|
-| `kernel.hardware` | critical | MCE, machine check, hardware error, EDAC, or RAS message |
+| `kernel.hardware` | critical | MCE, machine check, hardware error, EDAC, or RAS message; rasdaemon tracepoint enable/disable status lines are excluded |
 | `kernel.oops` | critical | Kernel panic, oops, BUG, general protection fault, soft/hard lockup, hung task, or watchdog BUG |
 | `memory.oom` | critical | Out-of-memory or OOM-kill message |
 | `gpu.xid` | critical | NVIDIA Xid or GPU has fallen off the bus |
@@ -40,6 +61,12 @@ Implemented in `sentinels/detect.py`.
 
 Unmatched `warning` journal entries are ignored. Unmatched `error` entries are
 ignored; unmatched `critical` entries become `journal.critical`.
+
+Per-init and per-resume notices are recorded but never become tickets
+(`classify.BOOT_PROBE_NOISE`): the ATA DRM probe line, Bluetooth firmware and
+Coded PHY notices, USB power-management warnings, and module-taint messages.
+They recur on every boot and controller power-up, so their presence in a death
+window is not evidence of a fault.
 
 ## Crash rules
 
@@ -72,7 +99,7 @@ Implemented in `sentinels/boot.py`.
 
 | Rule | Severity | Trigger |
 |---|---|---|
-| `boot.unclean` | critical | Previous boot ended without `systemd-shutdown` (`ended_clean=0`) |
+| `boot.unclean` | critical | Previous boot ended without a shutdown marker (`systemd-shutdown`, reboot/poweroff target, or recovery exit) and was not a maintenance boot |
 
 The detail includes captured startup/shutdown markers, coredump/GPU/I/O/MCE/OOM/
 panic/thermal/watchdog counts, pstore state, and kexec status. Boot findings are
@@ -109,7 +136,7 @@ Implemented in `sentinels/hardware.py`.
 | `hardware.aer.fatal` | critical | Any PCIe AER fatal error |
 | `hardware.aer.nonfatal` | critical | Any PCIe AER non-fatal error |
 | `hardware.aer.correctable` | warning | Correctable AER at or above limit | `QA_HARDWARE_AER_CE_ALERT=1` |
-| `hardware.apei.pstore` | warning | pstore summary contains an error signature |
+| `hardware.apei.pstore` | warning | An archived pstore record contains an error signature; one finding per archive, with the archive timestamp. Kernel panics route to the kernel, userspace traps stay local |
 | `hardware.apei.journal` | warning | APEI/GHES/MCE journal contains an error signature |
 | `hardware.storage.smart` | critical | SMART overall health failed |
 | `hardware.storage.temperature` | warning | Drive temperature at or above limit | `QA_HARDWARE_STORAGE_TEMP_ALERT_C=50` |
@@ -128,7 +155,7 @@ Implemented in `sentinels/hardware.py`.
 | `hardware.thermal.sensor` | warning | Sensor at or above the lower of its critical point and limit | `QA_HARDWARE_SENSOR_TEMP_ALERT_C=70` |
 | `hardware.vendor.log` | warning | Configured firmware/BMC log contains an error signature |
 | `hardware.vendor.missing` | critical | No readable vendor log is configured |
-| `hardware.coverage` | warning | A required hardware source is limited or unavailable |
+| `hardware.coverage` | warning | A required hardware source is limited or unavailable; coverage state, never a vendor ticket |
 
 Storage checks may report `needs-root`; this is coverage, not an automatic
 failure. CXL-specific rasdaemon probes are skipped when no CXL device exists.

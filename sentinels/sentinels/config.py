@@ -361,6 +361,14 @@ CORRELATE_WINDOW_S = int(os.environ.get("QA_CORRELATE_WINDOW_S", "1800"))
 CORRELATE_MIN_BOOTS = int(os.environ.get("QA_CORRELATE_MIN_BOOTS", "2"))
 CORRELATE_MIN_COUNT = int(os.environ.get("QA_CORRELATE_MIN_COUNT", "3"))
 CORRELATE_SINGLE_BOOT_MIN = int(os.environ.get("QA_CORRELATE_SINGLE_BOOT_MIN", "5"))
+# Startup settling: the first minutes of a boot are device enumeration and
+# firmware probes, not a death window. Shorter boots have no usable window.
+CORRELATE_SETTLE_S = max(0, int(os.environ.get("QA_CORRELATE_SETTLE_S", "300")))
+CORRELATE_MIN_WINDOW_S = max(0, int(os.environ.get("QA_CORRELATE_MIN_WINDOW_S", "60")))
+
+# Process-snapshot provenance: a PID may be reused, so a crash may only inherit
+# affinity from a sample that is recent and names the same executable.
+PROC_MATCH_WINDOW_S = max(0, int(os.environ.get("QA_PROC_MATCH_WINDOW_S", "180")))
 
 # viability gate for /raise: what must be true before a draft becomes a ticket
 # a human is expected to actually post.

@@ -789,7 +789,8 @@ def cmd_status(args) -> int:
         print(f"  layer1        : open findings: {fsum}")
         bcounts = conn.execute(
             "SELECT COUNT(*) n,"
-            " COALESCE(SUM(CASE WHEN ended_clean=0 THEN 1 ELSE 0 END),0) u FROM boots"
+            " COALESCE(SUM(CASE WHEN ended_clean=0"
+            " AND COALESCE(maintenance,0)=0 THEN 1 ELSE 0 END),0) u FROM boots"
         ).fetchone()
         print(f"  boots         : {bcounts['n']} recorded, {bcounts['u']} unclean")
         captures = shutdown.records(limit=1)

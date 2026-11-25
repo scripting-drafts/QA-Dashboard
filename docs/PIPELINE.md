@@ -25,6 +25,13 @@ workflow follows Windows MSI only.
 - `test` runs for every trigger:
   `make deps` then `make test`, which covers the dashboard tests, Python
   sentinels unittests, contract export check, vendor check and rules HTML check.
+- The test job checks out `QA-Sentinels` at the commit recorded in
+  `sentinels-vendor.json`, sets `QA_SENTINELS_SOURCE`, and runs the full vendor
+  check against that revision. Content, file modes, extra files, the SHA-256
+  manifest and the legal/contract version registers must all agree.
+- Pre-release, diagnostics and Windows MSI test jobs run
+  `tools/check_vendor.py` offline before building, so a tag cannot ship a
+  modified or unrecorded vendored tree.
 - The `contracts/` directory is uploaded as the `contracts` artifact with the
   repository default retention.
 
