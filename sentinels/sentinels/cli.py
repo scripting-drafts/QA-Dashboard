@@ -16,7 +16,7 @@ from datetime import datetime
 from . import (
     boot, compat, config, correlate, crosscheck, db, deep, detect, evidence, faultcore,
     hardware, holds, ingest, inventory, legal, logs, lsm, network, notify,
-    platform as platform_mod, platform_cycle, posture, query, raise_ticket,
+    platform as platform_mod, platform_cycle, policy, posture, query, raise_ticket,
     report, sampler, security, shutdown, tickets, trace, triage,
 )
 from .util import fmt_duration, iso, parse_iso, read_text, run, utcnow
@@ -689,6 +689,19 @@ def cmd_posture(args) -> int:
     return 0 if data["verdict"] == "unprivileged" and not data["baseline_changed"] else 1
 
 
+def cmd_policy(args) -> int:
+    """Show the resolved probe admission policy and its deadline."""
+    data = dict(policy.effective())
+    with db.session() as conn:
+        wait, source = policy.deadline(conn)
+        if args.gate:
+            data["gate"] = policy.gate(conn)
+    data["deadline_s"] = wait
+    data["deadline_source"] = source
+    print(json.dumps(data, indent=2, sort_keys=True))
+    return 0
+
+
 def _platform_status(conn) -> None:
     backend = platform_mod.detect()
     row = conn.execute(
@@ -1221,7 +1234,26 @@ def cmd_cycle(args) -> int:
             result["boot_error"] = str(exc)[:300]
             db.record_run(conn, "cycle/boot", False, str(exc))
 
-        due, why = inventory.is_due(conn)
+        try:
+            probe_gate = policy.gate(conn)
+        except Exception as exc:  # noqa: BLE001 - never stop the cycle
+            probe_gate = {
+                "preset": "unknown", "ready": True, "reason": "policy-error",
+                "uptime_s": None, "deadline_s": None,
+                "deadline_source": "unknown", "deferred": (), "warnings": (),
+            }
+            result["probe_policy_error"] = str(exc)[:300]
+        result["probe_policy"] = {
+            key: probe_gate[key] for key in (
+                "preset", "ready", "reason", "uptime_s", "deadline_s",
+                "deadline_source", "deferred", "warnings",
+            )
+        }
+        deferred = set(probe_gate["deferred"])
+
+        due, why = (False, "") if "inventory" in deferred else inventory.is_due(conn)
+        if "inventory" in deferred:
+            result["inventory_deferred"] = probe_gate["reason"]
         if due:
             try:
                 inv = inventory.run_inventory(conn, reason=why)
@@ -1240,7 +1272,9 @@ def cmd_cycle(args) -> int:
 
         # Network tier: link/address/route/DNS/tunnel/firewall/listener state.
         # Missing optional tools are recorded as partial coverage, not failures.
-        if config.NETWORK_ENABLE and network.is_due(conn):
+        if "network" in deferred:
+            result["network_deferred"] = probe_gate["reason"]
+        elif config.NETWORK_ENABLE and network.is_due(conn):
             try:
                 nr = network.scan(conn)
                 result["network"] = {
@@ -1328,7 +1362,9 @@ def cmd_cycle(args) -> int:
                 db.record_run(conn, "cycle/triage", False, str(exc))
 
         # Linux Security Modules: state drift and denial monitoring.
-        if config.LSM_ENABLE and lsm.is_due(conn):
+        if "lsm" in deferred:
+            result["lsm_deferred"] = probe_gate["reason"]
+        elif config.LSM_ENABLE and lsm.is_due(conn):
             try:
                 lr = lsm.scan(conn)
                 result["lsm"] = {
@@ -1364,7 +1400,9 @@ def cmd_cycle(args) -> int:
                 db.record_run(conn, "cycle/lsm", False, str(exc))
 
         # Hardware-health tier: slow, best-effort, privilege-aware.
-        if config.HARDWARE_ENABLE and hardware.is_due(conn):
+        if "hardware" in deferred:
+            result["hardware_deferred"] = probe_gate["reason"]
+        elif config.HARDWARE_ENABLE and hardware.is_due(conn):
             try:
                 hw = hardware.collect(conn)
                 result["hardware"] = {
@@ -1717,6 +1755,13 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("posture", help="prove the sentinel has no root/capabilities/sudo")
     s.add_argument("--rebaseline", action="store_true", help="reset the drift baseline after an intentional change")
     s.set_defaults(func=cmd_posture)
+
+    s = sub.add_parser(
+        "policy", help="show the effective probe admission policy")
+    s.add_argument(
+        "--gate", action="store_true",
+        help="also report current readiness and deferred probes")
+    s.set_defaults(func=cmd_policy)
 
     s = sub.add_parser("layer1", help="alias for cycle (layer 1)")
     s.set_defaults(func=cmd_cycle)

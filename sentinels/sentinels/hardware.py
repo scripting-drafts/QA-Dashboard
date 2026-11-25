@@ -55,6 +55,16 @@ def _run(args: list[str], timeout: int | None = None) -> tuple[int, str, str]:
     return run(args, timeout=timeout or config.HARDWARE_TIMEOUT_S)
 
 
+def _kernel_journal_args() -> list[str]:
+    """Read the current boot only.
+
+    ``--since "6 hours ago"`` on a freshly booted machine reaches back into the
+    previous boot and can re-stamp its RAS lines as current findings. The
+    current boot is the only window this probe can describe.
+    """
+    return ["journalctl", "-k", "-b", "0", "--no-pager"]
+
+
 def _finding(source: str, rule: str, severity: str, subject: str, detail: str,
              ts: str | None = None) -> dict:
     stamp = ts or iso()
@@ -440,7 +450,7 @@ def _collect_ras() -> dict:
         statuses.append("ok")
 
     rc, out, _err = _run(
-        ["journalctl", "-k", "--since", "6 hours ago", "--no-pager"],
+        _kernel_journal_args(),
         timeout=max(10, config.HARDWARE_TIMEOUT_S),
     )
     if rc == 0:

@@ -30,6 +30,15 @@ SETTINGS_ENUM_VALUES = {
         "auto", "0", "1", "off", "on", "no", "yes", "false", "true",
     },
     "QA_FAULT_CORE_ENFORCE": {"auto", "lab", "retired", "off"},
+    "QA_PROBE_POLICY": {"strict", "balanced", "permissive", "adaptive"},
+    "QA_PROBE_READY_MODE": {"target", "uptime", "off"},
+    "QA_PROBE_READY_TARGET": {
+        "multi-user", "graphical", "userspace",
+        "multi-user.target", "graphical.target", "systemd-userspace.target",
+    },
+    "QA_PROBE_ADMISSION": {"defer", "allow"},
+    "QA_PROBE_GATE": {"0", "1", "off", "on", "no", "yes", "false", "true"},
+    "QA_PROBE_ADAPTIVE": {"0", "1", "off", "on", "no", "yes", "false", "true"},
 }
 
 

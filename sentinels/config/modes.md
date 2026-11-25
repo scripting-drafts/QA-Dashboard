@@ -46,6 +46,22 @@ environment variable read by `bin/qa`.
 - `QA_CYCLE_CORRELATE_S=300` — correlation refresh and notification drain cadence.
 - The dashboard writes `config/settings.json`; explicit environment variables
   still take precedence over that file.
+- `QA_PROBE_POLICY=adaptive` — probe admission preset: `strict`, `balanced`,
+  `permissive` or `adaptive`. `QA_PROBE_PROFILE` selects a profile from
+  `config/probe-policy.json`.
+- `QA_PROBE_READY_MODE=target`, `QA_PROBE_READY_TARGET=multi-user.target`,
+  `QA_PROBE_READY_MAX_S=300`, `QA_PROBE_READY_SETTLE_S=60` — when the minute
+  cycle may run inventory, network, LSM and hardware probes. `target` follows
+  the unit, `uptime` uses the deadline and `off` never defers. The settle
+  period runs after the target is reached; a deadline of `0` disables the
+  fallback.
+- `QA_PROBE_ADAPTIVE=1` — learn the deadline from the median readiness time of
+  previous boots. `QA_PROBE_GATE=0` disables admission control entirely.
+- `QA_PROBE_ADMISSION=defer` and `QA_PROBE_DEFER=inventory,network,lsm,hardware`
+  — choose whether and which volatile probes wait for readiness.
+- `./bin/qa policy` prints the resolved values and the effective deadline.
+  See `config/probe-policy.example.json` for the optional file format and
+  named profiles.
 - `QA_CYCLE_CROSSCHECK_S=21600` — crosscheck cadence.
 - `QA_CYCLE_DAILY_HOUR=8` — earliest local hour for the daily report.
 - `QA_LOG_MAX_MB=20`, `QA_LOG_KEEP=10` — `var/cron.log` rotates by

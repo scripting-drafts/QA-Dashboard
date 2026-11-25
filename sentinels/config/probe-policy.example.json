@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "preset": "adaptive",
+  "readiness": {
+    "mode": "target",
+    "target": "multi-user.target",
+    "max_wait_s": 300,
+    "settle_s": 60,
+    "adaptive": true
+  },
+  "admission": {
+    "mode": "defer",
+    "defer": ["inventory", "network", "lsm", "hardware"]
+  },
+  "profiles": {
+    "slow-server": {
+      "readiness": {"max_wait_s": 900, "adaptive": false}
+    },
+    "workstation": {
+      "readiness": {"target": "graphical.target", "max_wait_s": 120}
+    }
+  }
+}

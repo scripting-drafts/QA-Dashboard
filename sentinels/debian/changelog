@@ -1,3 +1,18 @@
+qa-sentinels (1.5.0) jammy; urgency=medium
+
+  * Add probe admission policy. Inventory, network, LSM and hardware probes
+    now wait for the machine's user-space target instead of reading device
+    enumeration as steady state. Sampling, journal ingest and boot scanning
+    still run on the first minute.
+  * Default to an adaptive deadline learned from previous boots, with
+    strict/balanced/permissive/adaptive presets and per-machine profiles in
+    config/probe-policy.json. `qa policy` prints the resolved values.
+  * Read the hardware kernel journal from the current boot only, so the first
+    probe after a reboot cannot re-stamp the previous boot's RAS lines.
+  * Bump the legal register and rules document to 1.5.0.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Wed, 25 Nov 2026 12:00:00 +0100
+
 qa-sentinels (1.4.8) jammy; urgency=medium
 
   * Make the unit suite independent of the host: patch the fault-core CPU

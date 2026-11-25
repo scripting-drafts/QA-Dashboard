@@ -1,7 +1,7 @@
 # QA Sentinels rules and checks
 
 This register describes every finding rule and operational check implemented by
-QA Sentinels `1.4.8`. Rules are code, not policy prose: the linked module is the
+QA Sentinels `1.5.0`. Rules are code, not policy prose: the linked module is the
 authoritative implementation.
 
 ## Severity model
@@ -37,6 +37,16 @@ Finding `count` is the number of collection runs that re-observed a condition,
 never the number of independent events. The raise gate counts distinct finding
 rows, so a persistent pstore archive or a coverage limitation cannot inflate
 itself into a ticket.
+
+## Probe admission
+
+The minute cycle always samples, ingests the journal and scans boot boundaries.
+Inventory, network, LSM and hardware probes wait until the machine reaches its
+configured user-space target, so early device enumeration cannot become a
+finding. If the target is not reached, an adaptive deadline derived from
+previous boots opens the gate; the start of a cycle records which probes were
+deferred. `./bin/qa policy` prints the resolved policy, and
+`config/probe-policy.json` can override it per machine.
 
 ## Journal and kernel rules
 
