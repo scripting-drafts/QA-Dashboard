@@ -160,6 +160,10 @@ def source_entries(source: Path, ref: str) -> dict[str, FileEntry]:
         relative = path.decode("utf-8")
         if kind != "blob":
             raise SyncError(f"unsupported source entry {relative} ({kind})")
+        if mode not in ("100644", "100755"):
+            raise SyncError(
+                f"unsupported source mode {mode} for {relative}; "
+                "only regular and executable files are vendored")
         pure = PurePosixPath(relative)
         if pure.is_absolute() or ".." in pure.parts:
             raise SyncError(f"unsafe source path: {relative}")

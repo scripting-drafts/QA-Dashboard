@@ -206,6 +206,16 @@ class SyncVendorTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("does not match source version", stderr)
 
+    def test_write_rejects_symlink(self) -> None:
+        if os.name == "nt":
+            self.skipTest("symlinks need extra privileges on Windows")
+        os.symlink("README.md", self.source / "link")
+        self._commit(self.source, "symlink")
+        git(self.source, "tag", "-a", "v1.2.4", "-m", "Symlink")
+        code, _, stderr = self.run_main(["--write", "--ref", "v1.2.4"])
+        self.assertEqual(code, 1)
+        self.assertIn("unsupported source mode 120000", stderr)
+
     def test_write_requires_ref(self) -> None:
         code, _, stderr = self.run_main(["--write"])
         self.assertEqual(code, 1)
