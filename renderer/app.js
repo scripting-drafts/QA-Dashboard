@@ -1187,6 +1187,27 @@ function handleLogsFindKey(event) {
   }
 }
 
+function renderAboutComponents(components) {
+  const node = $("#about-components");
+  if (!node) return;
+  node.replaceChildren();
+  const rows = (components || []).filter(
+    (item) => item && item.name && item.version);
+  if (!rows.length) {
+    node.hidden = true;
+    return;
+  }
+  for (const item of rows) {
+    const name = document.createElement("dt");
+    name.textContent = item.name;
+    const version = document.createElement("dd");
+    version.className = "mono";
+    version.textContent = item.version;
+    node.append(name, version);
+  }
+  node.hidden = false;
+}
+
 function openAbout() {
   const dialog = $("#about-dialog");
   if (!dialog.open) dialog.showModal();
@@ -1374,6 +1395,12 @@ async function init() {
   try {
     const version = await window.qa.version();
     $("#about-open").textContent = `Version ${version}`;
+    $("#about-version").textContent = `Version ${version}`;
+    try {
+      renderAboutComponents(await window.qa.components());
+    } catch (_error) {
+      // Older hosts expose no suite metadata; the version line still works.
+    }
   } catch (error) {
     $("#about-open").textContent = "About";
   }

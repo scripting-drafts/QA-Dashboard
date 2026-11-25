@@ -1,3 +1,11 @@
+qa-sentinels (1.5.1) jammy; urgency=medium
+
+  * Changes since the previous release:
+    - Align the companion QA Dashboard record with 0.5.16
+    - Keep the reviewed version and shipped component versions consistent
+
+ -- Gerard Sala <12766134+scripting-drafts@users.noreply.github.com>  Wed, 25 Nov 2026 22:03:00 +0100
+
 qa-sentinels (1.5.0) jammy; urgency=medium
 
   * Add probe admission policy. Inventory, network, LSM and hardware probes

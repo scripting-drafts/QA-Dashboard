@@ -1617,6 +1617,31 @@ input[type="text"]:focus, input[type="search"]:focus {
   line-height: 1.5;
 }
 
+.about-version {
+  margin: 0 24px 14px;
+  font-size: 12px;
+}
+
+.about-components {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 16px;
+  margin: 0 24px 18px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.about-components dt {
+  color: var(--muted);
+}
+
+.about-components dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .about-close {
   width: 32px;
   height: 32px;

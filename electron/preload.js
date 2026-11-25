@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("qa", {
   version: () => ipcRenderer.invoke("app:version"),
+  components: () => ipcRenderer.invoke("app:components"),
   diagnostics: () => ipcRenderer.invoke("diagnostics:info"),
   openDiagnostics: () => ipcRenderer.invoke("diagnostics:open"),
   fitSentinels: (height) => ipcRenderer.invoke("window:fit-sentinels", height),

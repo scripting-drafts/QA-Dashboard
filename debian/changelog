@@ -1,3 +1,12 @@
+qa-dashboard (0.5.16) jammy; urgency=medium
+
+  * Changes since the previous release:
+    - Show the application version and bundled application versions in About
+    - Track QA Sentinels 1.5.1 in the legal register and contracts
+    - Refresh the published-state documentation
+
+ -- Gerard Sala <12766134+scripting-drafts@users.noreply.github.com>  Wed, 25 Nov 2026 22:04:00 +0100
+
 qa-dashboard (0.5.15) jammy; urgency=medium
 
   * Changes since the previous release:

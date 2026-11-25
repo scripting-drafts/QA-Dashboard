@@ -1,6 +1,6 @@
 # QA Dashboard diagnostics build
 
-The `-logs` packages are an additive `0.5.9` variant with verbose diagnostics
+The `-logs` packages are an additive `0.5.16` variant with verbose diagnostics
 enabled. The normal packages omit the diagnostics module entirely. The `-logs`
 packages are for testing only and contain no license code, activation, or
 device limit.
@@ -32,7 +32,7 @@ Open **About → Open diagnostics log** to reveal the file. The log rotates at
 QA_DIAGNOSTICS=1 <app> --diagnostics
 ```
 
-The normal `0.5.9` packages have diagnostics off by default.
+The normal `0.5.16` packages have diagnostics off by default.
 
 ## Sharing logs
 

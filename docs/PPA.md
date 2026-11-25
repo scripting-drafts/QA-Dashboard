@@ -70,9 +70,9 @@ Sign the changes files with the registered key if `dpkg-buildpackage` did not:
 
 ```bash
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
-  ~/qa-sentinels_1.4.1_source.changes
+  ~/qa-sentinels_1.5.1_source.changes
 debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
-  ~/qa-dashboard_0.5.9_source.changes
+  ~/qa-dashboard_0.5.16_source.changes
 ```
 
 ## Upload
@@ -80,8 +80,8 @@ debsign -kF104A3F1CE9A23540AEB8F24F31978E49E85DDCA \
 Each package goes to its own archive:
 
 ```bash
-dput qa-sentinels ~/qa-sentinels_1.4.1_source.changes
-dput qa-dashboard ~/qa-dashboard_0.5.9_source.changes
+dput qa-sentinels ~/qa-sentinels_1.5.1_source.changes
+dput qa-dashboard ~/qa-dashboard_0.5.16_source.changes
 ```
 
 The release scripts enforce this automatically:
@@ -157,10 +157,10 @@ tested series until a preview upload is requested explicitly.
 Each series receives a collision-free, upgrade-safe Debian version:
 
 ```text
-qa-dashboard 0.5.9-0ubuntu1~jammy1
-qa-dashboard 0.5.9-0ubuntu1~noble1
-qa-dashboard 0.5.9-0ubuntu1~resolute1
-qa-dashboard 0.5.9-0ubuntu1~stonking1
+qa-dashboard 0.5.16-0ubuntu1~jammy1
+qa-dashboard 0.5.16-0ubuntu1~noble1
+qa-dashboard 0.5.16-0ubuntu1~resolute1
+qa-dashboard 0.5.16-0ubuntu1~stonking1
 ```
 
 The package version without the series suffix remains in `package.json`,
@@ -209,9 +209,9 @@ SERIES="noble" REVISION=2 scripts/release.sh --package qa-dashboard
 `--check` accepts any already-published revision with the same base version and
 series suffix. Use `REVISION=N` only when uploading a replacement.
 
-Current published state:
+Current published state (Launchpad snapshot 2026-11-25):
 
 | Package | jammy | noble | resolute | stonking (untested) |
 |---|---|---|---|---|
-| qa-dashboard | `0.5.9-0ubuntu16~jammy1` | `0.5.9-0ubuntu16~noble1` | `0.5.9-0ubuntu16~resolute1` | `0.5.9-0ubuntu16~stonking1` |
-| qa-sentinels | `1.4.2-0ubuntu5~jammy1` | `1.4.2-0ubuntu5~noble1` | `1.4.2-0ubuntu5~resolute1` | `1.4.2-0ubuntu5~stonking1` |
+| qa-dashboard | `0.5.14-0ubuntu2~jammy1` | `0.5.14-0ubuntu2~noble1` | `0.5.14-0ubuntu2~resolute1` | `0.5.9-0ubuntu16~stonking1` |
+| qa-sentinels | `1.4.5-0ubuntu1~jammy1` | `1.4.5-0ubuntu1~noble1` | `1.4.5-0ubuntu1~resolute1` | `1.4.2-0ubuntu5~stonking1` |

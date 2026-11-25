@@ -620,6 +620,20 @@ function registerIpc() {
   });
 
   ipcMain.handle("app:version", () => app.getVersion());
+  ipcMain.handle("app:components", () => {
+    const manifestPath = path.join(__dirname, "..", "legal", "manifest.json");
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      const components = (manifest.components || [])
+        .filter((item) => item && item.version &&
+          ["project", "companion"].includes(item.scope))
+        .map((item) => ({ name: item.name, version: item.version }));
+      return { version: app.getVersion(), components };
+    } catch (error) {
+      diagnostics.error?.("suite versions", error);
+      return { version: app.getVersion(), components: [] };
+    }
+  });
   ipcMain.handle("diagnostics:info", () => diagnostics.info());
   ipcMain.handle("diagnostics:open", async () => {
     const info = diagnostics.info();
