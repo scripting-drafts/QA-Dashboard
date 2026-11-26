@@ -1,3 +1,16 @@
+qa-sentinels (1.5.2) jammy; urgency=medium
+
+  * Make staged tickets openable from their desktop notifications: each
+    viable raise/ ticket queues its own pop-up and its click opens that
+    ticket's markdown instead of INDEX.md. Correlations keep one pop-up per
+    report and draft digests stay silent.
+  * Keep the pop-up clickable when the cycle runs without a display (cron):
+    the click helper recovers DISPLAY/WAYLAND_DISPLAY from the systemd user
+    manager before opening the target.
+  * Bump the legal register and rules document to 1.5.2.
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Thu, 26 Nov 2026 11:00:00 +0100
+
 qa-sentinels (1.5.1) jammy; urgency=medium
 
   * Changes since the previous release:

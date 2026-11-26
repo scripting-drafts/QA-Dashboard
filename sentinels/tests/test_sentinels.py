@@ -1109,6 +1109,52 @@ class NotificationFlowTests(unittest.TestCase):
         self.assertEqual(result["sent"], 1)
         self.assertEqual(self._rows(conn)["a"]["delivered"], 1)
 
+    def test_keep_pending_drops_conditions_that_cleared(self):
+        from sentinels import notify
+
+        conn = self._conn()
+        for key in ("raise|a", "raise|b"):
+            conn.execute(
+                "INSERT INTO notifications(ts,kind,key,title,body,delivered)"
+                " VALUES('t','raise',?,?,?,0)", (key, key, "body"))
+        conn.execute(
+            "INSERT INTO notifications(ts,kind,key,title,body,delivered)"
+            " VALUES('t','raise','raise|delivered','d','body',1)")
+        removed = notify.keep_pending(conn, "raise", {"raise|a"})
+        self.assertEqual(removed, 1)
+        keys = {r["key"] for r in conn.execute("SELECT * FROM notifications")}
+        self.assertEqual(keys, {"raise|a", "raise|delivered"})
+
+    def test_staged_tickets_notify_once_with_their_own_markdown(self):
+        from sentinels import raise_ticket
+
+        conn = self._conn()
+        raised = [
+            {"directory": "/tmp/raise/vendor-a", "vendor": "vendor",
+             "signature": "sig-a", "verdict": {"score": 6, "max_score": 6}},
+            {"directory": "/tmp/raise/vendor-b", "vendor": "vendor",
+             "signature": "sig-b", "verdict": {"score": 5, "max_score": 6}},
+        ]
+        raise_ticket._notify_raised(conn, raised)
+        rows = {r["key"]: r for r in conn.execute(
+            "SELECT * FROM notifications WHERE kind='raise'")}
+        self.assertEqual(set(rows), {"raise|vendor-a", "raise|vendor-b"})
+        self.assertEqual(
+            rows["raise|vendor-a"]["path"], "/tmp/raise/vendor-a/ticket.md")
+        self.assertEqual(rows["raise|vendor-a"]["delivered"], 0)
+        self.assertIn("6/6 checks", rows["raise|vendor-a"]["body"])
+
+        # Re-running the gate over the same set must not queue duplicates.
+        raise_ticket._notify_raised(conn, raised)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM notifications").fetchone()[0]
+        self.assertEqual(count, 2)
+
+        # A ticket that left raise/ loses its undelivered pop-up.
+        raise_ticket._notify_raised(conn, raised[:1])
+        keys = {r["key"] for r in conn.execute("SELECT * FROM notifications")}
+        self.assertEqual(keys, {"raise|vendor-a"})
+
     def test_undelivered_rows_expire(self):
         from datetime import timedelta
         from unittest import mock
@@ -1207,21 +1253,43 @@ class NotificationFlowTests(unittest.TestCase):
         self.assertEqual(result, (True, "sent (D-Bus)"))
         gi_send.assert_called_once()
 
-    def test_headless_delivery_keeps_the_message(self):
+    def test_headless_delivery_still_offers_the_click(self):
         from unittest import mock
         from sentinels import notify
 
+        # A scheduled cycle has no DISPLAY; the helper recovers the session
+        # on click, so the pop-up must still be actionable.
         with mock.patch.object(notify, "available", return_value=(True, "ok")), \
              mock.patch.object(notify, "_gi_available", return_value=True), \
              mock.patch.object(notify, "_graphical_session", return_value=False), \
-             mock.patch.object(notify, "_spawn_click_helper") as spawn, \
-             mock.patch.object(notify, "_plain_send",
-                               return_value=(True, "sent")) as plain:
+             mock.patch.object(notify, "_spawn_click_helper",
+                               return_value=True) as spawn, \
+             mock.patch.object(notify, "_plain_send") as plain:
             ok, detail = notify.send("t", "b", path="/tmp/x.md")
         self.assertTrue(ok)
-        self.assertIn("no graphical session", detail)
-        plain.assert_called_once()
-        spawn.assert_not_called()
+        self.assertIn("click opens the ticket", detail)
+        spawn.assert_called_once()
+        plain.assert_not_called()
+
+    def test_hydrate_session_env_uses_the_user_manager(self):
+        import os
+        from unittest import mock
+        from sentinels import notify
+
+        output = ("DISPLAY=:0\nWAYLAND_DISPLAY=wayland-0\n"
+                  "XDG_RUNTIME_DIR=/run/user/1000\nOTHER=ignored\n")
+        with mock.patch.dict(os.environ, {}, clear=False), \
+             mock.patch.object(notify, "_graphical_session", return_value=False), \
+             mock.patch.object(notify.subprocess, "run") as run:
+            run.return_value.stdout = output
+            for name in ("DISPLAY", "WAYLAND_DISPLAY", "OTHER"):
+                os.environ.pop(name, None)
+            notify._hydrate_session_env()
+        self.assertEqual(os.environ.get("DISPLAY"), ":0")
+        self.assertEqual(os.environ.get("WAYLAND_DISPLAY"), "wayland-0")
+        self.assertNotIn("OTHER", os.environ)
+        os.environ.pop("DISPLAY", None)
+        os.environ.pop("WAYLAND_DISPLAY", None)
 
     def test_env_prepends_the_repository_to_pythonpath(self):
         import os
@@ -2921,7 +2989,6 @@ class NotificationTraceCrosscheckTests(unittest.TestCase):
 
         with mock.patch.object(notify, "available", return_value=(True, "ok")), \
              mock.patch.object(notify, "_gi_available", return_value=True), \
-             mock.patch.object(notify, "_graphical_session", return_value=True), \
              mock.patch.object(notify, "_spawn_click_helper", return_value=True) as spawn, \
              mock.patch.object(notify, "_plain_send", return_value=(True, "sent")) as plain:
             ok, _ = notify.send("t", "b", path="/tmp/x.md")

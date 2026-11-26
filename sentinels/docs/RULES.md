@@ -1,7 +1,7 @@
 # QA Sentinels rules and checks
 
 This register describes every finding rule and operational check implemented by
-QA Sentinels `1.5.1`. Rules are code, not policy prose: the linked module is the
+QA Sentinels `1.5.2`. Rules are code, not policy prose: the linked module is the
 authoritative implementation.
 
 ## Severity model
@@ -326,7 +326,8 @@ rules.
    `QA_DEEP_AUTO` and `QA_DEEP_REQUEST_COOLDOWN_S`.
 5. Draft: findings become vendor/local ticket drafts; nothing is submitted
    automatically.
-6. Notify: staged `raise/` tickets and ready correlations can queue desktop
-   notifications; draft digests are intentionally silent.
+6. Notify: each staged `raise/` ticket and ready correlation queues a desktop
+   notification whose click opens the ticket markdown or report; draft digests
+   are intentionally silent.
 7. Resolve: hardware, LSM, security, runtime and coverage findings resolve when
    their condition clears; boot and journal findings remain for review.

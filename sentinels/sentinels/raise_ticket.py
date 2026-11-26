@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from pathlib import Path
 
 from . import boot, classify, config, correlate, occurrence, report, tickets, trace, util
 from .util import iso, sha256_text, utcnow
@@ -1166,6 +1167,32 @@ crash still reproduces on the current build.
 
 
 # ---------------------------------------------------------------- run
+def _notify_raised(conn, raised: list[dict]) -> None:
+    """One clickable pop-up per staged ticket, opening its ticket.md.
+
+    A digest is not actionable: its only click target is INDEX.md. Keying each
+    row by the stable ticket directory means a click always lands on that
+    ticket, and re-running the gate does not pop the same ticket again.
+    """
+    from . import notify
+
+    keys = set()
+    for item in raised:
+        directory = Path(item["directory"])
+        key = f"raise|{directory.name}"
+        keys.add(key)
+        score = item["verdict"]["score"]
+        total = item["verdict"]["max_score"]
+        notify.enqueue(
+            conn, "raise", key,
+            f"Ticket staged: {item['vendor']}",
+            f"{item['signature']}\n{score}/{total} checks",
+            detail=str(directory),
+            path=str(directory / "ticket.md"),
+        )
+    notify.keep_pending(conn, "raise", keys)
+
+
 def run(conn, days: int | None = None, min_count: int | None = None,
         notify_ready: bool = True) -> dict:
     days = config.RAISE_LOOKBACK_DAYS if days is None else days
@@ -1353,23 +1380,7 @@ def run(conn, days: int | None = None, min_count: int | None = None,
             "raise",
         )
     if notify_ready:
-        from . import notify
-
-        if raised:
-            # identity, not hashes: manifests are regenerated every run and a
-            # hash-based key would pop a notification every 5 minutes.
-            digest = sha256_text("|".join(sorted(r["issue_key"] for r in raised)))[:16]
-            notify.enqueue(
-                conn, "raise", f"raise|{digest}",
-                f"{len(raised)} ticket(s) staged in raise/",
-                "\n".join(f"- {r['vendor']}: {r['signature']}" for r in raised[:6]),
-                detail=str(config.RAISE_DIR),
-                path=str(config.RAISE_DIR / "INDEX.md"),
-                supersede=True,
-            )
-        else:
-            # Nothing is staged now; an undelivered alert would be misleading.
-            notify.clear_pending(conn, "raise")
+        _notify_raised(conn, raised)
 
     return {
         "drafts": len(drafts),

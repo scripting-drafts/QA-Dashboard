@@ -146,7 +146,7 @@ The complete finding-rule register is in [`docs/RULES.md`](docs/RULES.md).
 
 `var/cron.log` is appended by both the cron entry and `qa-sentinel.service`. It rotates by copytruncate at `QA_LOG_MAX_MB` (default 20 MiB) and keeps `QA_LOG_KEEP` numbered files (default 10), so `qa logs --follow` survives rotation. Force a rotation with `./bin/qa logs --rotate`.
 
-Notifications are queued when tickets are staged in `raise/` or a ready correlation appears. Draft ticket generation stays silent. Delivery retries with backoff, failed rows stay queued, and `qa notify --drain` exits non-zero while any delivery fails; `qa status` reports whether the desktop channel is reachable.
+Notifications are queued per staged ticket in `raise/` and per ready correlation. Clicking a pop-up opens that ticket's `ticket.md` (or the correlation report), even when the cycle ran without a display. Draft ticket generation stays silent. Delivery retries with backoff, failed rows stay queued, and `qa notify --drain` exits non-zero while any delivery fails; `qa status` reports whether the desktop channel is reachable.
 
 To remove the user cron entries installed by this project:
 

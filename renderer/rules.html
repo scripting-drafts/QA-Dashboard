@@ -26,7 +26,7 @@
       <section class="view active">
         <div class="panel">
           <h3>About this register</h3>
-          <p class="rules-note">This register describes every finding rule and operational check implemented by QA Sentinels <code>1.5.1</code>. Rules are code, not policy prose: the linked module is the authoritative implementation.</p>
+          <p class="rules-note">This register describes every finding rule and operational check implemented by QA Sentinels <code>1.5.2</code>. Rules are code, not policy prose: the linked module is the authoritative implementation.</p>
         </div>
 
         <div class="panel" id="severity-model">
@@ -923,7 +923,7 @@
             <li>Deduplicate: update an existing fingerprint&#x27;s <code>last_ts</code>/count; create a new finding only for a new fingerprint.</li>
             <li>Escalate: critical findings may queue a layer-2 request, respecting <code>QA_DEEP_AUTO</code> and <code>QA_DEEP_REQUEST_COOLDOWN_S</code>.</li>
             <li>Draft: findings become vendor/local ticket drafts; nothing is submitted automatically.</li>
-            <li>Notify: staged <code>raise/</code> tickets and ready correlations can queue desktop notifications; draft digests are intentionally silent.</li>
+            <li>Notify: each staged <code>raise/</code> ticket and ready correlation queues a desktop notification whose click opens the ticket markdown or report; draft digests are intentionally silent.</li>
             <li>Resolve: hardware, LSM, security, runtime and coverage findings resolve when their condition clears; boot and journal findings remain for review.</li>
           </ol>
         </div>

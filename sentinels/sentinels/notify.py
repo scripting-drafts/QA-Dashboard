@@ -1,13 +1,16 @@
-"""Desktop pop-ups for consistent fault patterns that became ready.
+"""Desktop pop-ups for tickets and consistent fault patterns that became ready.
 
-A correlation nobody sees is worth nothing. This module turns a ready cluster
-into a visible notification, once per cluster, and makes the notification
-**open the markdown it refers to**. Draft ticket generation stays silent.
+A correlation nobody sees is worth nothing. This module turns a staged ticket
+or a ready cluster into a visible notification and makes the notification
+**open the file it refers to**: the ticket's own markdown for a staged ticket,
+the correlation report otherwise. Draft ticket generation stays silent.
 
 Click handling needs the freedesktop notification action API, which
 `notify-send` 0.7.9 does not expose. When PyGObject is available the pop-up is
 delivered over D-Bus with a `default` action and a detached waiter opens the
 file; otherwise it degrades to a plain, unclickable notification and says so.
+Scheduled cycles have no DISPLAY, so the waiter recovers the graphical session
+from the user manager before opening anything.
 
 Delivery is best-effort: no session bus or notifier leaves the row queued and
 `qa notify` reports it honestly. Send attempts are bounded so a dead backend
@@ -44,8 +47,32 @@ def _session_bus() -> str | None:
 
 
 def _graphical_session() -> bool:
-    """True only when a click could actually open a file."""
+    """True when the current environment can reach a desktop session."""
     return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def _hydrate_session_env() -> None:
+    """Restore DISPLAY/WAYLAND_DISPLAY when a scheduled cycle scrubbed them.
+
+    The click helper is spawned by cron or a timer, which has the session bus
+    but usually no graphical variables. The systemd user manager keeps what the
+    desktop session exported, so a later click can still open a file.
+    """
+    if _graphical_session():
+        return
+    try:
+        proc = subprocess.run(
+            ["systemctl", "--user", "show-environment"],
+            capture_output=True, text=True, timeout=3, env=_env(), check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    for line in proc.stdout.splitlines():
+        name, _, value = line.partition("=")
+        if (name in ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY",
+                     "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
+                and value and not os.environ.get(name)):
+            os.environ[name] = value
 
 
 def _env() -> dict:
@@ -122,16 +149,14 @@ def send(title: str, body: str, urgency: str = "normal",
     if not ok:
         return False, why
     if path:
-        if _gi_available() and _graphical_session():
+        if _gi_available():
             if _spawn_click_helper(path, title, body, urgency):
-                return True, "sent (click opens the markdown)"
+                return True, "sent (click opens the ticket)"
             return False, "could not spawn the click helper"
-        # A click cannot open anything without a desktop session. Deliver the
-        # content anyway rather than dropping an alert on a headless cycle.
+        # No action API: deliver the content anyway rather than dropping an
+        # alert, and state that a click cannot open the target.
         ok, why = _plain_send(title, body, urgency)
         if ok:
-            if not _graphical_session():
-                return True, f"{why} (click support unavailable: no graphical session)"
             return True, f"{why} (click support unavailable: PyGObject missing)"
         return ok, why
     return _plain_send(title, body, urgency)
@@ -262,6 +287,7 @@ def _wait_open_main() -> int:
         if signal != "ActionInvoked":
             return
         if value in ("default", "open"):
+            _hydrate_session_env()
             ok, detail = open_target(path)
             state["opened"] = ok
             print(f"opened={ok} {detail}", flush=True)
@@ -304,6 +330,20 @@ def clear_pending(conn, kind: str) -> int:
     """Drop queued alerts for a condition that no longer holds."""
     cur = conn.execute(
         "DELETE FROM notifications WHERE delivered=0 AND kind=?", (kind,)
+    )
+    return cur.rowcount
+
+
+def keep_pending(conn, kind: str, keys: set[str]) -> int:
+    """Keep only the undelivered alerts whose condition still holds."""
+    if not keys:
+        return clear_pending(conn, kind)
+    ordered = sorted(keys)
+    placeholders = ",".join("?" for _ in ordered)
+    cur = conn.execute(
+        f"DELETE FROM notifications WHERE delivered=0 AND kind=?"
+        f" AND key NOT IN ({placeholders})",
+        (kind, *ordered),
     )
     return cur.rowcount
 
