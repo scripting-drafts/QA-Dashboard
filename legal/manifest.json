@@ -5,10 +5,10 @@
   "copyright": "Copyright (c) 2026 Gerard Sala",
   "source": "https://github.com/scripting-drafts/QA-Dashboard",
   "homepage": "https://github.com/scripting-drafts/QA-Dashboard",
-  "lastReviewed": "2026-11-25",
-  "reviewedVersion": "0.5.16",
+  "lastReviewed": "2026-11-26",
+  "reviewedVersion": "0.5.17",
   "reviewedComponents": {
-    "qa-dashboard": "0.5.16",
+    "qa-dashboard": "0.5.17",
     "electron": "45.2.3",
     "chromium": "156.0.8078.80",
     "nodejs": "24.22.2",
@@ -19,7 +19,7 @@
     {
       "id": "qa-dashboard",
       "name": "QA Dashboard",
-      "version": "0.5.16",
+      "version": "0.5.17",
       "license": "MIT",
       "scope": "project"
     },

@@ -1,3 +1,10 @@
+qa-dashboard (0.5.17) jammy; urgency=medium
+
+  * Changes since the previous release:
+    - Sync QA Sentinels 1.5.2 with clickable ticket notifications
+
+ -- Gerard Sala <creative.gsp@gmail.com>  Thu, 26 Nov 2026 11:00:36 +0100
+
 qa-dashboard (0.5.16) jammy; urgency=medium
 
   * Changes since the previous release:
